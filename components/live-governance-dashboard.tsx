@@ -228,11 +228,6 @@ export default function LiveGovernanceDashboard() {
               <button
                 className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
               >
-                Topics
-              </button>
-              <button
-                className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
-              >
                 Candidates
               </button>
               <button
