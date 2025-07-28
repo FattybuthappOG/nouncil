@@ -11,7 +11,6 @@ import { useState } from "react"
 import { useAccount } from "wagmi"
 import { ConnectKitButton } from "connectkit"
 import { useGovernorData, useRealtimeEvents } from "../hooks/useContractData"
-import { VOTE_TYPES } from "../lib/contracts"
 import { TreasuryDropdown } from "./treasury-dropdown"
 import { ProposalVotingCard } from "./proposal-voting-card"
 
@@ -81,34 +80,6 @@ export default function LiveGovernanceDashboard() {
                 Connect wallet to see your voting status
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card
-        className={`transition-colors duration-200 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <ChevronDown className={`w-4 h-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`} />
-            <h3 className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>RECENT ACTIVITY</h3>
-          </div>
-
-          <div className="space-y-3">
-            {recentVotes.slice(0, 3).map((vote, index) => (
-              <div key={index}>
-                <div className={`text-sm mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                  {vote.voter?.slice(0, 6)}...{vote.voter?.slice(-4)}
-                </div>
-                <div className={`font-medium text-sm ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                  {VOTE_TYPES[vote.support as keyof typeof VOTE_TYPES]} Proposal {vote.proposalId}
-                </div>
-                <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                  {formatTimeAgo(vote.timestamp)} • {Number.parseFloat(vote.weight).toFixed(2)} ETH
-                </div>
-              </div>
-            ))}
           </div>
         </CardContent>
       </Card>
@@ -405,34 +376,6 @@ export default function LiveGovernanceDashboard() {
                         Connect wallet to see your voting status
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Recent Activity */}
-              <Card
-                className={`transition-colors duration-200 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <ChevronDown className={`w-4 h-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`} />
-                    <h3 className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>RECENT ACTIVITY</h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    {recentVotes.slice(0, 3).map((vote, index) => (
-                      <div key={index}>
-                        <div className={`text-sm mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                          {vote.voter?.slice(0, 6)}...{vote.voter?.slice(-4)}
-                        </div>
-                        <div className={`font-medium text-sm ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                          {VOTE_TYPES[vote.support as keyof typeof VOTE_TYPES]} Proposal {vote.proposalId}
-                        </div>
-                        <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          {formatTimeAgo(vote.timestamp)} • {Number.parseFloat(vote.weight).toFixed(2)} ETH
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </CardContent>
               </Card>
