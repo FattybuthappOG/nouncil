@@ -1,173 +1,208 @@
 "use client"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useAccount, useWriteContract } from "wagmi"
-import { ConnectKitButton } from "connectkit"
-import { useProposalData, useUserVotingData } from "../hooks/useContractData"
-import { PROPOSAL_STATES, CONTRACTS } from "../lib/contracts"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ThumbsUp, ThumbsDown, Minus, Clock, Users } from "lucide-react"
+import { useAccount } from "wagmi"
 
 interface ProposalVotingCardProps {
   proposalId: number
   isDarkMode: boolean
-  title?: string
-  description?: string
+  title: string
+  description: string
 }
 
 export function ProposalVotingCard({ proposalId, isDarkMode, title, description }: ProposalVotingCardProps) {
-  const { address, isConnected } = useAccount()
-  const { proposal, state: proposalState } = useProposalData(proposalId)
-  const { hasVoted, votingPower } = useUserVotingData(proposalId, address)
-  const { writeContract, isPending: isVoting } = useWriteContract()
+  const [hasVoted, setHasVoted] = useState(false)
+  const [userVote, setUserVote] = useState<number | null>(null)
+  const { isConnected } = useAccount()
 
-  const castVote = async (support: number) => {
-    if (!address) {
-      alert("Please connect your wallet to vote")
-      return
-    }
-
-    try {
-      await writeContract({
-        ...CONTRACTS.GOVERNOR,
-        functionName: "castVote",
-        args: [BigInt(proposalId), support],
-      })
-    } catch (error) {
-      console.error("Voting failed:", error)
-    }
+  // Mock voting data - in a real app, this would come from contract calls
+  const votingData = {
+    forVotes: Math.floor(Math.random() * 500000) + 100000,
+    againstVotes: Math.floor(Math.random() * 200000) + 50000,
+    abstainVotes: Math.floor(Math.random() * 50000) + 10000,
+    totalVotes: 0,
+    quorum: 400000,
+    endTime: Date.now() + 2 * 24 * 60 * 60 * 1000, // 2 days from now
   }
 
-  const getProposalStatusBadge = (state: number | null) => {
-    if (state === null) return null
-    const status = PROPOSAL_STATES[state as keyof typeof PROPOSAL_STATES]
-    const colors = {
-      Active: "bg-blue-100 text-blue-800",
-      Succeeded: "bg-green-100 text-green-800",
-      Defeated: "bg-red-100 text-red-800",
-      Executed: "bg-purple-100 text-purple-800",
-      Pending: "bg-yellow-100 text-yellow-800",
-      Canceled: "bg-gray-100 text-gray-800",
-      Expired: "bg-orange-100 text-orange-800",
-      Queued: "bg-indigo-100 text-indigo-800",
-    }
-    return <Badge className={colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800"}>{status}</Badge>
+  votingData.totalVotes = votingData.forVotes + votingData.againstVotes + votingData.abstainVotes
+
+  const forPercentage = (votingData.forVotes / votingData.totalVotes) * 100
+  const againstPercentage = (votingData.againstVotes / votingData.totalVotes) * 100
+  const abstainPercentage = (votingData.abstainVotes / votingData.totalVotes) * 100
+  const quorumPercentage = (votingData.totalVotes / votingData.quorum) * 100
+
+  const handleVote = (support: number) => {
+    if (!isConnected) return
+    setHasVoted(true)
+    setUserVote(support)
+    // In a real app, this would call the contract vote function
+    console.log(`Voting ${support} on proposal ${proposalId}`)
   }
 
-  if (!proposal) {
-    return (
-      <div
-        className={`flex items-start gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-200 ${
-          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-        }`}
-      >
-        <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse flex-shrink-0"></div>
-        <div className="flex-1 min-w-0">
-          <div className="h-4 bg-gray-300 rounded animate-pulse mb-2"></div>
-          <div className="h-3 bg-gray-300 rounded animate-pulse w-3/4"></div>
-        </div>
-      </div>
-    )
+  const formatTimeRemaining = (endTime: number) => {
+    const now = Date.now()
+    const diff = endTime - now
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+
+    if (days > 0) return `${days}d ${hours}h remaining`
+    if (hours > 0) return `${hours}h remaining`
+    return "Ending soon"
   }
 
   return (
-    <div
-      className={`flex items-start gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-200 ${
+    <Card
+      className={`transition-colors duration-200 ${
         isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
       }`}
     >
-      <Avatar className="w-8 h-8 flex-shrink-0">
-        <AvatarImage src={`/placeholder.svg?height=32&width=32&query=proposal${proposalId}`} />
-        <AvatarFallback className={isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-700"}>
-          {proposalId}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
-          <span className={`font-medium text-sm sm:text-base ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-            Proposal {proposalId}: {title || `Governance Proposal ${proposalId}`}
-          </span>
-          {getProposalStatusBadge(proposalState)}
-        </div>
-
-        {description && (
-          <p className={`text-sm mb-3 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{description}</p>
-        )}
-
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm mb-3">
-          <span className="text-green-600">For: {Number.parseFloat(proposal.forVotes).toFixed(2)} ETH</span>
-          <span className="text-red-600">Against: {Number.parseFloat(proposal.againstVotes).toFixed(2)} ETH</span>
-          <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-            by {proposal.proposer?.slice(0, 6)}...{proposal.proposer?.slice(-4)}
-          </span>
-        </div>
-
-        {/* Voting Interface */}
-        {proposalState === 1 && ( // Only show voting if proposal is active
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-3">
-            {!isConnected ? (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                  Connect wallet to vote
-                </span>
-                <ConnectKitButton.Custom>
-                  {({ show }) => (
-                    <Button
-                      size="sm"
-                      onClick={show}
-                      className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
-                    >
-                      Connect Wallet
-                    </Button>
-                  )}
-                </ConnectKitButton.Custom>
-              </div>
-            ) : hasVoted ? (
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Already Voted
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                Proposal {proposalId}
               </Badge>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-2 w-full">
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => castVote(1)}
-                    disabled={isVoting}
-                    className="bg-green-600 hover:bg-green-700 text-white flex-1 sm:flex-none"
-                  >
-                    {isVoting ? "Voting..." : "Vote For"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => castVote(0)}
-                    disabled={isVoting}
-                    className="bg-red-600 hover:bg-red-700 text-white flex-1 sm:flex-none"
-                  >
-                    {isVoting ? "Voting..." : "Vote Against"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => castVote(2)}
-                    disabled={isVoting}
-                    variant="outline"
-                    className="flex-1 sm:flex-none"
-                  >
-                    {isVoting ? "Voting..." : "Abstain"}
-                  </Button>
-                </div>
-                <span className={`text-xs self-center ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                  Your power: {Number.parseFloat(votingPower).toFixed(2)} ETH
-                </span>
-              </div>
-            )}
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                Active
+              </Badge>
+            </div>
+            <CardTitle className={`text-lg mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>{title}</CardTitle>
+            <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{description}</p>
           </div>
-        )}
+          <Avatar className="w-10 h-10 flex-shrink-0">
+            <AvatarImage src={`/placeholder.svg?height=40&width=40&query=proposal-${proposalId}`} />
+            <AvatarFallback className={isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-700"}>
+              P{proposalId}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+      </CardHeader>
 
-        {proposalState !== 1 && proposalState !== null && (
-          <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-            Voting ended • Final result: {PROPOSAL_STATES[proposalState as keyof typeof PROPOSAL_STATES]}
+      <CardContent className="space-y-4">
+        {/* Voting Progress */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <ThumbsUp className="w-4 h-4 text-green-600" />
+              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                For ({votingData.forVotes.toLocaleString()})
+              </span>
+            </div>
+            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+              {forPercentage.toFixed(1)}%
+            </span>
           </div>
-        )}
-      </div>
-    </div>
+          <Progress value={forPercentage} className="h-2 bg-gray-200">
+            <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${forPercentage}%` }} />
+          </Progress>
+
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <ThumbsDown className="w-4 h-4 text-red-600" />
+              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                Against ({votingData.againstVotes.toLocaleString()})
+              </span>
+            </div>
+            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+              {againstPercentage.toFixed(1)}%
+            </span>
+          </div>
+          <Progress value={againstPercentage} className="h-2 bg-gray-200">
+            <div className="h-full bg-red-600 rounded-full transition-all" style={{ width: `${againstPercentage}%` }} />
+          </Progress>
+
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Minus className="w-4 h-4 text-yellow-600" />
+              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                Abstain ({votingData.abstainVotes.toLocaleString()})
+              </span>
+            </div>
+            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+              {abstainPercentage.toFixed(1)}%
+            </span>
+          </div>
+          <Progress value={abstainPercentage} className="h-2 bg-gray-200">
+            <div
+              className="h-full bg-yellow-600 rounded-full transition-all"
+              style={{ width: `${abstainPercentage}%` }}
+            />
+          </Progress>
+        </div>
+
+        {/* Quorum Progress */}
+        <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between text-sm mb-2">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                Quorum ({votingData.totalVotes.toLocaleString()} / {votingData.quorum.toLocaleString()})
+              </span>
+            </div>
+            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+              {quorumPercentage.toFixed(1)}%
+            </span>
+          </div>
+          <Progress value={Math.min(quorumPercentage, 100)} className="h-2 bg-gray-200">
+            <div
+              className={`h-full rounded-full transition-all ${
+                quorumPercentage >= 100 ? "bg-green-600" : "bg-blue-600"
+              }`}
+              style={{ width: `${Math.min(quorumPercentage, 100)}%` }}
+            />
+          </Progress>
+        </div>
+
+        {/* Time Remaining */}
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="w-4 h-4" />
+          <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+            {formatTimeRemaining(votingData.endTime)}
+          </span>
+        </div>
+
+        {/* Voting Buttons */}
+        <div className="flex gap-2 pt-2">
+          {!isConnected ? (
+            <div className={`text-sm text-center w-full py-2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+              Connect wallet to vote
+            </div>
+          ) : hasVoted ? (
+            <div className="flex items-center gap-2 w-full justify-center py-2">
+              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                Voted {userVote === 1 ? "For" : userVote === 0 ? "Against" : "Abstain"}
+              </Badge>
+            </div>
+          ) : (
+            <>
+              <Button
+                onClick={() => handleVote(1)}
+                size="sm"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              >
+                <ThumbsUp className="w-4 h-4 mr-1" />
+                For
+              </Button>
+              <Button onClick={() => handleVote(0)} size="sm" variant="destructive" className="flex-1">
+                <ThumbsDown className="w-4 h-4 mr-1" />
+                Against
+              </Button>
+              <Button onClick={() => handleVote(2)} size="sm" variant="outline" className="flex-1">
+                <Minus className="w-4 h-4 mr-1" />
+                Abstain
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

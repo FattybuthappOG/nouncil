@@ -14,17 +14,17 @@ export default function AppleIcon() {
     <div
       style={{
         fontSize: 48,
-        background: "black",
+        background: "linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%)",
         width: "100%",
         height: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         color: "white",
-        borderRadius: "20%",
+        borderRadius: "20px",
       }}
     >
-      N
+      Nouncil
     </div>,
     {
       ...size,

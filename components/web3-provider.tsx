@@ -1,32 +1,37 @@
 "use client"
 
-import type React from "react"
-
 import { WagmiProvider, createConfig, http } from "wagmi"
 import { mainnet, sepolia } from "wagmi/chains"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ConnectKitProvider, getDefaultConfig } from "connectkit"
+import type { ReactNode } from "react"
 
 const config = createConfig(
   getDefaultConfig({
     chains: [mainnet, sepolia],
     transports: {
-      [mainnet.id]: http(),
-      [sepolia.id]: http(),
+      [mainnet.id]: http(`https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_ID}`),
+      [sepolia.id]: http(`https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_ID}`),
     },
-    walletConnectProjectId: "558917c8eb5db6b6a9d5909870ee4796",
+    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "",
     appName: "Nouncil Governance",
-    appDescription: "Decentralized Governance Platform",
+    appDescription: "Governance Dashboard for Nouncil DAO",
+    appUrl: "https://nouncil.vercel.app",
+    appIcon: "https://nouncil.vercel.app/images/nouncil-logo.webp",
   }),
 )
 
 const queryClient = new QueryClient()
 
-export function Web3Provider({ children }: { children: React.ReactNode }) {
+interface Web3ProviderProps {
+  children: ReactNode
+}
+
+export function Web3Provider({ children }: Web3ProviderProps) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider>{children}</ConnectKitProvider>
+        <ConnectKitProvider theme="auto">{children}</ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   )
