@@ -1,0 +1,63 @@
+{
+  "name": "Nouncil Governance",
+  "short_name": "Nouncil",
+  "description": "Decentralized Governance Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "72x72",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "96x96",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "128x128",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "144x144",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "152x152",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "384x384",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/nouncil-logo.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["governance", "web3", "dao"],
+  "lang": "en",
+  "dir": "ltr"
+}
