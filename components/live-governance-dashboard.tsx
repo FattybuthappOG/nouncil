@@ -15,7 +15,7 @@ import { TreasuryDropdown } from "./treasury-dropdown"
 import { ProposalVotingCard } from "./proposal-voting-card"
 
 export default function LiveGovernanceDashboard() {
-  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(true) // Default to dark mode
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { address, isConnected } = useAccount()
 
