@@ -8,20 +8,27 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useState } from "react"
-import { useAccount } from "wagmi"
+import { useState } from "react"
 import { ConnectKitButton } from "connectkit"
 import { useGovernorData, useRealtimeEvents } from "../hooks/useContractData"
+import { useNounsProposals } from "../hooks/useNounsProposals"
 import { TreasuryDropdown } from "./treasury-dropdown"
 import { ProposalVotingCard } from "./proposal-voting-card"
+import { NounsProposalCard } from "./nouns-proposal-card"
+import { VotingPowerDisplay } from "./voting-power-display"
 
 export default function LiveGovernanceDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true) // Default to dark mode
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { address, isConnected } = useAccount()
+  const [address, setAddress] = useState<string | undefined>(undefined)
+  const [isConnected, setIsConnected] = useState(false)
 
   // Contract data hooks
   const { proposalCount, votingPeriod, proposalThreshold, isLoading: governorLoading } = useGovernorData()
   const { recentVotes, recentProposals } = useRealtimeEvents()
+  
+  // Nouns DAO proposals
+  const { proposals: nounsProposals, loading: nounsLoading, error: nounsError } = useNounsProposals(10, 0)
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
@@ -240,6 +247,34 @@ export default function LiveGovernanceDashboard() {
 
             {/* Live Activity Feed */}
             <div className="space-y-3 sm:space-y-4">
+              {/* Nouns DAO Proposals */}
+              {nounsLoading ? (
+                <div className={`p-6 rounded-lg border text-center ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                  <div className={`text-lg ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Loading Nouns DAO proposals...</div>
+                </div>
+              ) : nounsError ? (
+                <div className={`p-6 rounded-lg border text-center ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                  <div className={`text-lg text-red-500`}>Error loading proposals: {nounsError}</div>
+                </div>
+              ) : (
+                <>
+                  <div className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+                    Nouns DAO Proposals
+                  </div>
+                  {nounsProposals.map((proposal) => (
+                    <NounsProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      isDarkMode={isDarkMode}
+                      onVote={(proposalId, support) => {
+                        console.log(`Voting ${support === 1 ? 'for' : 'against'} proposal ${proposalId}`)
+                        // TODO: Implement actual voting logic
+                      }}
+                    />
+                  ))}
+                </>
+              )}
+
               {/* Recent Proposals with Voting */}
               {recentProposalIds.map((proposalId) => (
                 <ProposalVotingCard
@@ -345,6 +380,9 @@ export default function LiveGovernanceDashboard() {
           {/* Right Sidebar - Hidden on mobile, shown in sheet */}
           <div className="hidden md:block md:col-span-4">
             <div className="space-y-6">
+              {/* Voting Power Display */}
+              <VotingPowerDisplay isDarkMode={isDarkMode} />
+              
               {/* Active Proposals */}
               <Card
                 className={`transition-colors duration-200 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}

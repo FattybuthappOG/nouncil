@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThumbsUp, ThumbsDown, Minus, Clock, Users } from "lucide-react"
-import { useAccount } from "wagmi"
+import { useState } from "react"
 
 interface ProposalVotingCardProps {
   proposalId: number
@@ -19,7 +19,7 @@ interface ProposalVotingCardProps {
 export function ProposalVotingCard({ proposalId, isDarkMode, title, description }: ProposalVotingCardProps) {
   const [hasVoted, setHasVoted] = useState(false)
   const [userVote, setUserVote] = useState<number | null>(null)
-  const { isConnected } = useAccount()
+  const [isConnected, setIsConnected] = useState(false)
 
   // Mock voting data - in a real app, this would come from contract calls
   const votingData = {

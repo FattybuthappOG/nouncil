@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@nouns/sdk": "^0.1.0",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
@@ -62,7 +63,9 @@
     "vaul": "latest",
     "viem": "latest",
     "wagmi": "latest",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "graphql-request": "^6.1.0",
+    "graphql": "^16.8.1"
   },
   "devDependencies": {
     "@types/node": "^22",

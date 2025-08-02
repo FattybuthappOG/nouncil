@@ -11,6 +11,10 @@ import { useWallet } from "@/hooks/wallet";
 import useRegisterEvent from "@/hooks/register-event";
 import { useCurrentVotes } from "@/hooks/token-contract";
 import { useWriteContract } from "@/hooks/contract-write";
+import { useProposals, useProposalVotes } from '@nouns/sdk';
+
+const proposals = useProposals();
+const votes = useProposalVotes(proposalId);
 
 const { address: contractAddress } = resolveIdentifier("dao");
 
