@@ -1,4 +1,4 @@
-import LiveGovernanceDashboard from "@/components/live-governance-dashboard"
+import { LiveGovernanceDashboard } from "@/components/live-governance-dashboard"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
