@@ -245,7 +245,7 @@ export function LiveGovernanceDashboard({ isDarkMode = true }: LiveGovernanceDas
         </div>
         <div className="flex items-center gap-4">
           <TreasuryDropdown isDarkMode={isDarkMode} />
-          {!isConnected && <ConnectKitButton />}
+          <ConnectKitButton />
         </div>
       </div>
 

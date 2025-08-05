@@ -1,30 +1,72 @@
-# Recreate UI from screenshot
+# Nouncil Governance Dashboard
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+A comprehensive governance dashboard for viewing and voting on Ethereum mainnet proposals from the Nouns DAO contract.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/fattybuthappys-projects/v0-recreate-ui-from-screenshot)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/KFKq5ef86bt)
+## Features
 
-## Overview
+- **Real-time Proposal Data**: Fetches live proposal data from Ethereum mainnet
+- **Wallet Connection**: ConnectKit integration for seamless wallet connection
+- **Voting Interface**: Vote on proposals using `castRefundableVoteWithReason` with clientId: 22
+- **Live Updates**: Real-time voting results and proposal status
+- **Responsive Design**: Mobile-friendly interface with dark/light mode support
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## Environment Variables
 
-## Deployment
+Create a `.env.local` file in the root directory with the following variables:
 
-Your project is live at:
+```env
+# Alchemy API Key for Ethereum mainnet
+NEXT_PUBLIC_ALCHEMY_ID=your_alchemy_api_key_here
 
-**[https://vercel.com/fattybuthappys-projects/v0-recreate-ui-from-screenshot](https://vercel.com/fattybuthappys-projects/v0-recreate-ui-from-screenshot)**
+# WalletConnect Project ID
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id_here
+```
 
-## Build your app
+### Getting API Keys
 
-Continue building your app on:
+1. **Alchemy API Key**: 
+   - Sign up at [alchemy.com](https://alchemy.com)
+   - Create a new app for Ethereum mainnet
+   - Copy the API key
 
-**[https://v0.dev/chat/projects/KFKq5ef86bt](https://v0.dev/chat/projects/KFKq5ef86bt)**
+2. **WalletConnect Project ID**:
+   - Sign up at [cloud.walletconnect.com](https://cloud.walletconnect.com)
+   - Create a new project
+   - Copy the project ID
 
-## How It Works
+## Installation
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+```bash
+npm install
+```
+
+## Development
+
+```bash
+npm run dev
+```
+
+## Voting Function
+
+The application uses the `castRefundableVoteWithReason` function (0x8136730f) from the DAO governance contract with the following parameters:
+
+- **Contract Address**: `0x6f3E6272A167e8AcCb32072d08E0957F9c79223d`
+- **Function**: `castRefundableVoteWithReason(proposalId, support, reason, clientId)`
+- **Client ID**: Always set to `22` as specified
+- **Support Values**: 
+  - `0` = Against
+  - `1` = For  
+  - `2` = Abstain
+
+## Usage
+
+1. Navigate to the governance page
+2. Connect your wallet using the ConnectKit button
+3. Select a proposal to view details and voting results
+4. Cast your vote if the proposal is active and you haven't voted yet
+5. Add an optional reason for your vote
+6. Confirm the transaction in your wallet
+
+## Contract Integration
+
+The dashboard integrates with the Nouns DAO governance contract on Ethereum mainnet, providing real-time access to proposal data and voting functionality.

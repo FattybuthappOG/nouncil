@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ThumbsUp, ThumbsDown, Minus, Clock, Users, ExternalLink, RefreshCw } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Minus, Clock, Users, ExternalLink, RefreshCw, Wallet, Shield } from "lucide-react"
 import { useProposalData, useProposalCount, PROPOSAL_STATES } from "@/hooks/useProposalData"
 import { useSubgraphProposals, getProposalTitle, formatProposalDescription } from "@/hooks/useSubgraphProposals"
 import { useVoting, VoteType } from "@/hooks/useVoting"
@@ -91,6 +91,39 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
   }
 
   const isVotingOpen = proposalData?.state === 1 // Active state
+
+  const renderWalletConnection = () => {
+    if (isConnected) return null
+
+    return (
+      <Card className={`mb-6 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <CardContent className="p-6">
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className={`p-3 rounded-full ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
+                <Wallet className={`w-8 h-8 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`} />
+              </div>
+            </div>
+            <div>
+              <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+                Connect Your Wallet to Vote
+              </h3>
+              <p className={`text-sm mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                Connect your wallet to participate in governance voting on Ethereum mainnet
+              </p>
+              <ConnectKitButton />
+            </div>
+            <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+              <div className="flex items-center justify-center gap-2">
+                <Shield className="w-3 h-3" />
+                <span>Voting uses castRefundableVoteWithReason with clientId: 22</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const renderProposalSelector = () => (
     <div className="flex flex-wrap gap-2 mb-6">
@@ -360,6 +393,8 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
 
   return (
     <div className="space-y-6">
+      {renderWalletConnection()}
+      
       <Card className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
         <CardHeader>
           <div className="flex items-center justify-between">
