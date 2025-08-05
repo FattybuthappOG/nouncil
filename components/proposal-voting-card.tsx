@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThumbsUp, ThumbsDown, Minus, Clock, Users } from "lucide-react"
-import { useState } from "react"
 
 interface ProposalVotingCardProps {
   proposalId: number

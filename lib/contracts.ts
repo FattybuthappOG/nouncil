@@ -23,6 +23,53 @@ export const GOVERNOR_CONTRACT = {
       type: "function",
     },
     {
+      inputs: [{ internalType: "uint256", name: "proposalId", type: "uint256" }],
+      name: "state",
+      outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [
+        { internalType: "uint256", name: "proposalId", type: "uint256" },
+        { internalType: "address", name: "account", type: "address" },
+      ],
+      name: "hasVoted",
+      outputs: [{ internalType: "bool", name: "", type: "bool" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [{ internalType: "uint256", name: "proposalId", type: "uint256" }],
+      name: "proposalVotes",
+      outputs: [
+        { internalType: "uint256", name: "againstVotes", type: "uint256" },
+        { internalType: "uint256", name: "forVotes", type: "uint256" },
+        { internalType: "uint256", name: "abstainVotes", type: "uint256" },
+      ],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [{ internalType: "uint256", name: "proposalId", type: "uint256" }],
+      name: "proposalDeadline",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [
+        { internalType: "uint256", name: "proposalId", type: "uint256" },
+        { internalType: "uint8", name: "support", type: "uint8" },
+        { internalType: "string", name: "reason", type: "string" },
+        { internalType: "uint32", name: "clientId", type: "uint32" },
+      ],
+      name: "castRefundableVoteWithReason",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "nonpayable",
+      type: "function",
+    },
+    {
       anonymous: false,
       inputs: [
         { indexed: true, internalType: "address", name: "voter", type: "address" },
