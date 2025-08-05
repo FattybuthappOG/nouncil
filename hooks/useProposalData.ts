@@ -2,6 +2,9 @@ import { useState, useEffect } from "react"
 import { useReadContract, useReadContracts } from "wagmi"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 
+// Nouns subgraph endpoint
+const NOUNS_SUBGRAPH_URL = "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn"
+
 export interface ProposalData {
   id: number
   state: number
@@ -11,14 +14,67 @@ export interface ProposalData {
   deadline: bigint
   hasVoted: boolean
   totalVotes: bigint
+  description?: string
+  clientId?: number
+  endBlock?: number
 }
+
+export interface SubgraphProposal {
+  endBlock: number
+  description: string
+  clientId: number
+  id: string
+}
+
+// GraphQL query for proposals
+const PROPOSALS_QUERY = `
+  query GetProposals {
+    proposals(orderBy: endBlock, orderDirection: desc, first: 20) {
+      endBlock
+      description
+      clientId
+      id
+    }
+  }
+`
 
 export function useProposalData(proposalId: number, userAddress?: string) {
   const [proposalData, setProposalData] = useState<ProposalData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [subgraphProposals, setSubgraphProposals] = useState<SubgraphProposal[]>([])
 
-  // Read multiple contract functions in parallel
+  // Fetch proposals from subgraph
+  const fetchSubgraphProposals = async () => {
+    try {
+      const response = await fetch(NOUNS_SUBGRAPH_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: PROPOSALS_QUERY,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      if (data.errors) {
+        throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
+      }
+
+      setSubgraphProposals(data.data.proposals || [])
+    } catch (err) {
+      console.error('Error fetching subgraph proposals:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch proposals from subgraph')
+    }
+  }
+
+  // Read contract data for specific proposal
   const { data: contractData, isLoading: contractLoading, error: contractError } = useReadContracts({
     contracts: [
       {
@@ -44,6 +100,11 @@ export function useProposalData(proposalId: number, userAddress?: string) {
     ],
   })
 
+  // Fetch subgraph data on component mount
+  useEffect(() => {
+    fetchSubgraphProposals()
+  }, [])
+
   useEffect(() => {
     if (contractLoading) {
       setIsLoading(true)
@@ -66,6 +127,9 @@ export function useProposalData(proposalId: number, userAddress?: string) {
         const [againstVotes, forVotes, abstainVotes] = votes
         const totalVotes = forVotes + againstVotes + abstainVotes
 
+        // Find matching subgraph proposal
+        const subgraphProposal = subgraphProposals.find(p => p.id === proposalId.toString())
+
         setProposalData({
           id: proposalId,
           state: state || 0,
@@ -75,19 +139,23 @@ export function useProposalData(proposalId: number, userAddress?: string) {
           deadline: deadline || BigInt(0),
           hasVoted,
           totalVotes,
+          description: subgraphProposal?.description,
+          clientId: subgraphProposal?.clientId,
+          endBlock: subgraphProposal?.endBlock,
         })
       }
     }
 
     setIsLoading(false)
-  }, [contractData, contractLoading, contractError, proposalId, userAddress])
+  }, [contractData, contractLoading, contractError, proposalId, userAddress, subgraphProposals])
 
   return {
     proposalData,
     isLoading,
     error,
+    subgraphProposals,
     refetch: () => {
-      // You can implement refetch logic here if needed
+      fetchSubgraphProposals()
     },
   }
 }

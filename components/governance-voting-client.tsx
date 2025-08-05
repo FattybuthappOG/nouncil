@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThumbsUp, ThumbsDown, Minus, Clock, Users, ExternalLink, RefreshCw } from "lucide-react"
 import { useProposalData, useProposalCount, PROPOSAL_STATES } from "@/hooks/useProposalData"
+import { useSubgraphProposals, getProposalTitle, formatProposalDescription } from "@/hooks/useSubgraphProposals"
 import { useVoting, VoteType } from "@/hooks/useVoting"
 import { formatDistanceToNow } from "date-fns"
 
@@ -26,6 +27,9 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
   const [showVoteForm, setShowVoteForm] = useState(false)
   const [selectedVoteType, setSelectedVoteType] = useState<VoteType | null>(null)
 
+  // Fetch subgraph proposals
+  const { proposals: subgraphProposals, isLoading: subgraphLoading, error: subgraphError } = useSubgraphProposals(50, 0)
+
   const { proposalData, isLoading, error, refetch } = useProposalData(
     selectedProposal,
     address
@@ -35,10 +39,11 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
 
   // Auto-select the latest proposal when component loads
   useEffect(() => {
-    if (proposalCount > 0 && selectedProposal === 1) {
-      setSelectedProposal(proposalCount)
+    if (subgraphProposals.length > 0 && selectedProposal === 1) {
+      const latestProposal = subgraphProposals[0]
+      setSelectedProposal(Number(latestProposal.id))
     }
-  }, [proposalCount, selectedProposal])
+  }, [subgraphProposals, selectedProposal])
 
   // Reset vote form when vote is confirmed
   useEffect(() => {
@@ -89,8 +94,9 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
 
   const renderProposalSelector = () => (
     <div className="flex flex-wrap gap-2 mb-6">
-      {Array.from({ length: Math.min(proposalCount, 10) }, (_, i) => {
-        const proposalId = proposalCount - i
+      {subgraphProposals.slice(0, 10).map((proposal) => {
+        const proposalId = Number(proposal.id)
+        const title = getProposalTitle(proposal.description)
         return (
           <Button
             key={proposalId}
@@ -310,37 +316,47 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
     )
   }
 
-  if (isLoading) {
+  if (subgraphLoading || isLoading) {
     return (
       <Card className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
         <CardContent className="p-6">
-          <div className="text-center">Loading proposal data...</div>
+          <div className="text-center">Loading proposal data from Nouns subgraph...</div>
         </CardContent>
       </Card>
     )
   }
 
-  if (error) {
+  if (subgraphError || error) {
     return (
       <Card className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
         <CardContent className="p-6">
-          <div className="text-center text-red-600">Error: {error}</div>
+          <div className="text-center text-red-600">
+            Error: {subgraphError || error}
+            <div className="text-sm mt-2">
+              Failed to load data from Nouns subgraph. Please try again later.
+            </div>
+          </div>
         </CardContent>
       </Card>
     )
   }
 
-  if (!proposalData) {
+  if (!proposalData || subgraphProposals.length === 0) {
     return (
       <Card className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
         <CardContent className="p-6">
-          <div className="text-center">No proposal data available</div>
+          <div className="text-center">No proposal data available from Nouns subgraph</div>
         </CardContent>
       </Card>
     )
   }
 
   const { status, color } = getProposalStatus(proposalData.state)
+  
+  // Find the current proposal in subgraph data
+  const currentSubgraphProposal = subgraphProposals.find(p => Number(p.id) === proposalData.id)
+  const proposalTitle = currentSubgraphProposal ? getProposalTitle(currentSubgraphProposal.description) : `Proposal ${proposalData.id}`
+  const proposalDescription = currentSubgraphProposal ? formatProposalDescription(currentSubgraphProposal.description) : "No description available"
 
   return (
     <div className="space-y-6">
@@ -348,7 +364,7 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className={`${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-              Governance Voting Client
+              Nouns DAO Governance Voting Client
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge className={color}>{status}</Badge>
@@ -369,10 +385,10 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
           <div className="grid gap-6 md:grid-cols-2">
             <div>
               <h3 className={`font-semibold mb-4 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                Proposal #{proposalData.id}
+                {proposalTitle}
               </h3>
               
-              <div className="space-y-2">
+              <div className="space-y-2 mb-4">
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className={`w-4 h-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`} />
                   <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
@@ -385,6 +401,17 @@ export function GovernanceVotingClient({ isDarkMode = true }: GovernanceVotingCl
                     Contract: 0x6f3E...223d
                   </span>
                 </div>
+                {currentSubgraphProposal?.clientId && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+                      Client ID: {currentSubgraphProposal.clientId}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className={`text-sm mb-4 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                {proposalDescription}
               </div>
 
               {renderVotingResults()}
