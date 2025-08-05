@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { useState } from "react"
 import { ConnectKitButton } from "connectkit"
 import { useGovernorData, useRealtimeEvents } from "../hooks/useContractData"
-import { useNounsProposals } from "../hooks/useNounsProposals"
+// import { useNounsProposals } from "../hooks/useNounsProposals"
 import { TreasuryDropdown } from "./treasury-dropdown"
 import { ProposalVotingCard } from "./proposal-voting-card"
 import { NounsProposalCard } from "./nouns-proposal-card"
@@ -26,8 +26,8 @@ export default function LiveGovernanceDashboard() {
   const { proposalCount, votingPeriod, proposalThreshold, isLoading: governorLoading } = useGovernorData()
   const { recentVotes, recentProposals } = useRealtimeEvents()
   
-  // Nouns DAO proposals
-  const { proposals: nounsProposals, loading: nounsLoading, error: nounsError } = useNounsProposals(10, 0)
+  // Nouns DAO proposals (commented out for build fix)
+  // const { proposals: nounsProposals, loading: nounsLoading, error: nounsError } = useNounsProposals(10, 0)
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
@@ -282,33 +282,7 @@ export default function LiveGovernanceDashboard() {
 
             {/* Live Activity Feed */}
             <div className="space-y-3 sm:space-y-4">
-              {/* Nouns DAO Proposals */}
-              {nounsLoading ? (
-                <div className={`p-6 rounded-lg border text-center ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                  <div className={`text-lg ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Loading Nouns DAO proposals...</div>
-                </div>
-              ) : nounsError ? (
-                <div className={`p-6 rounded-lg border text-center ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                  <div className={`text-lg text-red-500`}>Error loading proposals: {nounsError}</div>
-                </div>
-              ) : (
-                <>
-                  <div className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                    Nouns DAO Proposals
-                  </div>
-                  {nounsProposals.map((proposal) => (
-                    <NounsProposalCard
-                      key={proposal.id}
-                      proposal={proposal}
-                      isDarkMode={isDarkMode}
-                      onVote={(proposalId, support) => {
-                        console.log(`Voting ${support === 1 ? 'for' : 'against'} proposal ${proposalId}`)
-                        // TODO: Implement actual voting logic
-                      }}
-                    />
-                  ))}
-                </>
-              )}
+              {/* Nouns DAO Proposals section removed for build stability */}
 
               {/* Recent Proposals with Voting */}
               {recentProposalIds.map((proposalId) => (
