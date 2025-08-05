@@ -1,8 +1,8 @@
 "use client"
 
-import { ChevronDown, Moon, Sun, Wallet } from "lucide-react"
+import { Search, ChevronDown, Moon, Sun, Wallet, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
+import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -20,6 +20,7 @@ export default function LiveGovernanceDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true) // Default to dark mode
   const [address, setAddress] = useState<string | undefined>(undefined)
   const [isConnected, setIsConnected] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Contract data hooks
   const { proposalCount, votingPeriod, proposalThreshold, isLoading: governorLoading } = useGovernorData()
@@ -41,10 +42,31 @@ export default function LiveGovernanceDashboard() {
     return `${Math.floor(hours / 24)}d`
   }
 
+  // Search functionality
+  const getProposalTitle = (proposalId: number) => {
+    if (proposalId === 22) return "Nouncil Client: Approve ID 22"
+    if (proposalId === 21) return "Treasury Management Update"
+    return `Governance Proposal ${proposalId}`
+  }
+
+  const matchesSearch = (proposalId: number, query: string) => {
+    if (!query.trim()) return true
+    
+    const lowerQuery = query.toLowerCase().trim()
+    const proposalIdStr = proposalId.toString()
+    const title = getProposalTitle(proposalId).toLowerCase()
+    
+    // Match by proposal number or title
+    return proposalIdStr.includes(lowerQuery) || title.includes(lowerQuery)
+  }
+
   // Generate array of recent proposal IDs to display
-  const recentProposalIds = Array.from({ length: Math.min(proposalCount, 5) }, (_, i) => proposalCount - i).filter(
+  const recentProposalIds = Array.from({ length: Math.min(proposalCount, 10) }, (_, i) => proposalCount - i).filter(
     (id) => id > 0,
   )
+
+  // Filter proposals based on search
+  const filteredProposalIds = recentProposalIds.filter(id => matchesSearch(id, searchQuery))
 
 
 
@@ -121,7 +143,34 @@ export default function LiveGovernanceDashboard() {
         <div className="max-w-4xl mx-auto">
           {/* Main Content */}
           <div>
-
+            {/* Search */}
+            <div className="relative mb-4 sm:mb-6">
+              <Search
+                className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
+              />
+              <Input
+                placeholder="Search proposals by number or title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`pl-10 pr-10 border-0 rounded-lg transition-colors duration-200 ${
+                  isDarkMode
+                    ? "bg-gray-800 text-gray-200 placeholder-gray-500"
+                    : "bg-gray-100 text-gray-900 placeholder-gray-500"
+                }`}
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchQuery("")}
+                  className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 ${
+                    isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-200"
+                  }`}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
 
             {/* Navigation Tabs - Horizontal scroll on mobile */}
             <div
@@ -138,6 +187,75 @@ export default function LiveGovernanceDashboard() {
                 Candidates
               </button>
             </div>
+
+            {/* Search Results */}
+            {searchQuery.trim() && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className={`text-lg font-semibold ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+                    Search Results
+                  </h3>
+                  <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    {filteredProposalIds.length} proposal{filteredProposalIds.length !== 1 ? 's' : ''} found
+                  </span>
+                </div>
+                
+                {filteredProposalIds.length === 0 ? (
+                  <div className={`p-6 rounded-lg border text-center ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                    <div className={`text-lg ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      No proposals found matching "{searchQuery}"
+                    </div>
+                    <div className={`text-sm mt-2 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                      Try searching by proposal number (e.g., "22") or title keywords
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredProposalIds.slice(0, 10).map((proposalId) => (
+                      <div
+                        key={proposalId}
+                        className={`p-4 rounded-lg border transition-colors duration-200 ${
+                          isDarkMode ? "bg-gray-800 border-gray-700 hover:bg-gray-750" : "bg-white border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                Proposal #{proposalId}
+                              </Badge>
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                Active
+                              </Badge>
+                            </div>
+                            <h4 className={`font-medium text-lg ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+                              {getProposalTitle(proposalId)}
+                            </h4>
+                            <div className={`text-sm mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                              Contract: 0x6f3E...223d
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open('/governance', '_blank')}
+                            className={`ml-4 ${isDarkMode ? "border-gray-600 hover:bg-gray-700" : "border-gray-300 hover:bg-gray-50"}`}
+                          >
+                            View & Vote
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {filteredProposalIds.length > 10 && (
+                      <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                        Showing first 10 results. Refine your search to see more specific results.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Building for You Section */}
             <div
