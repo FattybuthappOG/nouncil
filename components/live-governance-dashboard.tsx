@@ -1,8 +1,8 @@
 "use client"
 
-import { Search, ChevronDown, Moon, Sun, Wallet } from "lucide-react"
+import { ChevronDown, Moon, Sun, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -121,20 +121,7 @@ export default function LiveGovernanceDashboard() {
         <div className="max-w-4xl mx-auto">
           {/* Main Content */}
           <div>
-            {/* Search */}
-            <div className="relative mb-4 sm:mb-6">
-              <Search
-                className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
-              />
-              <Input
-                placeholder="Search proposals, candidates..."
-                className={`pl-10 border-0 rounded-lg transition-colors duration-200 ${
-                  isDarkMode
-                    ? "bg-gray-800 text-gray-200 placeholder-gray-500"
-                    : "bg-gray-100 text-gray-900 placeholder-gray-500"
-                }`}
-              />
-            </div>
+
 
             {/* Navigation Tabs - Horizontal scroll on mobile */}
             <div

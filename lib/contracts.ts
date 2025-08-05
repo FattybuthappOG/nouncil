@@ -95,21 +95,85 @@ export const GOVERNOR_CONTRACT = {
 } as const
 
 export const TREASURY_CONTRACT = {
-  address: "0x0BC3807Ec262cB779b38D65b38158acC3bfedE10" as `0x${string}`,
+  address: "0xb1a32FC9F9D8b2cf86C068Cae13108809547ef71" as `0x${string}`,
   abi: [
+    // Basic ETH balance - this will be queried via provider.getBalance()
+    // ERC-20 token functions for common treasury tokens
     {
-      inputs: [],
-      name: "balance",
+      inputs: [{ internalType: "address", name: "account", type: "address" }],
+      name: "balanceOf",
       outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
       stateMutability: "view",
       type: "function",
     },
     {
       inputs: [],
-      name: "owner",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
+      name: "totalSupply",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [],
+      name: "name",
+      outputs: [{ internalType: "string", name: "", type: "string" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [],
+      name: "symbol",
+      outputs: [{ internalType: "string", name: "", type: "string" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [],
+      name: "decimals",
+      outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
       stateMutability: "view",
       type: "function",
     },
   ],
 } as const
+
+// Common ERC-20 token addresses for treasury tracking
+export const COMMON_TOKENS = {
+  USDC: "0xA0b86a33E6441Fc5c2e6af3d3C5b2a4F70E14561" as `0x${string}`, // Ethereum mainnet USDC
+  USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7" as `0x${string}`, // Ethereum mainnet USDT
+  DAI: "0x6B175474E89094C44Da98b954EedeAC495271d0F" as `0x${string}`, // Ethereum mainnet DAI
+  WETH: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as `0x${string}`, // Wrapped ETH
+  UNI: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984" as `0x${string}`, // Uniswap token
+} as const
+
+// ERC-20 ABI for token balance queries
+export const ERC20_ABI = [
+  {
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "name",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "symbol",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "decimals",
+    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const
