@@ -1,12 +1,12 @@
 "use client"
 
-import { Search, ChevronDown, Moon, Sun, Wallet, Menu } from "lucide-react"
+import { Search, ChevronDown, Moon, Sun, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+
 import { useState } from "react"
 import { ConnectKitButton } from "connectkit"
 import { useGovernorData, useRealtimeEvents } from "../hooks/useContractData"
@@ -18,7 +18,6 @@ import { VotingPowerDisplay } from "./voting-power-display"
 
 export default function LiveGovernanceDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true) // Default to dark mode
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [address, setAddress] = useState<string | undefined>(undefined)
   const [isConnected, setIsConnected] = useState(false)
 
@@ -47,50 +46,7 @@ export default function LiveGovernanceDashboard() {
     (id) => id > 0,
   )
 
-  // Mobile Sidebar Component
-  const MobileSidebar = () => (
-    <div className="space-y-6">
-      {/* Active Proposals */}
-      <Card
-        className={`transition-colors duration-200 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <ChevronDown className={`w-4 h-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`} />
-            <h3 className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>ACTIVE PROPOSALS</h3>
-          </div>
 
-          <div className="space-y-3">
-            {recentProposalIds.slice(0, 3).map((proposalId) => (
-              <div key={proposalId}>
-                <div className={`text-sm mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                  Proposal {proposalId}
-                </div>
-                <div className={`font-medium text-sm mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                  {proposalId === 22
-                    ? "Nouncil Client: Approve ID 22"
-                    : proposalId === 21
-                      ? "Treasury Management Update"
-                      : `Governance Proposal ${proposalId}`}
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    ACTIVE
-                  </Badge>
-                </div>
-              </div>
-            ))}
-
-            {!isConnected && (
-              <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                Connect wallet to see your voting status
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? "bg-gray-900" : "bg-gray-50"}`}>
@@ -106,24 +62,7 @@ export default function LiveGovernanceDashboard() {
               className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
             />
 
-            {/* Mobile Menu Button */}
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`md:hidden ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}`}
-                >
-                  <Menu className="w-5 h-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="left"
-                className={`w-80 p-6 ${isDarkMode ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <MobileSidebar />
-              </SheetContent>
-            </Sheet>
+
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
@@ -179,9 +118,9 @@ export default function LiveGovernanceDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
-          {/* Left Column - Main Content */}
-          <div className="md:col-span-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Main Content */}
+          <div>
             {/* Search */}
             <div className="relative mb-4 sm:mb-6">
               <Search
@@ -201,11 +140,8 @@ export default function LiveGovernanceDashboard() {
             <div
               className={`flex gap-4 sm:gap-6 mb-4 sm:mb-6 border-b transition-colors duration-200 overflow-x-auto pb-3 ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}
             >
-              <button className="pb-3 border-b-2 border-blue-600 text-blue-600 font-medium whitespace-nowrap">
-                Digest
-              </button>
               <button
-                className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+                className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap border-b-2 border-blue-600 text-blue-600 font-medium ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
               >
                 Proposals ({proposalCount})
               </button>
@@ -213,11 +149,6 @@ export default function LiveGovernanceDashboard() {
                 className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
               >
                 Candidates
-              </button>
-              <button
-                className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                Voters
               </button>
             </div>
 
@@ -373,56 +304,6 @@ export default function LiveGovernanceDashboard() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Right Sidebar - Hidden on mobile, shown in sheet */}
-          <div className="hidden md:block md:col-span-4">
-            <div className="space-y-6">
-              {/* Voting Power Display */}
-              <VotingPowerDisplay isDarkMode={isDarkMode} />
-              
-              {/* Active Proposals */}
-              <Card
-                className={`transition-colors duration-200 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <ChevronDown className={`w-4 h-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`} />
-                    <h3 className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                      ACTIVE PROPOSALS
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    {recentProposalIds.slice(0, 3).map((proposalId) => (
-                      <div key={proposalId}>
-                        <div className={`text-sm mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                          Proposal {proposalId}
-                        </div>
-                        <div className={`font-medium text-sm mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                          {proposalId === 22
-                            ? "Nouncil Client: Approve ID 22"
-                            : proposalId === 21
-                              ? "Treasury Management Update"
-                              : `Governance Proposal ${proposalId}`}
-                        </div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                            ACTIVE
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-
-                    {!isConnected && (
-                      <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                        Connect wallet to see your voting status
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </div>
