@@ -1,21 +1,44 @@
 {
-  "name": "Nouncil Governance Dashboard",
+  "name": "Nouncil",
   "short_name": "Nouncil",
-  "description": "Live governance dashboard for Nouncil DAO",
+  "description": "Nouncil DAO Governance Dashboard",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "background_color": "#1f2937",
+  "theme_color": "#e20010",
+  "orientation": "portrait-primary",
+  "scope": "/",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iNzIiIGhlaWdodD0iNzIiIHZpZXdCb3g9IjAgMCA3MiA3MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTAgMFY3MkgyNFYyNEg0OFYwSDBaTTcyIDcyVjI0SDQ4VjcySDcyWiIgZmlsbD0iI2UyMDAxMCIvPgo8L3N2Zz4K",
+      "sizes": "72x72",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iNzIiIGhlaWdodD0iNzIiIHZpZXdCb3g9IjAgMCA3MiA3MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTAgMFY3MkgyNFYyNEg0OFYwSDBaTTcyIDcyVjI0SDQ4VjcySDcyWiIgZmlsbD0iI2UyMDAxMCIvPgo8L3N2Zz4K",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iNzIiIGhlaWdodD0iNzIiIHZpZXdCb3g9IjAgMCA3MiA3MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTAgMFY3MkgyNFYyNEg0OFYwSDBaTTcyIDcyVjI0SDQ4VjcySDcyWiIgZmlsbD0iI2UyMDAxMCIvPgo8L3N2Zz4K",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["governance", "dao", "web3"],
+  "shortcuts": [
+    {
+      "name": "Proposals",
+      "url": "/?tab=proposals",
+      "description": "View governance proposals"
+    },
+    {
+      "name": "Treasury",
+      "url": "https://etherscan.io/address/0xb1a32FC9F9D8b2cf86C068Cae13108809547ef71#asset-tokens",
+      "description": "View treasury assets"
     }
   ]
 }

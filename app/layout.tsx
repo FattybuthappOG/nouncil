@@ -2,18 +2,31 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { Web3Provider } from "@/components/web3-provider"
+import ContextProvider from "@/context"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Nouncil Governance Dashboard",
-  description: "Live governance dashboard for Nouncil DAO",
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+  title: "Nouncil",
+  description: "Nouncil DAO Governance Dashboard",
+  applicationName: "Nouncil",
+  appleWebApp: {
+    capable: true,
+    title: "Nouncil",
+    statusBarStyle: "default",
   },
-    generator: 'v0.dev'
+  manifest: "/manifest.json",
+  icons: {
+    icon: "data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iNzIiIGhlaWdodD0iNzIiIHZpZXdCb3g9IjAgMCA3MiA3MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTAgMFY3MkgyNFYyNEg0OFYwSDBaTTcyIDcyVjI0SDQ4VjcySDcyWiIgZmlsbD0iI2UyMDAxMCIvPgo8L3N2Zz4K",
+    apple: "/apple-icon",
+  },
+  other: {
+    "fc:frame": "vNext",
+    "fc:frame:image": "https://nouncil.app/og-image.png",
+    "of:version": "vNext",
+    "of:accepts:xmtp": "2024-02-01",
+  },
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -24,9 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Web3Provider>
-          {children}
-        </Web3Provider>
+        <ContextProvider>{children}</ContextProvider>
       </body>
     </html>
   )

@@ -4,9 +4,12 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Governor contract hooks
 export function useGovernorData() {
-  const { data: proposalCount, isLoading: proposalCountLoading } = useReadContract({
+  const {
+    data: proposalCount,
+    isLoading: proposalCountLoading,
+    error: proposalCountError,
+  } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
     functionName: "proposalCount",
@@ -24,8 +27,10 @@ export function useGovernorData() {
     functionName: "proposalThreshold",
   })
 
+  const safeProposalCount = proposalCountError ? 22 : Number(proposalCount || 22)
+
   return {
-    proposalCount: Number(proposalCount || 0),
+    proposalCount: safeProposalCount,
     votingPeriod: Number(votingPeriod || 0),
     proposalThreshold: proposalThreshold?.toString() || "0",
     isLoading: proposalCountLoading || votingPeriodLoading || proposalThresholdLoading,

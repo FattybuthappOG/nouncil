@@ -13,18 +13,18 @@ export default function AppleIcon() {
   return new ImageResponse(
     <div
       style={{
-        fontSize: 48,
-        background: "linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%)",
+        background: "#e20010",
         width: "100%",
         height: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         color: "white",
-        borderRadius: "20px",
       }}
     >
-      Nouncil
+      <svg width="120" height="120" viewBox="0 0 72 72" fill="none">
+        <path d="M0 0V72H24V24H48V0H0ZM72 72V24H48V72H72Z" fill="white" />
+      </svg>
     </div>,
     {
       ...size,
