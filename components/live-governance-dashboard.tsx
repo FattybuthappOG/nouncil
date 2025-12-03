@@ -17,6 +17,7 @@ export default function LiveGovernanceDashboard() {
   const [proposalCount, setProposalCount] = useState(0)
   const [recentVotes, setRecentVotes] = useState([])
   const [recentProposals, setRecentProposals] = useState([])
+  const [showWalletDialog, setShowWalletDialog] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -67,11 +68,13 @@ export default function LiveGovernanceDashboard() {
     if (isConnected) {
       disconnect()
     } else {
-      const connector = connectors[0]
-      if (connector) {
-        connect({ connector })
-      }
+      setShowWalletDialog(true)
     }
+  }
+
+  const handleSelectConnector = (connector: any) => {
+    connect({ connector })
+    setShowWalletDialog(false)
   }
 
   const formatTimeAgo = (timestamp: number) => {
@@ -163,26 +166,7 @@ export default function LiveGovernanceDashboard() {
 
           {/* Connect Wallet Button */}
           <div className="flex items-center gap-2">
-            {/* Menu Button - Now visible on all screens */}
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}`}
-                >
-                  <Menu className="w-5 h-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="right"
-                className={`w-80 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <MobileMenu />
-              </SheetContent>
-            </Sheet>
-
-            {/* Connect Wallet Button - Always visible next to menu */}
+            {/* Connect Wallet Button - Now before menu */}
             <Button
               onClick={handleConnectWallet}
               variant="ghost"
@@ -201,9 +185,74 @@ export default function LiveGovernanceDashboard() {
                 {isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : "Connect Wallet"}
               </span>
             </Button>
+
+            {/* Menu Button - Now after wallet button */}
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}`}
+                >
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className={`w-80 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+              >
+                <MobileMenu />
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
+
+      {/* Wallet Connection Dialog */}
+      {showWalletDialog && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowWalletDialog(false)}
+        >
+          <div
+            className={`rounded-xl p-6 max-w-md w-full ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className={`text-xl font-bold mb-4 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Connect Wallet</h3>
+            <div className="space-y-3">
+              {connectors.map((connector) => (
+                <button
+                  key={connector.id}
+                  onClick={() => handleSelectConnector(connector)}
+                  className={`w-full flex items-center gap-3 p-4 rounded-lg border transition-colors ${
+                    isDarkMode
+                      ? "border-gray-700 hover:bg-gray-700 text-white"
+                      : "border-gray-200 hover:bg-gray-50 text-gray-900"
+                  }`}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
+                  </svg>
+                  <span className="font-medium">{connector.name}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowWalletDialog(false)}
+              className={`w-full mt-4 p-3 rounded-lg ${
+                isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+              }`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
         <div>
