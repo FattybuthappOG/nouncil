@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",
-    "@nouns/sdk": "^0.2.3",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "latest",
