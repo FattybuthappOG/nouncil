@@ -56,8 +56,8 @@ export default function LiveGovernanceDashboard() {
   }, [])
 
   const { address, isConnected } = useAccount()
-  const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
+  const { connect, connectors } = useConnect()
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
