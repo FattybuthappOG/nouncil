@@ -1,7 +1,7 @@
 export function parseProposalDescription(description: string): {
   title: string
   content: string
-  media: { type: "image" | "video" | "gif"; url: string }[]
+  media: { type: "image" | "video" | "gif" | "youtube"; url: string; embedUrl?: string }[]
 } {
   // Extract title (first line or first # heading)
   const lines = description.split("\n")
@@ -17,9 +17,11 @@ export function parseProposalDescription(description: string): {
   }
 
   // Extract media URLs from markdown
-  const media: { type: "image" | "video" | "gif"; url: string }[] = []
+  const media: { type: "image" | "video" | "gif" | "youtube"; url: string; embedUrl?: string }[] = []
+
   const imageRegex = /!\[.*?\]$$(.*?)$$/g
-  const videoRegex = /\[.*?\]$$(https?:\/\/.*?\.(mp4|webm|mov|youtube\.com|youtu\.be).*?)$$/gi
+  const videoRegex = /\[.*?\]$$(https?:\/\/.*?\.(mp4|webm|mov).*?)$$/gi
+  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g
 
   let match
   while ((match = imageRegex.exec(description)) !== null) {
@@ -30,6 +32,15 @@ export function parseProposalDescription(description: string): {
 
   while ((match = videoRegex.exec(description)) !== null) {
     media.push({ type: "video", url: match[1] })
+  }
+
+  while ((match = youtubeRegex.exec(description)) !== null) {
+    const videoId = match[1]
+    media.push({
+      type: "youtube",
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      embedUrl: `https://www.youtube.com/embed/${videoId}`,
+    })
   }
 
   // Get content without title

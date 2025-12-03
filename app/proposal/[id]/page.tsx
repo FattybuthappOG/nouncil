@@ -9,6 +9,8 @@ import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { useAccount } from "wagmi"
 import { useState } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 export default function ProposalDetailPage() {
   const params = useParams()
@@ -116,10 +118,35 @@ export default function ProposalDetailPage() {
           <div className="mb-8 space-y-4">
             {media.map((item, idx) => (
               <div key={idx} className="rounded-lg overflow-hidden bg-gray-800">
-                {item.type === "image" || item.type === "gif" ? (
-                  <img src={item.url || "/placeholder.svg"} alt="Proposal media" className="w-full h-auto" />
-                ) : (
-                  <video src={item.url} controls className="w-full h-auto" />
+                {item.type === "image" && (
+                  <img
+                    src={item.url || "/placeholder.svg"}
+                    alt={`Proposal media ${idx + 1}`}
+                    className="w-full h-auto object-cover"
+                  />
+                )}
+                {item.type === "gif" && (
+                  <img
+                    src={item.url || "/placeholder.svg"}
+                    alt={`Proposal GIF ${idx + 1}`}
+                    className="w-full h-auto object-cover"
+                  />
+                )}
+                {item.type === "video" && (
+                  <video src={item.url} controls className="w-full h-auto" preload="metadata">
+                    Your browser does not support the video tag.
+                  </video>
+                )}
+                {item.type === "youtube" && item.embedUrl && (
+                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                    <iframe
+                      src={item.embedUrl}
+                      className="absolute top-0 left-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`YouTube video ${idx + 1}`}
+                    />
+                  </div>
                 )}
               </div>
             ))}
@@ -244,8 +271,49 @@ export default function ProposalDetailPage() {
         {content && (
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-xl font-bold text-white mb-4">Description</h2>
-            <div className="prose prose-invert max-w-none">
-              <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">{content}</div>
+            <div className="prose prose-invert prose-lg max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ node, ...props }) => <h1 className="text-3xl font-bold text-white mb-4 mt-8" {...props} />,
+                  h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-white mb-3 mt-6" {...props} />,
+                  h3: ({ node, ...props }) => <h3 className="text-xl font-semibold text-white mb-2 mt-4" {...props} />,
+                  h4: ({ node, ...props }) => (
+                    <h4 className="text-lg font-semibold text-gray-200 mb-2 mt-3" {...props} />
+                  ),
+                  p: ({ node, ...props }) => <p className="text-gray-300 mb-4 leading-relaxed" {...props} />,
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc list-inside text-gray-300 mb-4 space-y-2" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal list-inside text-gray-300 mb-4 space-y-2" {...props} />
+                  ),
+                  li: ({ node, ...props }) => <li className="text-gray-300" {...props} />,
+                  a: ({ node, ...props }) => (
+                    <a
+                      className="text-blue-400 hover:text-blue-300 underline transition-colors"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    />
+                  ),
+                  blockquote: ({ node, ...props }) => (
+                    <blockquote className="border-l-4 border-gray-600 pl-4 italic text-gray-400 my-4" {...props} />
+                  ),
+                  code: ({ node, inline, ...props }: any) =>
+                    inline ? (
+                      <code className="bg-gray-700 text-gray-200 px-1.5 py-0.5 rounded text-sm" {...props} />
+                    ) : (
+                      <code
+                        className="block bg-gray-700 text-gray-200 p-4 rounded-lg my-4 overflow-x-auto"
+                        {...props}
+                      />
+                    ),
+                  img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
+                }}
+              >
+                {content}
+              </ReactMarkdown>
             </div>
           </div>
         )}
