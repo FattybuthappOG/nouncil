@@ -9,52 +9,29 @@ import { useState, useEffect } from "react"
 import { useAccount, useConnect, useDisconnect } from "wagmi"
 import { TreasuryDropdown } from "./treasury-dropdown"
 import { ProposalVotingCard } from "./proposal-voting-card"
+import { useGovernorData, useRealtimeEvents } from "@/hooks/useContractData"
 
 export default function LiveGovernanceDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [proposalCount, setProposalCount] = useState(0)
+  const [displayedProposals, setDisplayedProposals] = useState(15)
   const [recentVotes, setRecentVotes] = useState([])
   const [recentProposals, setRecentProposals] = useState([])
   const [showWalletDialog, setShowWalletDialog] = useState(false)
 
+  const { proposalCount: contractProposalCount, isLoading: isLoadingCount } = useGovernorData()
+  const { recentVotes: realRecentVotes, recentProposals: realRecentProposals } = useRealtimeEvents()
+
   useEffect(() => {
     setIsMounted(true)
-    // Simulate fetching data for proposalCount, recentVotes, and recentProposals
-    setProposalCount(25)
-    setRecentVotes([
-      { voter: "0x1234567890abcdef", support: 1, weight: 100, timestamp: Date.now() - 3600000, reason: "Great idea!" },
-      { voter: "0x0987654321fedcba", support: 0, weight: 75, timestamp: Date.now() - 7200000 },
-      {
-        voter: "0xabcdef1234567890",
-        support: 2,
-        weight: 50,
-        timestamp: Date.now() - 10800000,
-        reason: "Needs more details.",
-      },
-    ])
-    setRecentProposals([
-      {
-        proposalId: 22,
-        proposer: "0x1234567890abcdef",
-        timestamp: Date.now() - 3600000,
-        description: "Approve the Nouncil client implementation for enhanced governance functionality.",
-      },
-      {
-        proposalId: 21,
-        proposer: "0x0987654321fedcba",
-        timestamp: Date.now() - 7200000,
-        description: "Update treasury management protocols and asset allocation strategies.",
-      },
-      {
-        proposalId: 20,
-        proposer: "0xabcdef1234567890",
-        timestamp: Date.now() - 10800000,
-        description: "Adjust voting period and quorum requirements for improved governance.",
-      },
-    ])
-  }, [])
+    if (contractProposalCount) {
+      setProposalCount(contractProposalCount)
+    }
+    setRecentVotes(realRecentVotes)
+    setRecentProposals(realRecentProposals)
+  }, [contractProposalCount, realRecentVotes, realRecentProposals])
 
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
@@ -86,17 +63,23 @@ export default function LiveGovernanceDashboard() {
     return `${Math.floor(hours / 24)}d`
   }
 
-  const recentProposalIds = Array.from({ length: Math.min(proposalCount, 5) }, (_, i) => proposalCount - i).filter(
-    (id) => id > 0,
-  )
+  const safeRecentVotes = recentVotes || []
+  const safeRecentProposals = recentProposals || []
 
-  if (!isMounted) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-400">Loading...</div>
-      </div>
-    )
+  const safeProposalCount = proposalCount || 0
+
+  const recentProposalIds = Array.from(
+    { length: Math.min(safeProposalCount, displayedProposals) },
+    (_, i) => safeProposalCount - i,
+  )
+    .filter((id) => id > 0)
+    .slice(0, 15) // Only load 15 at a time max
+
+  const loadMoreProposals = () => {
+    setDisplayedProposals((prev) => Math.min(prev + 10, safeProposalCount)) // Load 10 more at a time instead of 15
   }
+
+  const hasMoreProposals = displayedProposals < safeProposalCount
 
   const MobileMenu = () => (
     <div className="flex flex-col gap-3 p-4">
@@ -289,35 +272,40 @@ export default function LiveGovernanceDashboard() {
 
           {/* Live Activity Feed */}
           <div className="space-y-3 sm:space-y-4">
-            {/* Recent Proposals with Voting */}
-            {recentProposalIds.map((proposalId) => (
-              <ProposalVotingCard
-                key={proposalId}
-                proposalId={proposalId}
-                isDarkMode={isDarkMode}
-                title={
-                  proposalId === 22
-                    ? "Nouncil Client: Approve ID 22"
-                    : proposalId === 21
-                      ? "Treasury Management Update"
-                      : proposalId === 20
-                        ? "Governance Parameter Adjustment"
-                        : `Governance Proposal ${proposalId}`
-                }
-                description={
-                  proposalId === 22
-                    ? "Approve the Nouncil client implementation for enhanced governance functionality."
-                    : proposalId === 21
-                      ? "Update treasury management protocols and asset allocation strategies."
-                      : proposalId === 20
-                        ? "Adjust voting period and quorum requirements for improved governance."
-                        : `Proposal ${proposalId} description and details for community consideration.`
-                }
-              />
-            ))}
+            {recentProposalIds.length > 0 ? (
+              <>
+                {recentProposalIds.map((proposalId) => (
+                  <ProposalVotingCard key={proposalId} proposalId={proposalId} isDarkMode={isDarkMode} />
+                ))}
+
+                {hasMoreProposals && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      onClick={loadMoreProposals}
+                      variant="outline"
+                      className={`${
+                        isDarkMode
+                          ? "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
+                          : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Load More Proposals ({displayedProposals}/{safeProposalCount})
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div
+                className={`flex items-center justify-center p-8 rounded-lg border ${
+                  isDarkMode ? "bg-gray-800 border-gray-700 text-gray-400" : "bg-white border-gray-200 text-gray-500"
+                }`}
+              >
+                <p>Loading proposals from Nouns DAO...</p>
+              </div>
+            )}
 
             {/* Recent Votes */}
-            {recentVotes.slice(0, 5).map((vote, index) => (
+            {safeRecentVotes.slice(0, 5).map((vote, index) => (
               <div
                 key={index}
                 className={`flex items-start gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-200 ${
@@ -355,7 +343,7 @@ export default function LiveGovernanceDashboard() {
             ))}
 
             {/* Recent Proposal Creations */}
-            {recentProposals.slice(0, 3).map((proposal, index) => (
+            {safeRecentProposals.slice(0, 3).map((proposal, index) => (
               <div
                 key={index}
                 className={`flex items-start gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-200 ${

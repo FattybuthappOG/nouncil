@@ -1,7 +1,7 @@
 "use client"
 
 import { useReadContract, useWatchContractEvent } from "wagmi"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
 export function useGovernorData() {
@@ -21,19 +21,21 @@ export function useGovernorData() {
     functionName: "votingPeriod",
   })
 
-  const { data: proposalThreshold, isLoading: proposalThresholdLoading } = useReadContract({
+  const { data: quorumBPS, isLoading: quorumLoading } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
-    functionName: "proposalThreshold",
+    functionName: "quorumVotesBPS",
   })
 
-  const safeProposalCount = proposalCountError ? 22 : Number(proposalCount || 22)
+  const safeProposalCount = proposalCountError ? 0 : Number(proposalCount || 0)
+
+  console.log("[v0] Proposal count from contract:", safeProposalCount)
 
   return {
     proposalCount: safeProposalCount,
     votingPeriod: Number(votingPeriod || 0),
-    proposalThreshold: proposalThreshold?.toString() || "0",
-    isLoading: proposalCountLoading || votingPeriodLoading || proposalThresholdLoading,
+    quorumBPS: Number(quorumBPS || 0),
+    isLoading: proposalCountLoading || votingPeriodLoading || quorumLoading,
   }
 }
 
@@ -58,50 +60,8 @@ export function useTreasuryData() {
   }
 }
 
-// Real-time events hook
 export function useRealtimeEvents() {
-  const [recentVotes, setRecentVotes] = useState([
-    {
-      voter: "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87",
-      proposalId: 22,
-      support: 1,
-      weight: "125,000",
-      reason: "This proposal will improve governance efficiency",
-      timestamp: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
-    },
-    {
-      voter: "0x8ba1f109551bD432803012645Hac136c22C501e",
-      proposalId: 21,
-      support: 0,
-      weight: "98,000",
-      reason: "Need more discussion on treasury allocation",
-      timestamp: Date.now() - 5 * 60 * 60 * 1000, // 5 hours ago
-    },
-    {
-      voter: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-      proposalId: 22,
-      support: 1,
-      weight: "75,000",
-      reason: "",
-      timestamp: Date.now() - 8 * 60 * 60 * 1000, // 8 hours ago
-    },
-  ])
-
-  const [recentProposals, setRecentProposals] = useState([
-    {
-      proposalId: 22,
-      proposer: "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87",
-      description:
-        "Nouncil Client: Approve ID 22 - Implement new governance features for better community participation",
-      timestamp: Date.now() - 24 * 60 * 60 * 1000, // 1 day ago
-    },
-    {
-      proposalId: 21,
-      proposer: "0x8ba1f109551bD432803012645Hac136c22C501e",
-      description: "Treasury Management Update - Restructure asset allocation and implement new investment strategies",
-      timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000, // 3 days ago
-    },
-  ])
+  const [recentVotes, setRecentVotes] = useState<any[]>([])
 
   // Watch for new vote events
   useWatchContractEvent({
@@ -109,12 +69,13 @@ export function useRealtimeEvents() {
     abi: GOVERNOR_CONTRACT.abi,
     eventName: "VoteCast",
     onLogs(logs) {
+      console.log("[v0] Vote events detected:", logs.length)
       logs.forEach((log) => {
         const newVote = {
           voter: log.args.voter,
           proposalId: Number(log.args.proposalId),
           support: Number(log.args.support),
-          weight: log.args.weight?.toString() || "0",
+          weight: log.args.votes?.toString() || "0",
           reason: log.args.reason || "",
           timestamp: Date.now(),
         }
@@ -123,26 +84,207 @@ export function useRealtimeEvents() {
     },
   })
 
-  // Watch for new proposal events
-  useWatchContractEvent({
-    address: GOVERNOR_CONTRACT.address,
-    abi: GOVERNOR_CONTRACT.abi,
-    eventName: "ProposalCreated",
-    onLogs(logs) {
-      logs.forEach((log) => {
-        const newProposal = {
-          proposalId: Number(log.args.proposalId),
-          proposer: log.args.proposer,
-          description: log.args.description || "",
-          timestamp: Date.now(),
-        }
-        setRecentProposals((prev) => [newProposal, ...prev.slice(0, 4)])
-      })
-    },
-  })
-
   return {
     recentVotes,
-    recentProposals,
+    isLoading: false,
   }
+}
+
+const PROPOSAL_STATE_NAMES = [
+  "Pending",
+  "Active",
+  "Canceled",
+  "Defeated",
+  "Succeeded",
+  "Queued",
+  "Expired",
+  "Executed",
+  "Vetoed",
+]
+
+export function useProposalIds(limit = 15) {
+  const [proposalIds, setProposalIds] = useState<number[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchProposalIds = async () => {
+      try {
+        // Use the Nouns Subgraph API
+        const response = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposals(
+                  first: ${limit}
+                  orderBy: createdTimestamp
+                  orderDirection: desc
+                ) {
+                  id
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const data = await response.json()
+        if (data?.data?.proposals) {
+          const ids = data.data.proposals.map((p: any) => Number.parseInt(p.id))
+          setProposalIds(ids)
+          console.log("[v0] Fetched proposal IDs from Subgraph:", ids)
+        }
+      } catch (error) {
+        console.error("[v0] Failed to fetch proposal IDs:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchProposalIds()
+  }, [limit])
+
+  return { proposalIds, isLoading }
+}
+
+export function useProposalData(proposalId: number) {
+  const [proposalData, setProposalData] = useState({
+    id: proposalId,
+    proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    forVotes: BigInt(0),
+    againstVotes: BigInt(0),
+    abstainVotes: BigInt(0),
+    state: 1,
+    stateName: "Active",
+    quorum: BigInt(200),
+    description: `Proposal ${proposalId}`,
+    fullDescription: "",
+    startBlock: BigInt(0),
+    endBlock: BigInt(0),
+    transactionHash: "",
+    isLoading: true,
+    error: false,
+  })
+
+  const { data: stateData } = useReadContract({
+    address: GOVERNOR_CONTRACT.address,
+    abi: GOVERNOR_CONTRACT.abi,
+    functionName: "state",
+    args: [BigInt(proposalId)],
+  })
+
+  useEffect(() => {
+    const fetchProposalFromAPI = async () => {
+      try {
+        // Use the Nouns Subgraph API
+        const response = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposal(id: "${proposalId}") {
+                  id
+                  description
+                  proposer {
+                    id
+                  }
+                  forVotes
+                  againstVotes
+                  abstainVotes
+                  quorumVotes
+                  status
+                  createdTimestamp
+                  createdBlock
+                  startBlock
+                  endBlock
+                  createdTransactionHash
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const data = await response.json()
+        const proposal = data?.data?.proposal
+
+        console.log(`[v0] Fetched proposal ${proposalId} from Subgraph:`, proposal)
+
+        if (proposal) {
+          const desc = proposal.description || `Proposal ${proposalId}`
+          const title =
+            desc
+              .split("\n")[0]
+              .replace(/^#+\s*/, "")
+              .trim() || `Proposal ${proposalId}`
+
+          const stateNum = Number(stateData || 1)
+
+          setProposalData({
+            id: proposalId,
+            proposer: proposal.proposer?.id || "0x0000000000000000000000000000000000000000",
+            forVotes: BigInt(proposal.forVotes || 0),
+            againstVotes: BigInt(proposal.againstVotes || 0),
+            abstainVotes: BigInt(proposal.abstainVotes || 0),
+            state: stateNum,
+            stateName: PROPOSAL_STATE_NAMES[stateNum] || "Unknown",
+            quorum: BigInt(proposal.quorumVotes || 200),
+            description: title,
+            fullDescription: desc,
+            startBlock: BigInt(proposal.startBlock || 0),
+            endBlock: BigInt(proposal.endBlock || 0),
+            transactionHash: proposal.createdTransactionHash || "",
+            isLoading: false,
+            error: false,
+          })
+        } else {
+          setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
+        }
+      } catch (error) {
+        console.error(`[v0] Failed to fetch proposal ${proposalId} from Subgraph:`, error)
+        setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
+      }
+    }
+
+    fetchProposalFromAPI()
+  }, [proposalId, stateData])
+
+  return proposalData
+}
+
+export function useBatchProposals(proposalIds: number[]) {
+  const [proposals, setProposals] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (proposalIds.length === 0) {
+      setProposals([])
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    // Fetch proposals sequentially to avoid overwhelming the RPC
+    const fetchProposals = async () => {
+      const results: any[] = []
+      for (const id of proposalIds) {
+        // Add small delay between requests
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        results.push({ id, loading: false })
+      }
+      setProposals(results)
+      setIsLoading(false)
+      console.log(`[v0] Batch loaded ${results.length} proposals`)
+    }
+
+    fetchProposals()
+  }, [proposalIds.join(",")])
+
+  return { proposals, isLoading }
 }
