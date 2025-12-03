@@ -3,8 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { ThumbsUp, ThumbsDown, Minus, Users } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
 import { useAccount } from "wagmi"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
@@ -13,7 +12,7 @@ import { useState } from "react"
 interface ProposalVotingCardProps {
   proposalId: number
   isDarkMode: boolean
-  proposalData?: any // Made useProposalData hook call optional to support prop-based data
+  proposalData?: any
 }
 
 export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: ProposalVotingCardProps) {
@@ -24,11 +23,17 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
 
   const { title, media } = parseProposalDescription(proposal.description || `Proposal ${proposalId}`)
 
-  const totalVotes = Number(proposal.forVotes) + Number(proposal.againstVotes) + Number(proposal.abstainVotes)
-  const forPercentage = totalVotes > 0 ? (Number(proposal.forVotes) / totalVotes) * 100 : 0
-  const againstPercentage = totalVotes > 0 ? (Number(proposal.againstVotes) / totalVotes) * 100 : 0
-  const abstainPercentage = totalVotes > 0 ? (Number(proposal.abstainVotes) / totalVotes) * 100 : 0
-  const quorumPercentage = Number(proposal.quorum) > 0 ? (totalVotes / Number(proposal.quorum)) * 100 : 0
+  const currentBlock = 21500000 // Approximate current block, should ideally come from chain
+  const votingEnded = currentBlock > Number(proposal.endBlock)
+  const votingStarted = currentBlock >= Number(proposal.startBlock)
+  const blocksRemaining = votingEnded ? 0 : Number(proposal.endBlock) - currentBlock
+  const hoursRemaining = Math.floor((blocksRemaining * 12) / 3600)
+  const daysRemaining = Math.floor(hoursRemaining / 24)
+
+  // Calculate time since voting ended
+  const blocksEnded = currentBlock - Number(proposal.endBlock)
+  const hoursEnded = Math.floor((blocksEnded * 12) / 3600)
+  const daysEnded = Math.floor(hoursEnded / 24)
 
   const { label: stateLabel, color: stateColor } = getProposalStateLabel(proposal.state)
 
@@ -38,6 +43,12 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
     setUserVote(support)
     console.log(`Voting ${support} on proposal ${proposalId}`)
   }
+
+  const forNouns = Math.floor(Number(proposal.forVotes) / 1e18)
+  const againstNouns = Math.floor(Number(proposal.againstVotes) / 1e18)
+  const abstainNouns = Math.floor(Number(proposal.abstainVotes) / 1e18)
+  const quorumNeeded = Math.floor(Number(proposal.quorum) / 1e18)
+  const totalVotes = forNouns + againstNouns + abstainNouns
 
   return (
     <Card
@@ -56,6 +67,35 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
               </Badge>
             </div>
             <CardTitle className={`text-lg mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>{title}</CardTitle>
+
+            <div className={`flex items-center gap-2 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+              <Clock className="w-4 h-4" />
+              {!votingStarted && (
+                <span>
+                  Voting starts in {Math.floor(((Number(proposal.startBlock) - currentBlock) * 12) / 3600)} hours
+                </span>
+              )}
+              {votingStarted && !votingEnded && daysRemaining > 0 && (
+                <span>
+                  {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining
+                </span>
+              )}
+              {votingStarted && !votingEnded && daysRemaining === 0 && (
+                <span>
+                  {hoursRemaining} hour{hoursRemaining !== 1 ? "s" : ""} remaining
+                </span>
+              )}
+              {votingEnded && daysEnded > 0 && (
+                <span>
+                  Ended {daysEnded} day{daysEnded !== 1 ? "s" : ""} ago
+                </span>
+              )}
+              {votingEnded && daysEnded === 0 && (
+                <span>
+                  Ended {hoursEnded} hour{hoursEnded !== 1 ? "s" : ""} ago
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -75,74 +115,38 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
+        <div className="flex items-center justify-around py-3 px-2 bg-gray-100/50 dark:bg-gray-800/50 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-1">
               <ThumbsUp className="w-4 h-4 text-green-600" />
-              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                For ({Number(proposal.forVotes).toLocaleString()})
-              </span>
+              <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>For</span>
             </div>
-            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-              {forPercentage.toFixed(1)}%
-            </span>
+            <span className={`text-lg font-bold ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>{forNouns}</span>
           </div>
-          <Progress value={forPercentage} className="h-2 bg-gray-200">
-            <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${forPercentage}%` }} />
-          </Progress>
 
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-1">
               <ThumbsDown className="w-4 h-4 text-red-600" />
-              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                Against ({Number(proposal.againstVotes).toLocaleString()})
-              </span>
+              <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Against</span>
             </div>
-            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-              {againstPercentage.toFixed(1)}%
+            <span className={`text-lg font-bold ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+              {againstNouns}
             </span>
           </div>
-          <Progress value={againstPercentage} className="h-2 bg-gray-200">
-            <div className="h-full bg-red-600 rounded-full transition-all" style={{ width: `${againstPercentage}%` }} />
-          </Progress>
 
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-1">
               <Minus className="w-4 h-4 text-yellow-600" />
-              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                Abstain ({Number(proposal.abstainVotes).toLocaleString()})
-              </span>
+              <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Abstain</span>
             </div>
-            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-              {abstainPercentage.toFixed(1)}%
+            <span className={`text-lg font-bold ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
+              {abstainNouns}
             </span>
           </div>
-          <Progress value={abstainPercentage} className="h-2 bg-gray-200">
-            <div
-              className="h-full bg-yellow-600 rounded-full transition-all"
-              style={{ width: `${abstainPercentage}%` }}
-            />
-          </Progress>
         </div>
 
-        <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                Quorum ({totalVotes.toLocaleString()} / {Number(proposal.quorum).toLocaleString()})
-              </span>
-            </div>
-            <span className={`font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-              {quorumPercentage.toFixed(1)}%
-            </span>
-          </div>
-          <Progress value={Math.min(quorumPercentage, 100)} className="h-2 bg-gray-200">
-            <div
-              className={`h-full rounded-full transition-all ${quorumPercentage >= 100 ? "bg-green-600" : "bg-blue-600"}`}
-              style={{ width: `${Math.min(quorumPercentage, 100)}%` }}
-            />
-          </Progress>
+        <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+          Quorum: {totalVotes} / {quorumNeeded} Nouns {totalVotes >= quorumNeeded ? "✓" : ""}
         </div>
 
         {/* Voting Buttons */}
@@ -160,18 +164,37 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
           ) : proposal.state === 1 ? (
             <>
               <Button
-                onClick={() => handleVote(1)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleVote(1)
+                }}
                 size="sm"
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white"
               >
                 <ThumbsUp className="w-4 h-4 mr-1" />
                 For
               </Button>
-              <Button onClick={() => handleVote(0)} size="sm" variant="destructive" className="flex-1">
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleVote(0)
+                }}
+                size="sm"
+                variant="destructive"
+                className="flex-1"
+              >
                 <ThumbsDown className="w-4 h-4 mr-1" />
                 Against
               </Button>
-              <Button onClick={() => handleVote(2)} size="sm" variant="outline" className="flex-1">
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleVote(2)
+                }}
+                size="sm"
+                variant="outline"
+                className="flex-1"
+              >
                 <Minus className="w-4 h-4 mr-1" />
                 Abstain
               </Button>
