@@ -266,29 +266,6 @@ export default function LiveGovernanceDashboard() {
             </button>
           </div>
 
-          {/* Building for You Section */}
-          <div
-            className={`mb-6 p-6 rounded-lg border transition-colors duration-200 text-center ${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            }`}
-          >
-            <div className="flex flex-col items-center gap-4">
-              <img
-                src="/placeholder.svg?height=128&width=128"
-                alt="Building for you animation"
-                className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg"
-              />
-              <div>
-                <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                  We're Building For You!
-                </h3>
-                <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                  New features for Proposals and Candidates are coming soon. Stay tuned!
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Live Activity Feed */}
           <div className="space-y-3 sm:space-y-4">
             {/* Recent Proposals with Voting */}
