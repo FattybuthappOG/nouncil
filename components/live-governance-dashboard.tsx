@@ -322,9 +322,6 @@ export default function LiveGovernanceDashboard() {
                       {vote.support === 1 ? "voted for" : vote.support === 0 ? "voted against" : "abstained"} (
                       {vote.weight})
                     </span>
-                    <span className={`font-medium text-sm ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                      Proposal {vote.proposalId}
-                    </span>
                     <span className={`text-xs sm:text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
                       {formatTimeAgo(vote.timestamp)}
                     </span>
