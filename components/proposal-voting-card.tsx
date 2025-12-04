@@ -1,13 +1,17 @@
 "use client"
 
+import type React from "react"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
-import { useAccount, useBlockNumber } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { useState } from "react"
+import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 
 interface ProposalVotingCardProps {
   proposalId: number
@@ -16,10 +20,15 @@ interface ProposalVotingCardProps {
 }
 
 export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: ProposalVotingCardProps) {
-  const [hasVoted, setHasVoted] = useState(false)
-  const [userVote, setUserVote] = useState<number | null>(null)
+  const [voteReason, setVoteReason] = useState("")
+  const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
+  const [showVoteForm, setShowVoteForm] = useState(false)
+
   const { isConnected } = useAccount()
   const proposal = useProposalData(proposalId)
+
+  const { data: hash, writeContract, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
 
   const { data: currentBlockData } = useBlockNumber({ watch: true })
   const currentBlock = Number(currentBlockData || 0)
@@ -32,7 +41,6 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
   const hoursRemaining = Math.floor((blocksRemaining * 12) / 3600)
   const daysRemaining = Math.floor(hoursRemaining / 24)
 
-  // Calculate time since voting ended
   const blocksEnded = currentBlock - Number(proposal.endBlock)
   const hoursEnded = Math.floor((blocksEnded * 12) / 3600)
   const daysEnded = Math.floor(hoursEnded / 24)
@@ -41,9 +49,27 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
 
   const handleVote = (support: number) => {
     if (!isConnected) return
-    setHasVoted(true)
-    setUserVote(support)
-    console.log(`Voting ${support} on proposal ${proposalId}`)
+    setSelectedSupport(support)
+    setShowVoteForm(true)
+  }
+
+  const submitVote = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (selectedSupport === null || !isConnected) return
+
+    console.log("[v0] Submitting vote:", {
+      proposalId,
+      support: selectedSupport,
+      reason: voteReason,
+      clientId: 22,
+    })
+
+    writeContract({
+      address: GOVERNOR_CONTRACT.address,
+      abi: GOVERNOR_CONTRACT.abi,
+      functionName: "castRefundableVoteWithReason",
+      args: [BigInt(proposalId), selectedSupport as 0 | 1 | 2, voteReason, 22],
+    })
   }
 
   const forNouns = Number(proposal.forVotes)
@@ -55,7 +81,7 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
 
   return (
     <Card
-      onClick={() => (window.location.href = `/proposal/${proposalId}`)}
+      onClick={() => !showVoteForm && (window.location.href = `/proposal/${proposalId}`)}
       className={`transition-colors duration-200 cursor-pointer hover:shadow-lg ${isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-white border-gray-200 hover:border-gray-300"}`}
     >
       <CardHeader className="pb-3">
@@ -155,55 +181,96 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
           Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
         </div>
 
-        {/* Voting Buttons */}
-        <div className="flex gap-2 pt-2">
+        <div className="pt-2" onClick={(e) => e.stopPropagation()}>
           {!isConnected ? (
             <div className={`text-sm text-center w-full py-2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
               Connect wallet to vote
             </div>
-          ) : hasVoted ? (
+          ) : isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-2">
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Voted {userVote === 1 ? "For" : userVote === 0 ? "Against" : "Abstain"}
+                Vote Submitted!
               </Badge>
             </div>
           ) : proposal.state === 1 ? (
             <>
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleVote(1)
-                }}
-                size="sm"
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-              >
-                <ThumbsUp className="w-4 h-4 mr-1" />
-                For
-              </Button>
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleVote(0)
-                }}
-                size="sm"
-                variant="destructive"
-                className="flex-1"
-              >
-                <ThumbsDown className="w-4 h-4 mr-1" />
-                Against
-              </Button>
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleVote(2)
-                }}
-                size="sm"
-                variant="outline"
-                className="flex-1"
-              >
-                <Minus className="w-4 h-4 mr-1" />
-                Abstain
-              </Button>
+              {!showVoteForm ? (
+                <div className="flex gap-2">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleVote(1)
+                    }}
+                    size="sm"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <ThumbsUp className="w-4 h-4 mr-1" />
+                    For
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleVote(0)
+                    }}
+                    size="sm"
+                    variant="destructive"
+                    className="flex-1"
+                  >
+                    <ThumbsDown className="w-4 h-4 mr-1" />
+                    Against
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleVote(2)
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <Minus className="w-4 h-4 mr-1" />
+                    Abstain
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-300">
+                      Voting:{" "}
+                      <span className="font-semibold">
+                        {selectedSupport === 1 ? "For" : selectedSupport === 0 ? "Against" : "Abstain"}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowVoteForm(false)
+                        setSelectedSupport(null)
+                      }}
+                      className="text-gray-400 hover:text-white h-8 px-2"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={voteReason}
+                    onChange={(e) => setVoteReason(e.target.value)}
+                    placeholder="Reason for vote (optional)"
+                    className="min-h-[60px] text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <Button
+                    onClick={submitVote}
+                    disabled={isPending || isConfirming}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    size="sm"
+                  >
+                    {isPending || isConfirming ? "Submitting..." : "Submit Vote"}
+                  </Button>
+                </div>
+              )}
             </>
           ) : (
             <div className={`text-sm text-center w-full py-2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
