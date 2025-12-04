@@ -550,10 +550,18 @@ export default function LiveGovernanceDashboard() {
     }
   }, [])
 
-  const handleLanguageChange = (langCode: LanguageCode) => {
-    setSelectedLanguage(langCode)
-    localStorage.setItem("nouns-language", langCode)
-    setShowLanguageMenu(false)
+  const handleLanguageChange = (lang: LanguageCode) => {
+    setSelectedLanguage(lang)
+    localStorage.setItem("nouns-language", lang)
+  }
+
+  const handleConnect = async (connector: any) => {
+    try {
+      await connect({ connector })
+      setShowWalletDialog(false)
+    } catch (error) {
+      console.error("[v0] Wallet connection error:", error)
+    }
   }
 
   return (
@@ -772,10 +780,7 @@ export default function LiveGovernanceDashboard() {
               {connectors.map((connector) => (
                 <button
                   key={connector.id}
-                  onClick={() => {
-                    connect({ connector })
-                    setShowWalletDialog(false)
-                  }}
+                  onClick={() => handleConnect(connector)}
                   className={`w-full p-4 rounded-lg flex items-center gap-3 transition-colors ${
                     isDarkMode
                       ? "bg-gray-700 hover:bg-gray-600 text-white"

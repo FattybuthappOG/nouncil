@@ -307,26 +307,26 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                   href={`https://etherscan.io/address/${proposal.proposer}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 hover:text-blue-400 transition-colors"
+                  className="hover:opacity-70 transition-opacity"
                 >
-                  {t("viewOnEtherscan")} <ExternalLink className="w-3 h-3" />
+                  <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             )}
-            {proposal.signers && proposal.signers.length > 0 && (
-              <div className="flex items-center gap-2 p-3 bg-gray-700/30 rounded-lg border border-gray-600/50 break-all flex-wrap">
-                <span className="text-sm text-gray-400">
-                  {t("sponsors")} ({proposal.signers.length}):
+            {proposal.sponsors && proposal.sponsors.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap break-all">
+                <span>
+                  {t("sponsors")} ({proposal.sponsors.length}):
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  {proposal.signers.map((signer, idx) => (
+                  {proposal.sponsors.map((sponsor, idx) => (
                     <div key={idx} className="flex items-center gap-1">
-                      <EnsDisplay address={signer.id} />
+                      <EnsDisplay address={sponsor} />
                       <a
-                        href={`https://etherscan.io/address/${signer.id}`}
+                        href={`https://etherscan.io/address/${sponsor}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                        className="hover:opacity-70 transition-opacity"
                       >
                         <ExternalLink className="w-3 h-3" />
                       </a>

@@ -464,6 +464,7 @@ export function useCandidateData(candidateId: string) {
     id: candidateId,
     slug: "",
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    sponsors: [] as `0x${string}`[],
     description: `Candidate ${candidateId}`,
     fullDescription: "",
     createdTimestamp: 0,
@@ -504,6 +505,18 @@ export function useCandidateData(candidateId: string) {
                       calldatas
                     }
                   }
+                  versions {
+                    content {
+                      proposalIdToUpdate
+                      contentSignatures {
+                        signer {
+                          id
+                        }
+                        expirationTimestamp
+                        reason
+                      }
+                    }
+                  }
                   canceledTimestamp
                 }
               }
@@ -520,10 +533,23 @@ export function useCandidateData(candidateId: string) {
           const desc = content.description || `Candidate ${candidateId}`
           const title = content.title || candidate.slug || `Candidate ${candidateId}`
 
+          const sponsorsList: `0x${string}`[] = []
+          if (candidate.versions) {
+            candidate.versions.forEach((version: any) => {
+              const sigs = version.content?.contentSignatures || []
+              sigs.forEach((sig: any) => {
+                if (sig.signer?.id && !sponsorsList.includes(sig.signer.id as `0x${string}`)) {
+                  sponsorsList.push(sig.signer.id as `0x${string}`)
+                }
+              })
+            })
+          }
+
           setCandidateData({
             id: candidateId,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
+            sponsors: sponsorsList,
             description: title,
             fullDescription: desc,
             createdTimestamp: Number(candidate.createdTimestamp || 0),

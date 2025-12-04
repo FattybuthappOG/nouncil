@@ -10,12 +10,21 @@ import ReactMarkdown from "react-markdown"
 import { parseMarkdownMedia } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
 import { useState, useEffect } from "react"
+import { useAccount, useConnect, useDisconnect } from "wagmi"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+
+type LanguageCode = keyof typeof translations
 
 const translations = {
   en: {
     back: "Back",
     candidate: "Candidate",
     proposer: "Proposer",
+    sponsors: "Sponsors",
+    sponsorCandidate: "Sponsor Candidate",
     viewOnEtherscan: "View on Etherscan",
     transaction: "Transaction",
     media: "Media",
@@ -24,11 +33,19 @@ const translations = {
     daysAgo: "days ago",
     hoursAgo: "hours ago",
     recently: "Recently",
+    signatureValidity: "Signature Validity",
+    days: "days",
+    sponsorReason: "Reason for sponsoring (optional)",
+    explainWhy: "Explain why you want to sponsor this candidate...",
+    generateTransaction: "Generate Sponsor Transaction",
+    connectWallet: "Connect wallet to sponsor",
   },
   zh: {
     back: "返回",
     candidate: "候选人",
     proposer: "提议者",
+    sponsors: "赞助者",
+    sponsorCandidate: "赞助候选人",
     viewOnEtherscan: "在 Etherscan 上查看",
     transaction: "交易",
     media: "媒体",
@@ -37,11 +54,19 @@ const translations = {
     daysAgo: "天前",
     hoursAgo: "小时前",
     recently: "最近",
+    signatureValidity: "签名有效期",
+    days: "天",
+    sponsorReason: "赞助理由（可选）",
+    explainWhy: "解释您为何要赞助此候选人...",
+    generateTransaction: "生成赞助交易",
+    connectWallet: "连接钱包以赞助",
   },
   es: {
     back: "Volver",
     candidate: "Candidato",
     proposer: "Proponente",
+    sponsors: "Patrocinadores",
+    sponsorCandidate: "Patrocinar Candidato",
     viewOnEtherscan: "Ver en Etherscan",
     transaction: "Transacción",
     media: "Medios",
@@ -50,21 +75,28 @@ const translations = {
     daysAgo: "días atrás",
     hoursAgo: "horas atrás",
     recently: "Recientemente",
+    signatureValidity: "Validez de Firma",
+    days: "días",
+    sponsorReason: "Razón para patrocinar (opcional)",
+    explainWhy: "Explica por qué quieres patrocinar este candidato...",
+    generateTransaction: "Generar Transacción de Patrocinio",
+    connectWallet: "Conectar billetera para patrocinar",
   },
 }
-
-type LanguageCode = keyof typeof translations
 
 export default function CandidateDetailPage({ params }: { params: { id: string } }) {
   const candidateNumber = Number.parseInt(params.id)
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [translatedDescription, setTranslatedDescription] = useState("")
-
+  const [validityDays, setValidityDays] = useState(7)
+  const [sponsorReason, setSponsorReason] = useState("")
+  const [showWalletDialog, setShowWalletDialog] = useState(false)
+  const { address, isConnected } = useAccount()
+  const { connectors, connect } = useConnect()
+  const { disconnect } = useDisconnect()
   const { candidates, totalCount, isLoading: candidatesLoading } = useCandidateIds(1000)
-
   const candidate = candidates.find((c, idx) => totalCount - idx === candidateNumber)
   const candidateId = candidate?.id || params.id
-
   const candidateData = useCandidateData(candidateId)
   const router = useRouter()
 
@@ -107,15 +139,26 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
     return translations[selectedLanguage]?.[key] || translations.en[key] || key
   }
 
-  if (candidatesLoading || candidateData.isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-400">{t("loadingCandidate")}</div>
-      </div>
+  const handleSponsorClick = () => {
+    if (!isConnected) {
+      alert(t("connectWallet"))
+      return
+    }
+
+    const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
+
+    const sponsorData = {
+      candidateId: candidateData.id,
+      slug: candidateData.slug,
+      expirationTimestamp,
+      reason: sponsorReason,
+      signer: address,
+    }
+
+    alert(
+      `Sponsor data prepared:\n\nCandidate: ${candidateData.description}\nValidity: ${validityDays} days\nReason: ${sponsorReason || "No reason provided"}\n\nIn production, this would trigger a wallet signature request.`,
     )
   }
-
-  const { images, videos } = parseMarkdownMedia(candidateData.fullDescription)
 
   const formatTimeAgo = (timestamp: number) => {
     if (!timestamp) return t("recently")
@@ -128,6 +171,16 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
     if (hours > 0) return `${hours} ${t("hoursAgo")}`
     return t("recently")
   }
+
+  if (candidatesLoading || candidateData.isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-gray-400">{t("loadingCandidate")}</div>
+      </div>
+    )
+  }
+
+  const { images, videos } = parseMarkdownMedia(candidateData.fullDescription)
 
   return (
     <div className="min-h-screen bg-gray-900 overflow-hidden">
@@ -142,8 +195,51 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
             <ArrowLeft className="w-4 h-4 mr-2" />
             {t("back")}
           </Button>
+          {isConnected ? (
+            <Button
+              variant="outline"
+              onClick={() => disconnect()}
+              className="bg-gray-800 hover:bg-gray-700 text-white border-gray-600"
+            >
+              {address?.slice(0, 6)}...{address?.slice(-4)}
+            </Button>
+          ) : (
+            <Button onClick={() => setShowWalletDialog(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Connect Wallet
+            </Button>
+          )}
         </div>
       </header>
+
+      {/* Wallet Selection Dialog */}
+      <Dialog open={showWalletDialog} onOpenChange={setShowWalletDialog}>
+        <DialogContent className="bg-gray-800 border-gray-700 text-gray-100">
+          <DialogHeader>
+            <DialogTitle>Connect Wallet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {connectors.map((connector) => (
+              <button
+                key={connector.id}
+                onClick={() => {
+                  try {
+                    connect({ connector })
+                    setShowWalletDialog(false)
+                  } catch (error) {
+                    console.error("Connection error:", error)
+                  }
+                }}
+                className="w-full p-4 rounded-lg flex items-center gap-3 transition-colors bg-gray-700 hover:bg-gray-600 text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+                <span className="font-medium">{connector.name}</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 overflow-hidden">
@@ -180,6 +276,83 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>
+
+            {/* Sponsors Section */}
+            {candidateData.sponsors && candidateData.sponsors.length > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-gray-700/30 rounded-lg border border-gray-600/50 break-all flex-wrap">
+                <span className="text-sm text-gray-400">
+                  {t("sponsors")} ({candidateData.sponsors.length}):
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {candidateData.sponsors.map((sponsor, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <EnsDisplay address={sponsor} />
+                      <a
+                        href={`https://etherscan.io/address/${sponsor}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sponsor Button */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">{t("sponsorCandidate")}</Button>
+              </DialogTrigger>
+              <DialogContent className="bg-gray-800 border-gray-700 text-gray-100">
+                <DialogHeader>
+                  <DialogTitle>{t("sponsorCandidate")}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="validity" className="text-gray-300">
+                      {t("signatureValidity")}
+                    </Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Input
+                        id="validity"
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={validityDays}
+                        onChange={(e) => setValidityDays(Number.parseInt(e.target.value) || 7)}
+                        className="bg-gray-700 border-gray-600 text-gray-100"
+                      />
+                      <span className="text-gray-400">{t("days")}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="reason" className="text-gray-300">
+                      {t("sponsorReason")}
+                    </Label>
+                    <Textarea
+                      id="reason"
+                      value={sponsorReason}
+                      onChange={(e) => setSponsorReason(e.target.value)}
+                      placeholder={t("explainWhy")}
+                      className="bg-gray-700 border-gray-600 text-gray-100 mt-2"
+                      rows={4}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleSponsorClick}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={!isConnected}
+                  >
+                    {isConnected ? t("generateTransaction") : t("connectWallet")}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Transaction */}
             {candidateData.transactionHash && (
