@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useState, useEffect } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,6 @@ import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
 import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
-import { useState } from "react"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import { EnsDisplay } from "./ens-display"
 
@@ -19,6 +19,7 @@ interface ProposalVotingCardProps {
   isDarkMode: boolean
   proposalData?: any
   statusFilter?: string
+  onVisibilityChange?: (visible: boolean) => void // Add callback for visibility tracking
 }
 
 export function ProposalVotingCard({
@@ -26,6 +27,7 @@ export function ProposalVotingCard({
   isDarkMode,
   proposalData,
   statusFilter = "all",
+  onVisibilityChange, // Destructure new prop
 }: ProposalVotingCardProps) {
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
@@ -54,8 +56,13 @@ export function ProposalVotingCard({
 
   const { label: stateLabel, color: stateColor } = getProposalStateLabel(proposal.state)
 
-  // If statusFilter is set and doesn't match this proposal's status, don't render
-  if (statusFilter !== "all" && stateLabel.toUpperCase() !== statusFilter) {
+  const isVisible = statusFilter === "all" || stateLabel.toUpperCase() === statusFilter
+
+  useEffect(() => {
+    onVisibilityChange?.(isVisible)
+  }, [isVisible, onVisibilityChange])
+
+  if (!isVisible) {
     return null
   }
 

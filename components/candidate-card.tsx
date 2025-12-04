@@ -18,7 +18,7 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber }: Cand
   const candidate = useCandidateData(candidateId)
 
   const handleClick = () => {
-    router.push(`/candidate/${candidateId}`)
+    router.push(`/candidate/${candidateNumber}`)
   }
 
   const formatTimeAgo = (timestamp: number) => {

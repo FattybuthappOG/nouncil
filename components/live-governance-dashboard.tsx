@@ -35,6 +35,8 @@ export function LiveGovernanceDashboard() {
   const [recentProposals, setRecentProposals] = useState([])
   const [showSearchDropdown, setShowSearchDropdown] = useState(false) // Declare showSearchDropdown here
   const [isSearching, setIsSearching] = useState(false) // Declare setIsSearching here
+  const [visibleProposalCount, setVisibleProposalCount] = useState(0)
+  const [visibleCandidateCount, setVisibleCandidateCount] = useState(0)
 
   const { proposalIds, totalCount: totalProposals, isLoading: proposalsLoading } = useProposalIds(displayedProposals)
   const { candidates, totalCount: totalCandidates, isLoading: candidatesLoading } = useCandidateIds(displayedCandidates)
@@ -211,7 +213,10 @@ export function LiveGovernanceDashboard() {
     setDisplayedCandidates((prev) => prev + 20)
   }
 
-  const hasMoreProposals = displayedProposals < totalProposals
+  const hasMoreProposals =
+    statusFilter === "all"
+      ? displayedProposals < totalProposals
+      : visibleProposalCount >= displayedProposals && displayedProposals < totalProposals
   const hasMoreCandidates = displayedCandidates < totalCandidates
 
   const MobileMenu = () => (
@@ -284,7 +289,12 @@ export function LiveGovernanceDashboard() {
       return recentProposalIds
     }
     // Filter will be applied when rendering individual cards
-    return recentProposalIds
+    return recentProposalIds.filter((id) => {
+      // Assuming ProposalVotingCard has a way to check status
+      // This is a placeholder implementation
+      const proposal = { status: "ACTIVE" } // Replace with actual proposal data fetching logic
+      return proposal.status === statusFilter
+    })
   }, [recentProposalIds, statusFilter])
 
   return (
@@ -506,6 +516,11 @@ export function LiveGovernanceDashboard() {
                         proposalId={proposalId}
                         isDarkMode={isDarkMode}
                         statusFilter={statusFilter}
+                        onVisibilityChange={(visible) => {
+                          if (visible) {
+                            setVisibleProposalCount((prev) => prev + 1)
+                          }
+                        }}
                       />
                     ))}
                     {hasMoreProposals && (

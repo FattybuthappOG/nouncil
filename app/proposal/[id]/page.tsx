@@ -77,7 +77,7 @@ export default function ProposalDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gray-900 text-white overflow-hidden">
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 sticky top-0 z-50">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-4">
@@ -167,10 +167,10 @@ export default function ProposalDetailPage() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8 overflow-hidden">
         {/* Proposal Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <Badge variant="secondary" className="bg-blue-100 text-blue-800">
               Proposal {proposalId}
             </Badge>
@@ -178,10 +178,10 @@ export default function ProposalDetailPage() {
               {stateLabel}
             </Badge>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-4">{title}</h1>
+          <h1 className="text-3xl font-bold text-white mb-4 break-words">{title}</h1>
           <div className="flex flex-col gap-2 text-sm text-gray-400">
             {proposal.proposer && proposal.proposer !== "0x0000000000000000000000000000000000000000" && (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap break-all">
                 <span>
                   Proposer: <EnsDisplay address={proposal.proposer} className="inline" />
                 </span>
@@ -395,9 +395,9 @@ export default function ProposalDetailPage() {
 
         {/* Description */}
         {content && (
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 overflow-hidden">
             <h2 className="text-xl font-bold text-white mb-4">Description</h2>
-            <div className="prose prose-invert prose-lg max-w-none">
+            <div className="prose prose-invert prose-lg max-w-none break-words overflow-hidden">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{

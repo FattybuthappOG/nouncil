@@ -120,14 +120,14 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
+    <div className="bg-gray-800 rounded-lg p-6 overflow-hidden max-w-full">
       <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
         <FileCode className="w-5 h-5" />
         Transaction Simulator
       </h2>
       <div className="space-y-4">
         {transactions.map((tx, index) => (
-          <div key={index} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+          <div key={index} className="bg-gray-700 rounded-lg p-4 border border-gray-600 overflow-hidden">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="bg-blue-100 text-blue-800">
@@ -146,7 +146,7 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
                 <span className="text-gray-400">To: </span>
                 <div className="flex items-center gap-2 mt-1">
                   {contractNames[tx.target] ? (
-                    <span className="text-white font-medium">{contractNames[tx.target]}</span>
+                    <span className="text-white font-medium truncate">{contractNames[tx.target]}</span>
                   ) : (
                     <EnsDisplay address={tx.target as `0x${string}`} />
                   )}
@@ -154,25 +154,27 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
                     href={`https://etherscan.io/address/${tx.target}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    className="text-blue-400 hover:text-blue-300 flex items-center gap-1 shrink-0"
                   >
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
-                <code className="block mt-1 text-xs text-gray-500 font-mono">{tx.target}</code>
+                <code className="block mt-1 text-xs text-gray-500 font-mono break-all">{tx.target}</code>
               </div>
 
               {tx.signature && (
                 <div>
                   <span className="text-gray-400">Function: </span>
-                  <code className="text-green-400 font-mono text-xs">{tx.signature}</code>
+                  <code className="text-green-400 font-mono text-xs break-all overflow-wrap-anywhere block">
+                    {tx.signature}
+                  </code>
                 </div>
               )}
 
               {tx.calldata && tx.calldata !== "0x" && (
                 <div>
                   <span className="text-gray-400">Calldata: </span>
-                  <code className="block mt-1 text-xs text-gray-500 font-mono break-all bg-gray-900 p-2 rounded">
+                  <code className="block mt-1 text-xs text-gray-500 font-mono break-all bg-gray-900 p-2 rounded overflow-hidden">
                     {tx.calldata.length > 200 ? `${tx.calldata.slice(0, 200)}...` : tx.calldata}
                   </code>
                 </div>
