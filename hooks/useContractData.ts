@@ -104,6 +104,7 @@ const PROPOSAL_STATE_NAMES = [
 
 export function useProposalIds(limit = 15) {
   const [proposalIds, setProposalIds] = useState<number[]>([])
+  const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -135,7 +136,11 @@ export function useProposalIds(limit = 15) {
         if (data?.data?.proposals) {
           const ids = data.data.proposals.map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
+          if (ids.length > 0) {
+            setTotalCount(Math.max(...ids))
+          }
           console.log("[v0] Fetched proposal IDs from Subgraph:", ids)
+          console.log("[v0] Total proposal count:", Math.max(...ids))
         }
       } catch (error) {
         console.error("[v0] Failed to fetch proposal IDs:", error)
@@ -147,12 +152,12 @@ export function useProposalIds(limit = 15) {
     fetchProposalIds()
   }, [limit])
 
-  return { proposalIds, isLoading }
+  return { proposalIds, totalCount, isLoading }
 }
 
 export function useProposalData(proposalId: number) {
   const [currentBlock, setCurrentBlock] = useState<number>(0)
-  
+
   const [proposalData, setProposalData] = useState({
     id: proposalId,
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
@@ -167,6 +172,10 @@ export function useProposalData(proposalId: number) {
     startBlock: BigInt(0),
     endBlock: BigInt(0),
     transactionHash: "",
+    targets: [] as string[],
+    values: [] as string[],
+    signatures: [] as string[],
+    calldatas: [] as string[],
     isLoading: true,
     error: false,
   })
@@ -181,26 +190,27 @@ export function useProposalData(proposalId: number) {
   useEffect(() => {
     const fetchCurrentBlock = async () => {
       try {
-        const response = await fetch('https://eth.merkle.io', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("https://eth.merkle.io", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'eth_blockNumber',
+            jsonrpc: "2.0",
+            method: "eth_blockNumber",
             params: [],
-            id: 1
-          })
+            id: 1,
+          }),
         })
         const data = await response.json()
         if (data.result) {
-          setCurrentBlock(parseInt(data.result, 16))
+          setCurrentBlock(Number.parseInt(data.result, 16))
         }
       } catch (error) {
-        console.error('[v0] Failed to fetch current block:', error)
+        // Silently fail - block number is optional for timing display
+        // Use proposal state from Subgraph API as primary source of truth
       }
     }
     fetchCurrentBlock()
-    const interval = setInterval(fetchCurrentBlock, 15000) // Update every 15 seconds
+    const interval = setInterval(fetchCurrentBlock, 30000) // Update every 30 seconds (reduced frequency)
     return () => clearInterval(interval)
   }, [])
 
@@ -232,6 +242,10 @@ export function useProposalData(proposalId: number) {
                   startBlock
                   endBlock
                   createdTransactionHash
+                  targets
+                  values
+                  signatures
+                  calldatas
                 }
               }
             `,
@@ -254,7 +268,6 @@ export function useProposalData(proposalId: number) {
 
           const stateNum = Number(stateData || 1)
 
-          // quorumVotes is also a simple number
           setProposalData({
             id: proposalId,
             proposer: proposal.proposer?.id || "0x0000000000000000000000000000000000000000",
@@ -269,6 +282,10 @@ export function useProposalData(proposalId: number) {
             startBlock: BigInt(proposal.startBlock || 0),
             endBlock: BigInt(proposal.endBlock || 0),
             transactionHash: proposal.createdTransactionHash || "",
+            targets: proposal.targets || [],
+            values: proposal.values || [],
+            signatures: proposal.signatures || [],
+            calldatas: proposal.calldatas || [],
             isLoading: false,
             error: false,
           })
@@ -321,12 +338,35 @@ export function useBatchProposals(proposalIds: number[]) {
 // Candidate fetching hooks
 export function useCandidateIds(limit = 15) {
   const [candidates, setCandidates] = useState<any[]>([])
+  const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
-        // Fetch all candidate data in one query
+        const countResponse = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
+                  id
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const countData = await countResponse.json()
+        if (countData?.data?.proposalCandidates) {
+          setTotalCount(countData.data.proposalCandidates.length)
+          console.log("[v0] Total candidates count:", countData.data.proposalCandidates.length)
+        }
+
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -342,16 +382,21 @@ export function useCandidateIds(limit = 15) {
                 ) {
                   id
                   slug
-                  proposer {
-                    id
-                  }
-                  description
+                  proposer
                   createdTimestamp
                   createdTransactionHash
-                  signers {
-                    id
+                  latestVersion {
+                    content {
+                      title
+                      description
+                      matchingProposalIds
+                      targets
+                      values
+                      signatures
+                      calldatas
+                    }
                   }
-                  proposalIdToUpdate
+                  canceledTimestamp
                 }
               }
             `,
@@ -360,34 +405,33 @@ export function useCandidateIds(limit = 15) {
         )
 
         const data = await response.json()
-        console.log("[v0] Candidates full data response:", data)
+        console.log("[v0] Candidates full data response:", JSON.stringify(data))
 
         if (data?.data?.proposalCandidates) {
           const candidatesList = data.data.proposalCandidates.map((c: any) => {
-            const desc = c.description || `Candidate ${c.id}`
-            const title =
-              desc
-                .split("\n")[0]
-                .replace(/^#+\s*/, "")
-                .trim() ||
-              c.slug ||
-              `Candidate ${c.id}`
+            const content = c.latestVersion?.content || {}
+            const desc = content.description || `Candidate ${c.id}`
+            const title = content.title || c.slug || `Candidate ${c.id}`
 
             return {
               id: c.id,
               slug: c.slug || "",
-              proposer: c.proposer?.id || "0x0000000000000000000000000000000000000000",
+              proposer: c.proposer || "0x0000000000000000000000000000000000000000",
               description: title,
               fullDescription: desc,
-              signers: c.signers?.map((s: any) => s.id) || [],
-              sponsorCount: c.signers?.length || 0,
-              sponsorThreshold: 2,
               createdTimestamp: Number(c.createdTimestamp || 0),
               transactionHash: c.createdTransactionHash || "",
+              targets: content.targets || [],
+              values: content.values || [],
+              signatures: content.signatures || [],
+              calldatas: content.calldatas || [],
+              canceled: !!c.canceledTimestamp,
             }
           })
           setCandidates(candidatesList)
           console.log("[v0] Processed candidates:", candidatesList.length)
+        } else if (data?.errors) {
+          console.error("[v0] GraphQL errors:", data.errors)
         }
       } catch (error) {
         console.error("[v0] Failed to fetch candidates:", error)
@@ -399,7 +443,7 @@ export function useCandidateIds(limit = 15) {
     fetchCandidates()
   }, [limit])
 
-  return { candidates, isLoading }
+  return { candidates, totalCount, isLoading }
 }
 
 export function useCandidateData(candidateId: string) {
@@ -409,11 +453,13 @@ export function useCandidateData(candidateId: string) {
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
     description: `Candidate ${candidateId}`,
     fullDescription: "",
-    signers: [] as string[],
-    sponsorCount: 0,
-    sponsorThreshold: 2,
     createdTimestamp: 0,
     transactionHash: "",
+    targets: [] as string[],
+    values: [] as string[],
+    signatures: [] as string[],
+    calldatas: [] as string[],
+    canceled: false,
     isLoading: true,
     error: false,
   })
@@ -421,7 +467,6 @@ export function useCandidateData(candidateId: string) {
   useEffect(() => {
     const fetchCandidateFromAPI = async () => {
       try {
-        // Fetch from the list with filter
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -430,19 +475,24 @@ export function useCandidateData(candidateId: string) {
             body: JSON.stringify({
               query: `
               query {
-                proposalCandidates(where: { id: "${candidateId}" }) {
+                proposalCandidate(id: "${candidateId}") {
                   id
                   slug
-                  proposer {
-                    id
-                  }
-                  description
+                  proposer
                   createdTimestamp
                   createdTransactionHash
-                  signers {
-                    id
+                  latestVersion {
+                    content {
+                      title
+                      description
+                      matchingProposalIds
+                      targets
+                      values
+                      signatures
+                      calldatas
+                    }
                   }
-                  proposalIdToUpdate
+                  canceledTimestamp
                 }
               }
             `,
@@ -451,32 +501,28 @@ export function useCandidateData(candidateId: string) {
         )
 
         const data = await response.json()
-        const candidates = data?.data?.proposalCandidates
-        const candidate = candidates?.[0]
+        const candidate = data?.data?.proposalCandidate
 
         console.log(`[v0] Fetched candidate ${candidateId} from Subgraph:`, candidate)
 
         if (candidate) {
-          const desc = candidate.description || `Candidate ${candidateId}`
-          const title =
-            desc
-              .split("\n")[0]
-              .replace(/^#+\s*/, "")
-              .trim() ||
-            candidate.slug ||
-            `Candidate ${candidateId}`
+          const content = candidate.latestVersion?.content || {}
+          const desc = content.description || `Candidate ${candidateId}`
+          const title = content.title || candidate.slug || `Candidate ${candidateId}`
 
           setCandidateData({
             id: candidateId,
             slug: candidate.slug || "",
-            proposer: candidate.proposer?.id || "0x0000000000000000000000000000000000000000",
+            proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
             description: title,
             fullDescription: desc,
-            signers: candidate.signers?.map((s: any) => s.id) || [],
-            sponsorCount: candidate.signers?.length || 0,
-            sponsorThreshold: 2,
             createdTimestamp: Number(candidate.createdTimestamp || 0),
             transactionHash: candidate.createdTransactionHash || "",
+            targets: content.targets || [],
+            values: content.values || [],
+            signatures: content.signatures || [],
+            calldatas: content.calldatas || [],
+            canceled: !!candidate.canceledTimestamp,
             isLoading: false,
             error: false,
           })

@@ -8,19 +8,24 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, Users, ExternalLink } from "lucide-react"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from "wagmi"
 import { useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
+import { EnsDisplay } from "@/components/ens-display"
+import { TransactionSimulator } from "@/components/transaction-simulator"
 
 export default function ProposalDetailPage() {
   const params = useParams()
   const router = useRouter()
   const proposalId = Number.parseInt(params.id as string)
   const { isConnected, address } = useAccount()
+  const { connectors, connect } = useConnect()
+  const { disconnect } = useDisconnect()
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
+  const [showWalletDialog, setShowWalletDialog] = useState(false)
 
   const { data: hash, writeContract, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
@@ -37,9 +42,9 @@ export default function ProposalDetailPage() {
   const abstainPercentage = totalVotes > 0 ? (Number(proposal.abstainVotes) / totalVotes) * 100 : 0
   const quorumPercentage = Number(proposal.quorum) > 0 ? (totalVotes / Number(proposal.quorum)) * 100 : 0
 
-  const handleVote = (support: number) => {
+  const handleVote = async (support: number) => {
     if (!isConnected) {
-      router.push("/")
+      setShowWalletDialog(true)
       return
     }
     setSelectedSupport(support)
@@ -72,39 +77,47 @@ export default function ProposalDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-900 text-white">
+      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 sticky top-0 z-50">
+        <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.back()}
+              onClick={() => router.push("/")}
               className="text-gray-300 hover:text-white hover:bg-gray-700"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
             <img src="/images/logo.webp" alt="Nouncil Logo" className="w-8 h-8 object-contain" />
-            <span className="text-gray-300 text-sm">Nouncil</span>
+            <span className="text-gray-300 text-sm hidden sm:inline">Nouncil</span>
           </div>
 
           {isConnected ? (
-            <div className="flex items-center gap-2 text-gray-300 text-sm">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span className="hidden sm:inline">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-gray-300 text-sm">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="hidden sm:inline">
+                  <EnsDisplay address={address} />
+                </span>
+              </div>
+              <Button
+                onClick={() => disconnect()}
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white hover:bg-gray-700"
+              >
+                Disconnect
+              </Button>
             </div>
           ) : (
             <Button
-              onClick={() => router.push("/")}
-              variant="ghost"
+              onClick={() => setShowWalletDialog(true)}
               size="sm"
-              className="flex items-center gap-2 text-gray-300 hover:text-white hover:bg-gray-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -112,13 +125,48 @@ export default function ProposalDetailPage() {
                   d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                 />
               </svg>
-              <span className="hidden sm:inline">Connect on Home</span>
+              Connect Wallet
             </Button>
           )}
         </div>
       </header>
 
-      {/* Content */}
+      {showWalletDialog && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full border border-gray-700 shadow-2xl">
+            <h2 className="text-xl font-bold text-white mb-4">Connect Your Wallet</h2>
+            <div className="space-y-3">
+              {connectors.map((connector) => (
+                <button
+                  key={connector.id}
+                  onClick={() => {
+                    connect({ connector })
+                    setShowWalletDialog(false)
+                  }}
+                  className="w-full flex items-center gap-3 p-4 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-left border border-gray-600"
+                >
+                  <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
+                  </svg>
+                  <span className="font-medium text-white">{connector.name}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowWalletDialog(false)}
+              className="w-full mt-4 p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Proposal Header */}
         <div className="mb-6">
@@ -126,7 +174,7 @@ export default function ProposalDetailPage() {
             <Badge variant="secondary" className="bg-blue-100 text-blue-800">
               Proposal {proposalId}
             </Badge>
-            <Badge variant="outline" className={`text-${stateColor}-600 border-${stateColor}-600`}>
+            <Badge variant="outline" className={`text-${stateColor}-400 border-${stateColor}-400`}>
               {stateLabel}
             </Badge>
           </div>
@@ -135,7 +183,7 @@ export default function ProposalDetailPage() {
             {proposal.proposer && proposal.proposer !== "0x0000000000000000000000000000000000000000" && (
               <div className="flex items-center gap-4">
                 <span>
-                  Proposer: {proposal.proposer.slice(0, 6)}...{proposal.proposer.slice(-4)}
+                  Proposer: <EnsDisplay address={proposal.proposer} className="inline" />
                 </span>
                 <a
                   href={`https://etherscan.io/address/${proposal.proposer}`}
@@ -144,21 +192,6 @@ export default function ProposalDetailPage() {
                   className="flex items-center gap-1 hover:text-blue-400 transition-colors"
                 >
                   View on Etherscan <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            )}
-            {proposal.transactionHash && (
-              <div className="flex items-center gap-4">
-                <span>
-                  Transaction: {proposal.transactionHash.slice(0, 10)}...{proposal.transactionHash.slice(-8)}
-                </span>
-                <a
-                  href={`https://etherscan.io/tx/${proposal.transactionHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 hover:text-blue-400 transition-colors"
-                >
-                  View Transaction <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             )}
@@ -205,15 +238,18 @@ export default function ProposalDetailPage() {
           </div>
         )}
 
+        {/* Transaction Simulator */}
+        <TransactionSimulator proposalId={proposalId} />
+
         {/* Voting Stats */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
           <h2 className="text-xl font-bold text-white mb-4">Voting Results</h2>
 
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <div className="flex items-center gap-2">
-                  <ThumbsUp className="w-4 h-4 text-green-600" />
+                  <ThumbsUp className="w-4 h-4 text-green-500" />
                   <span className="text-gray-300">For</span>
                 </div>
                 <span className="font-medium text-white">
@@ -231,7 +267,7 @@ export default function ProposalDetailPage() {
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <div className="flex items-center gap-2">
-                  <ThumbsDown className="w-4 h-4 text-red-600" />
+                  <ThumbsDown className="w-4 h-4 text-red-500" />
                   <span className="text-gray-300">Against</span>
                 </div>
                 <span className="font-medium text-white">
@@ -249,7 +285,7 @@ export default function ProposalDetailPage() {
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <div className="flex items-center gap-2">
-                  <Minus className="w-4 h-4 text-yellow-600" />
+                  <Minus className="w-4 h-4 text-yellow-500" />
                   <span className="text-gray-300">Abstain</span>
                 </div>
                 <span className="font-medium text-white">
@@ -284,14 +320,7 @@ export default function ProposalDetailPage() {
             </div>
           </div>
 
-          {!isConnected ? (
-            <Button
-              onClick={() => router.push("/")}
-              className="w-full py-3 mt-6 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Connect Wallet to Vote
-            </Button>
-          ) : isConfirmed ? (
+          {isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-3 mt-6">
               <Badge variant="secondary" className="bg-green-100 text-green-800">
                 Vote Submitted Successfully!
@@ -305,16 +334,15 @@ export default function ProposalDetailPage() {
                   <div className="flex gap-3">
                     <Button onClick={() => handleVote(1)} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
                       <ThumbsUp className="w-4 h-4 mr-2" />
-                      Vote For
+                      For
                     </Button>
-                    <Button onClick={() => handleVote(0)} variant="destructive" className="flex-1">
+                    <Button onClick={() => handleVote(0)} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
                       <ThumbsDown className="w-4 h-4 mr-2" />
-                      Vote Against
+                      Against
                     </Button>
                     <Button
                       onClick={() => handleVote(2)}
-                      variant="outline"
-                      className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700"
+                      className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white"
                     >
                       <Minus className="w-4 h-4 mr-2" />
                       Abstain
@@ -367,7 +395,7 @@ export default function ProposalDetailPage() {
 
         {/* Description */}
         {content && (
-          <div className="bg-gray-800 rounded-lg p-6">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <h2 className="text-xl font-bold text-white mb-4">Description</h2>
             <div className="prose prose-invert prose-lg max-w-none">
               <ReactMarkdown

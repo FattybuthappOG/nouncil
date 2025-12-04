@@ -20,10 +20,10 @@ export function TreasuryDropdown({ isDarkMode }: TreasuryDropdownProps) {
       variant="ghost"
       size="sm"
       onClick={handleClick}
-      className={`flex items-center gap-2 ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"}`}
+      className={`w-full sm:w-auto flex items-center gap-2 ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"}`}
     >
       <Wallet className="w-4 h-4" />
-      <span className="hidden sm:inline">Treasury</span>
+      <span>Treasury</span>
       <ExternalLink className="w-3 h-3" />
     </Button>
   )

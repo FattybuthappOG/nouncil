@@ -5,44 +5,44 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useAccount, useConnect, useDisconnect } from "wagmi"
 import { TreasuryDropdown } from "./treasury-dropdown"
 import { ProposalVotingCard } from "./proposal-voting-card"
 import { CandidateCard } from "./candidate-card"
-import { useGovernorData, useRealtimeEvents, useCandidateIds } from "@/hooks/useContractData"
+import { useCandidateIds, useProposalIds } from "@/hooks/useContractData"
+import { EnsDisplay } from "./ens-display"
+import { useRouter } from "next/navigation"
+import { Badge } from "@/components/ui/badge"
 
 export function LiveGovernanceDashboard() {
-  const [isDarkMode, setIsDarkMode] = useState(true)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const router = useRouter()
+  const { address, isConnected } = useAccount()
+  const { connectors, connect } = useConnect()
+  const { disconnect } = useDisconnect()
   const [isMounted, setIsMounted] = useState(false)
-  const [proposalCount, setProposalCount] = useState(0)
-  const [displayedProposals, setDisplayedProposals] = useState(15)
-  const [recentVotes, setRecentVotes] = useState([])
-  const [recentProposals, setRecentProposals] = useState([])
+  const [isDarkMode, setIsDarkMode] = useState(true)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showWalletDialog, setShowWalletDialog] = useState(false)
   const [activeTab, setActiveTab] = useState<"proposals" | "candidates">("proposals")
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [displayedProposals, setDisplayedProposals] = useState(15)
+  const [displayedCandidates, setDisplayedCandidates] = useState(15)
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [recentVotes, setRecentVotes] = useState([])
+  const [recentProposals, setRecentProposals] = useState([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false) // Declare showSearchDropdown here
+  const [isSearching, setIsSearching] = useState(false) // Declare setIsSearching here
 
-  const { proposalCount: contractProposalCount, isLoading: isLoadingCount } = useGovernorData()
-  const { recentVotes: realRecentVotes, recentProposals: realRecentProposals } = useRealtimeEvents()
-  const { candidates, isLoading: isLoadingCandidates } = useCandidateIds(15)
+  const { proposalIds, totalCount: totalProposals, isLoading: proposalsLoading } = useProposalIds(displayedProposals)
+  const { candidates, totalCount: totalCandidates, isLoading: candidatesLoading } = useCandidateIds(displayedCandidates)
   const safeCandidates = candidates || []
 
   useEffect(() => {
     setIsMounted(true)
-    if (contractProposalCount) {
-      setProposalCount(contractProposalCount)
-    }
-    setRecentVotes(realRecentVotes)
-    setRecentProposals(realRecentProposals)
-  }, [contractProposalCount, realRecentVotes, realRecentProposals])
-
-  const { address, isConnected } = useAccount()
-  const { disconnect } = useDisconnect()
-  const { connect, connectors } = useConnect()
+  }, [])
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
@@ -72,15 +72,40 @@ export function LiveGovernanceDashboard() {
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query)
+    setIsSearching(true)
 
     if (query.trim().length < 2) {
       setSearchResults([])
       setShowSearchDropdown(false)
+      setIsSearching(false)
       return
     }
 
+    if (activeTab === "candidates") {
+      // Search candidates by number or title
+      const matchedCandidates = safeCandidates.filter((candidate, index) => {
+        const candidateNumber = totalCandidates - index
+        const numberMatch = candidateNumber.toString().includes(query)
+        const titleMatch = candidate.description.toLowerCase().includes(query.toLowerCase())
+        return numberMatch || titleMatch
+      })
+
+      setSearchResults(
+        matchedCandidates.slice(0, 10).map((candidate, index) => ({
+          id: candidate.id,
+          title: candidate.description,
+          number: totalCandidates - safeCandidates.findIndex((c) => c.id === candidate.id),
+          type: "candidate",
+        })),
+      )
+      setShowSearchDropdown(true)
+      setIsSearching(false)
+      return
+    }
+
+    // Existing proposal search logic
     try {
-      console.log("[v0] Searching for:", query)
+      console.log("[v0] Searching proposals for:", query)
 
       // Check if query is a number (proposal ID search)
       const isNumericSearch = /^\d+$/.test(query.trim())
@@ -143,6 +168,7 @@ export function LiveGovernanceDashboard() {
               ?.replace(/^#+\s*/, "")
               .trim() || `Proposal ${p.id}`,
           status: p.status,
+          type: "proposal",
         }))
 
         setSearchResults(formattedResults)
@@ -155,34 +181,38 @@ export function LiveGovernanceDashboard() {
       console.error("[v0] Search error:", error)
       setSearchResults([])
       setShowSearchDropdown(false)
+    } finally {
+      setIsSearching(false)
     }
   }
 
-  const handleSelectProposal = (proposalId: string) => {
-    console.log("[v0] Navigating to proposal:", proposalId)
-    setShowSearchDropdown(false)
+  const handleSelectProposal = (id: string, type: "proposal" | "candidate" = "proposal") => {
+    console.log("[v0] Selected:", type, id)
+    if (type === "candidate") {
+      router.push(`/candidate/${id}`)
+    } else {
+      router.push(`/proposal/${id}`)
+    }
     setSearchQuery("")
     setSearchResults([])
-    window.location.href = `/proposal/${proposalId}`
+    setShowSearchDropdown(false)
   }
 
   const safeRecentVotes = recentVotes || []
   const safeRecentProposals = recentProposals || []
 
-  const safeProposalCount = proposalCount || 0
-
-  const recentProposalIds = Array.from(
-    { length: Math.min(safeProposalCount, displayedProposals) },
-    (_, i) => safeProposalCount - i,
-  )
-    .filter((id) => id > 0)
-    .slice(0, 15) // Only load 15 at a time max
+  const recentProposalIds = proposalIds?.slice(0, displayedProposals) || []
 
   const loadMoreProposals = () => {
-    setDisplayedProposals((prev) => Math.min(prev + 10, safeProposalCount)) // Load 10 more at a time instead of 15
+    setDisplayedProposals((prev) => prev + 20)
   }
 
-  const hasMoreProposals = displayedProposals < safeProposalCount
+  const loadMoreCandidates = () => {
+    setDisplayedCandidates((prev) => prev + 20)
+  }
+
+  const hasMoreProposals = displayedProposals < totalProposals
+  const hasMoreCandidates = displayedCandidates < totalCandidates
 
   const MobileMenu = () => (
     <div className="flex flex-col gap-3 p-4">
@@ -200,12 +230,10 @@ export function LiveGovernanceDashboard() {
         className={`w-full justify-start gap-2 ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"}`}
         onClick={() => {
           window.open("https://discord.gg/tnyXJZsGnq", "_blank")
-          setIsMobileMenuOpen(false)
+          setShowMobileMenu(false)
         }}
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0 a.074.074 0 0 1 .077.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-        </svg>
+        <img src="/images/discord-logo.svg" alt="Discord" className="w-4 h-4" />
         <div className="flex flex-col items-start">
           <span className="text-sm font-medium">Discord</span>
           <span className="text-xs opacity-75">Thursdays 10am EST</span>
@@ -217,27 +245,47 @@ export function LiveGovernanceDashboard() {
         className={`w-full justify-start ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"}`}
         onClick={() => {
           window.open("https://nouns.wtf/delegate?to=0xcC2688350d29623E2A0844Cc8885F9050F0f6Ed5", "_blank")
-          setIsMobileMenuOpen(false)
+          setShowMobileMenu(false)
         }}
       >
         Delegate to Nouncil
       </Button>
 
-      <div onClick={() => setIsMobileMenuOpen(false)}>
+      <div onClick={() => setShowMobileMenu(false)}>
         <TreasuryDropdown isDarkMode={isDarkMode} />
       </div>
+
+      <Button
+        variant="ghost"
+        className={`w-full justify-start gap-2 ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-gray-700" : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"}`}
+        onClick={() => {
+          window.open("https://nouns.world/", "_blank")
+          setShowMobileMenu(false)
+        }}
+      >
+        <img src="/images/nounsworld.gif" alt="Nouns World" className="w-5 h-5" />
+        <span>Learn about Nouns</span>
+      </Button>
 
       <Button
         className="w-full bg-red-600 hover:bg-red-700 text-white font-medium mt-2"
         onClick={() => {
           window.open("https://togatime.cloudnouns.com/", "_blank")
-          setIsMobileMenuOpen(false)
+          setShowMobileMenu(false)
         }}
       >
         Generate Toga PFP
       </Button>
     </div>
   )
+
+  const filteredProposalIds = useMemo(() => {
+    if (statusFilter === "all") {
+      return recentProposalIds
+    }
+    // Filter will be applied when rendering individual cards
+    return recentProposalIds
+  }, [recentProposalIds, statusFilter])
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? "bg-gray-900" : "bg-gray-50"}`}>
@@ -268,12 +316,12 @@ export function LiveGovernanceDashboard() {
                 />
               </svg>
               <span className="hidden sm:inline">
-                {isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : "Connect Wallet"}
+                {isConnected ? <EnsDisplay address={address} /> : "Connect Wallet"}
               </span>
             </Button>
 
             {/* Menu Button - Now after wallet button */}
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <Sheet open={showMobileMenu} onOpenChange={setShowMobileMenu}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
@@ -352,7 +400,11 @@ export function LiveGovernanceDashboard() {
               onChange={(e) => handleSearch(e.target.value)}
               onFocus={() => searchResults.length > 0 && setShowSearchDropdown(true)}
               onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-              placeholder="Search proposals by number or title..."
+              placeholder={
+                activeTab === "proposals"
+                  ? "Search proposals by number or title..."
+                  : "Search candidates by number or title..."
+              }
               className={`pl-10 border-0 rounded-lg transition-colors duration-200 ${
                 isDarkMode
                   ? "bg-gray-800 text-gray-200 placeholder-gray-500"
@@ -363,33 +415,24 @@ export function LiveGovernanceDashboard() {
             {/* Search Results Dropdown */}
             {showSearchDropdown && searchResults.length > 0 && (
               <div
-                className={`absolute top-full left-0 right-0 mt-2 rounded-lg border shadow-lg z-50 max-h-96 overflow-y-auto ${
+                className={`absolute left-0 right-0 mt-2 rounded-lg border shadow-lg z-50 max-h-80 overflow-y-auto ${
                   isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                 }`}
               >
                 {searchResults.map((result) => (
                   <button
                     key={result.id}
-                    onClick={() => handleSelectProposal(result.id)}
-                    className={`w-full text-left p-4 border-b transition-colors ${
-                      isDarkMode ? "border-gray-700 hover:bg-gray-700" : "border-gray-200 hover:bg-gray-50"
+                    onClick={() => handleSelectProposal(result.id, result.type || "proposal")}
+                    className={`w-full text-left px-4 py-3 transition-colors ${
+                      isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className={`font-medium mb-1 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                          Proposal {result.id}
-                        </div>
-                        <div className={`text-sm truncate ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                          {result.title}
-                        </div>
-                      </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
-                          isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {result.status || "Active"}
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        {result.type === "candidate" ? `Candidate #${result.number}` : `#${result.number}`}
+                      </Badge>
+                      <span className={`font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+                        {result.title}
                       </span>
                     </div>
                   </button>
@@ -400,79 +443,95 @@ export function LiveGovernanceDashboard() {
 
           {/* Navigation Tabs - Horizontal scroll on mobile */}
           <div
-            className={`flex gap-4 sm:gap-6 mb-4 sm:mb-6 border-b transition-colors duration-200 overflow-x-auto pb-3 ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}
+            className={`flex items-center justify-between gap-4 mb-4 sm:mb-6 border-b transition-colors duration-200 pb-3 ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}
           >
-            <button
-              onClick={() => setActiveTab("proposals")}
-              className={`pb-3 transition-colors whitespace-nowrap border-b-2 ${
-                activeTab === "proposals"
-                  ? isDarkMode
-                    ? "border-blue-500 text-blue-400"
-                    : "border-blue-600 text-blue-600"
-                  : isDarkMode
-                    ? "border-transparent text-gray-400 hover:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+            <div className="flex gap-4 sm:gap-6 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab("proposals")}
+                className={`pb-3 transition-colors whitespace-nowrap border-b-2 ${
+                  activeTab === "proposals"
+                    ? isDarkMode
+                      ? "border-blue-500 text-blue-400"
+                      : "border-blue-600 text-blue-600"
+                    : isDarkMode
+                      ? "border-transparent text-gray-400 hover:text-blue-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Proposals ({totalProposals})
+              </button>
+              <button
+                onClick={() => setActiveTab("candidates")}
+                className={`pb-3 transition-colors whitespace-nowrap border-b-2 ${
+                  activeTab === "candidates"
+                    ? isDarkMode
+                      ? "border-blue-500 text-blue-400"
+                      : "border-blue-600 text-blue-600"
+                    : isDarkMode
+                      ? "border-transparent text-gray-400 hover:text-blue-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Candidates ({totalCandidates})
+              </button>
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                isDarkMode
+                  ? "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              } border`}
             >
-              Proposals ({proposalCount})
-            </button>
-            <button
-              onClick={() => setActiveTab("candidates")}
-              className={`pb-3 transition-colors whitespace-nowrap border-b-2 ${
-                activeTab === "candidates"
-                  ? isDarkMode
-                    ? "border-blue-500 text-blue-400"
-                    : "border-blue-600 text-blue-600"
-                  : isDarkMode
-                    ? "border-transparent text-gray-400 hover:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Candidates ({safeCandidates.length})
-            </button>
+              <option value="all">Show All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="EXECUTED">Executed</option>
+              <option value="DEFEATED">Defeated</option>
+            </select>
           </div>
 
-          {/* Live Activity Feed */}
-          <div className="space-y-3 sm:space-y-4">
-            {activeTab === "proposals" ? (
+          {/* Content Grid */}
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
+            {activeTab === "proposals" && (
               <>
-                {recentProposalIds.length > 0 ? (
+                {proposalsLoading ? (
+                  <div className="text-center py-12 text-gray-500">Loading proposals...</div>
+                ) : filteredProposalIds.length > 0 ? (
                   <>
-                    {recentProposalIds.map((proposalId) => (
-                      <ProposalVotingCard key={proposalId} proposalId={proposalId} isDarkMode={isDarkMode} />
+                    {filteredProposalIds.map((proposalId) => (
+                      <ProposalVotingCard
+                        key={proposalId}
+                        proposalId={proposalId}
+                        isDarkMode={isDarkMode}
+                        statusFilter={statusFilter}
+                      />
                     ))}
-
                     {hasMoreProposals && (
-                      <div className="flex justify-center pt-4">
-                        <Button
+                      <div className="col-span-full flex justify-center mt-6">
+                        <button
                           onClick={loadMoreProposals}
-                          variant="outline"
-                          className={`${
+                          className={`px-6 py-3 rounded-lg transition-colors font-medium ${
                             isDarkMode
-                              ? "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
-                              : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                              ? "bg-blue-600 hover:bg-blue-700 text-white"
+                              : "bg-blue-500 hover:bg-blue-600 text-white"
                           }`}
                         >
-                          Load More Proposals ({displayedProposals}/{safeProposalCount})
-                        </Button>
+                          Load 20 More Proposals
+                        </button>
                       </div>
                     )}
                   </>
                 ) : (
-                  <div
-                    className={`flex items-center justify-center p-8 rounded-lg border ${
-                      isDarkMode
-                        ? "bg-gray-800 border-gray-700 text-gray-400"
-                        : "bg-white border-gray-200 text-gray-500"
-                    }`}
-                  >
-                    <p>Loading proposals from Nouns DAO...</p>
-                  </div>
+                  <div className="text-center py-12 text-gray-500">No proposals found</div>
                 )}
               </>
-            ) : (
+            )}
+
+            {activeTab === "candidates" && (
               <>
-                {isLoadingCandidates ? (
+                {candidatesLoading ? (
                   <div
                     className={`flex items-center justify-center p-8 rounded-lg border ${
                       isDarkMode
@@ -483,9 +542,30 @@ export function LiveGovernanceDashboard() {
                     <p>Loading candidates from Nouns DAO...</p>
                   </div>
                 ) : safeCandidates.length > 0 ? (
-                  safeCandidates.map((candidate) => (
-                    <CandidateCard key={candidate.id} candidateId={candidate.id} isDarkMode={isDarkMode} />
-                  ))
+                  <>
+                    {safeCandidates.map((candidate, index) => (
+                      <CandidateCard
+                        key={candidate.id}
+                        candidateId={candidate.id}
+                        isDarkMode={isDarkMode}
+                        candidateNumber={totalCandidates - index}
+                      />
+                    ))}
+                    {hasMoreCandidates && (
+                      <div className="col-span-full flex justify-center mt-6">
+                        <button
+                          onClick={loadMoreCandidates}
+                          className={`px-6 py-3 rounded-lg transition-colors font-medium ${
+                            isDarkMode
+                              ? "bg-blue-600 hover:bg-blue-700 text-white"
+                              : "bg-blue-500 hover:bg-blue-600 text-white"
+                          }`}
+                        >
+                          Load 20 More Candidates
+                        </button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div
                     className={`flex items-center justify-center p-8 rounded-lg border ${

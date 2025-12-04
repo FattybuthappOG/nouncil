@@ -12,14 +12,21 @@ import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { useState } from "react"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
+import { EnsDisplay } from "./ens-display"
 
 interface ProposalVotingCardProps {
   proposalId: number
   isDarkMode: boolean
   proposalData?: any
+  statusFilter?: string
 }
 
-export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: ProposalVotingCardProps) {
+export function ProposalVotingCard({
+  proposalId,
+  isDarkMode,
+  proposalData,
+  statusFilter = "all",
+}: ProposalVotingCardProps) {
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
@@ -30,22 +37,55 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
   const { data: hash, writeContract, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
 
-  const { data: currentBlockData } = useBlockNumber({ watch: true })
-  const currentBlock = Number(currentBlockData || 0)
+  const { data: currentBlockData, isError: blockError } = useBlockNumber({
+    watch: true,
+    cacheTime: 10_000,
+    query: {
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  })
+  const currentBlock = currentBlockData ? Number(currentBlockData) : null
 
   const { title, media } = parseProposalDescription(proposal.description || `Proposal ${proposalId}`)
 
-  const votingEnded = currentBlock > Number(proposal.endBlock)
-  const votingStarted = currentBlock >= Number(proposal.startBlock)
-  const blocksRemaining = votingEnded ? 0 : Number(proposal.endBlock) - currentBlock
-  const hoursRemaining = Math.floor((blocksRemaining * 12) / 3600)
-  const daysRemaining = Math.floor(hoursRemaining / 24)
-
-  const blocksEnded = currentBlock - Number(proposal.endBlock)
-  const hoursEnded = Math.floor((blocksEnded * 12) / 3600)
-  const daysEnded = Math.floor(hoursEnded / 24)
+  const votingIsActive = proposal.state === 1 // Active state from Subgraph
+  const showTiming = currentBlock !== null && !blockError
 
   const { label: stateLabel, color: stateColor } = getProposalStateLabel(proposal.state)
+
+  // If statusFilter is set and doesn't match this proposal's status, don't render
+  if (statusFilter !== "all" && stateLabel.toUpperCase() !== statusFilter) {
+    return null
+  }
+
+  let timingDisplay = null
+  if (showTiming && currentBlock) {
+    const votingEnded = currentBlock > Number(proposal.endBlock)
+    const votingStarted = currentBlock >= Number(proposal.startBlock)
+    const blocksRemaining = votingEnded ? 0 : Number(proposal.endBlock) - currentBlock
+    const hoursRemaining = Math.floor((blocksRemaining * 12) / 3600)
+    const daysRemaining = Math.floor(hoursRemaining / 24)
+
+    const blocksEnded = currentBlock - Number(proposal.endBlock)
+    const hoursEnded = Math.floor((blocksEnded * 12) / 3600)
+    const daysEnded = Math.floor(hoursEnded / 24)
+
+    if (!votingStarted) {
+      const hoursUntilStart = Math.floor(((Number(proposal.startBlock) - currentBlock) * 12) / 3600)
+      timingDisplay = `Voting starts in ${hoursUntilStart} hours`
+    } else if (votingStarted && !votingEnded && daysRemaining > 0) {
+      timingDisplay = `${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining`
+    } else if (votingStarted && !votingEnded && daysRemaining === 0) {
+      timingDisplay = `${hoursRemaining} hour${hoursRemaining !== 1 ? "s" : ""} remaining`
+    } else if (votingEnded && daysEnded > 0) {
+      timingDisplay = `Ended ${daysEnded} day${daysEnded !== 1 ? "s" : ""} ago`
+    } else if (votingEnded && hoursEnded > 0) {
+      timingDisplay = `Ended ${hoursEnded} hour${hoursEnded !== 1 ? "s" : ""} ago`
+    } else if (votingEnded) {
+      timingDisplay = "Ended recently"
+    }
+  }
 
   const handleVote = (support: number) => {
     if (!isConnected) return
@@ -56,13 +96,6 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
   const submitVote = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (selectedSupport === null || !isConnected) return
-
-    console.log("[v0] Submitting vote:", {
-      proposalId,
-      support: selectedSupport,
-      reason: voteReason,
-      clientId: 22,
-    })
 
     writeContract({
       address: GOVERNOR_CONTRACT.address,
@@ -97,35 +130,16 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
             </div>
             <CardTitle className={`text-lg mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>{title}</CardTitle>
 
-            {currentBlock > 0 && (
+            {proposal.proposer && proposal.proposer !== "0x0000000000000000000000000000000000000000" && (
+              <div className={`text-sm mb-2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                by <EnsDisplay address={proposal.proposer} className="inline" />
+              </div>
+            )}
+
+            {timingDisplay && (
               <div className={`flex items-center gap-2 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                 <Clock className="w-4 h-4" />
-                {!votingStarted && (
-                  <span>
-                    Voting starts in {Math.floor(((Number(proposal.startBlock) - currentBlock) * 12) / 3600)} hours
-                  </span>
-                )}
-                {votingStarted && !votingEnded && daysRemaining > 0 && (
-                  <span>
-                    {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining
-                  </span>
-                )}
-                {votingStarted && !votingEnded && daysRemaining === 0 && (
-                  <span>
-                    {hoursRemaining} hour{hoursRemaining !== 1 ? "s" : ""} remaining
-                  </span>
-                )}
-                {votingEnded && daysEnded > 0 && (
-                  <span>
-                    Ended {daysEnded} day{daysEnded !== 1 ? "s" : ""} ago
-                  </span>
-                )}
-                {votingEnded && daysEnded === 0 && hoursEnded > 0 && (
-                  <span>
-                    Ended {hoursEnded} hour{hoursEnded !== 1 ? "s" : ""} ago
-                  </span>
-                )}
-                {votingEnded && hoursEnded === 0 && <span>Ended recently</span>}
+                <span>{timingDisplay}</span>
               </div>
             )}
           </div>
@@ -192,7 +206,7 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
                 Vote Submitted!
               </Badge>
             </div>
-          ) : proposal.state === 1 ? (
+          ) : votingIsActive ? (
             <>
               {!showVoteForm ? (
                 <div className="flex gap-2">

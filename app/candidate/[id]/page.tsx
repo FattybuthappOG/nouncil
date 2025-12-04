@@ -1,6 +1,5 @@
 "use client"
 
-import { use } from "react"
 import { useCandidateData } from "@/hooks/useContractData"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,9 +10,8 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { parseMarkdownMedia } from "@/lib/markdown-parser"
 
-export default function CandidateDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params)
-  const candidateId = resolvedParams.id
+export default function CandidateDetailPage({ params }: { params: { id: string } }) {
+  const candidateId = params.id
   const candidate = useCandidateData(candidateId)
   const router = useRouter()
   const isDarkMode = true

@@ -3,15 +3,17 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
-import { Clock, Users } from "lucide-react"
+import { Clock } from "lucide-react"
 import { useCandidateData } from "@/hooks/useContractData"
+import { EnsDisplay } from "./ens-display"
 
 interface CandidateCardProps {
   candidateId: string
   isDarkMode: boolean
+  candidateNumber?: number
 }
 
-export function CandidateCard({ candidateId, isDarkMode }: CandidateCardProps) {
+export function CandidateCard({ candidateId, isDarkMode, candidateNumber }: CandidateCardProps) {
   const router = useRouter()
   const candidate = useCandidateData(candidateId)
 
@@ -43,8 +45,6 @@ export function CandidateCard({ candidateId, isDarkMode }: CandidateCardProps) {
     )
   }
 
-  const sponsorThresholdMet = candidate.sponsorCount >= candidate.sponsorThreshold
-
   return (
     <Card
       onClick={handleClick}
@@ -56,12 +56,19 @@ export function CandidateCard({ candidateId, isDarkMode }: CandidateCardProps) {
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className={`font-semibold text-lg mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
-              Candidate {candidateId}: {candidate.description}
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              {candidateNumber && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  #{candidateNumber}
+                </Badge>
+              )}
+              <h3 className={`font-semibold text-lg ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+                {candidate.description}
+              </h3>
+            </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                by {candidate.proposer.slice(0, 6)}...{candidate.proposer.slice(-4)}
+                by <EnsDisplay address={candidate.proposer} className="inline" />
               </span>
               <span className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>•</span>
               <div className="flex items-center gap-1">
@@ -70,27 +77,14 @@ export function CandidateCard({ candidateId, isDarkMode }: CandidateCardProps) {
                   {formatTimeAgo(candidate.createdTimestamp)}
                 </span>
               </div>
+              {candidate.canceled && (
+                <>
+                  <span className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>•</span>
+                  <Badge variant="destructive">Canceled</Badge>
+                </>
+              )}
             </div>
           </div>
-        </div>
-
-        {/* Sponsor Status */}
-        <div
-          className={`flex items-center gap-4 p-3 rounded-lg bg-opacity-50 ${
-            isDarkMode ? "bg-gray-700/30 border border-gray-600/50" : "bg-gray-100/50 border border-gray-200/50"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            <span className={`text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-              {candidate.sponsorCount} / {candidate.sponsorThreshold} Sponsors
-            </span>
-          </div>
-          {sponsorThresholdMet && (
-            <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-              Ready to Propose
-            </Badge>
-          )}
         </div>
       </div>
     </Card>
