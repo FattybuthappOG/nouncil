@@ -496,8 +496,8 @@ export default function LiveGovernanceDashboard() {
               <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
             </Link>
 
-            {/* Desktop - Connect Wallet and Menu Button */}
-            <div className="hidden md:flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* Connect Wallet Button */}
               {isConnected ? (
                 <button
                   onClick={() => disconnect()}
@@ -516,318 +516,172 @@ export default function LiveGovernanceDashboard() {
                     isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
                   }`}
                 >
-                  Connect Wallet
+                  {t("connectWallet")}
                 </button>
               )}
-
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
-                aria-label="Menu"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Mobile - Menu Button */}
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className={`md:hidden p-2 rounded-lg ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
-              aria-label="Menu"
-            >
-              {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Desktop Slide-in Menu */}
-        {showMenu && (
-          <>
-            <div className="hidden md:block fixed inset-0 z-50">
-              {/* Backdrop */}
-              <div className="absolute inset-0 bg-black/50" onClick={() => setShowMenu(false)} />
-
-              {/* Menu Panel */}
-              <div
-                className={`absolute right-0 top-0 bottom-0 w-80 ${isDarkMode ? "bg-gray-900" : "bg-white"} shadow-2xl overflow-y-auto`}
-              >
-                <div className="p-6">
-                  {/* Menu Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold">Menu</h3>
-                    <button
-                      onClick={() => setShowMenu(false)}
-                      className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
-                      aria-label="Close menu"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Menu Items */}
-                  <div className="space-y-3">
-                    <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
-
-                    <a
-                      href="https://nouns.world/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-2 w-full px-4 py-2 rounded-lg transition-colors ${
-                        isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
-                      }`}
-                    >
-                      <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
-                      <span>Learn about Nouns</span>
-                    </a>
-
-                    <a
-                      href="https://noggles.wtf"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                        isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                      }`}
-                    >
-                      <span className="text-xl">⌐◨-◨</span>
-                      <span>Generate Toga PFP</span>
-                    </a>
-
-                    <button
-                      onClick={copyNounsSymbol}
-                      className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition-colors ${
-                        isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">⌐◨-◨</span>
-                        <span>Copy Nouns Symbol</span>
-                      </div>
-                      {copyFeedback ? (
-                        <span className="text-sm text-green-500">Copied!</span>
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-
-                    <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-                      <button
-                        onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                        className={`w-full flex items-center justify-between px-4 py-2 rounded-lg ${
-                          isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Globe className="w-5 h-5" />
-                          <span>Language</span>
-                        </div>
-                        <span>{LANGUAGES.find((l) => l.code === selectedLanguage)?.flag}</span>
-                      </button>
-
-                      {showLanguageMenu && (
-                        <div className={`border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-                          {LANGUAGES.map((lang) => (
-                            <button
-                              key={lang.code}
-                              onClick={() => {
-                                setSelectedLanguage(lang.code)
-                                setShowLanguageMenu(false)
-                              }}
-                              className={`w-full flex items-center gap-3 px-4 py-2 text-left ${
-                                selectedLanguage === lang.code
-                                  ? isDarkMode
-                                    ? "bg-gray-700"
-                                    : "bg-gray-100"
-                                  : isDarkMode
-                                    ? "hover:bg-gray-700"
-                                    : "hover:bg-gray-100"
-                              }`}
-                            >
-                              <span className="text-xl">{lang.flag}</span>
-                              <span>{lang.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <a
-                      href="https://discord.gg/tnyXJZsGnq"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex flex-col gap-1 px-4 py-2 rounded-lg transition-colors ${
-                        isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
-                        <span>Join Discord</span>
-                      </div>
-                      <span className="text-sm opacity-75 ml-8">Join the calls every Thursday</span>
-                    </a>
-
-                    <button
-                      onClick={() => {
-                        setIsDarkMode(!isDarkMode)
-                        setShowMenu(false)
-                      }}
-                      className={`flex items-center justify-center gap-2 w-full px-6 py-3 rounded-lg transition-colors font-medium ${
-                        isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-                      } text-white`}
-                    >
-                      {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                      <span>Toggle Theme</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Mobile Dropdown Menu */}
-        {showMenu && (
-          <div
-            className={`md:hidden border-t ${isDarkMode ? "border-gray-800 bg-gray-900" : "border-gray-200 bg-white"}`}
-          >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-3">
-              {isConnected ? (
-                <button
-                  onClick={() => {
-                    disconnect()
-                    setShowMenu(false)
-                  }}
-                  className={`w-full px-4 py-2 rounded-lg transition-colors font-medium ${
-                    isDarkMode
-                      ? "bg-gray-800 hover:bg-gray-700 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                  }`}
-                >
-                  Disconnect {address?.slice(0, 6)}...{address?.slice(-4)}
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setShowWalletDialog(true)
-                    setShowMenu(false)
-                  }}
-                  className={`w-full px-4 py-2 rounded-lg transition-colors font-medium ${
-                    isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-                  }`}
-                >
-                  Connect Wallet
-                </button>
-              )}
-
-              <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
-
-              <a
-                href="https://nouns.world/"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setShowMenu(false)}
-                className={`flex items-center gap-2 w-full px-4 py-2 rounded-lg transition-colors ${
-                  isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
-                }`}
-              >
-                <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
-                <span>Learn about Nouns</span>
-              </a>
-
-              <a
-                href="https://noggles.wtf"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setShowMenu(false)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                }`}
-              >
-                <span className="text-xl">⌐◨-◨</span>
-                <span>Generate Toga PFP</span>
-              </a>
-
-              <button
-                onClick={copyNounsSymbol}
-                className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition-colors ${
-                  isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⌐◨-◨</span>
-                  <span>Copy Nouns Symbol</span>
-                </div>
-                {copyFeedback ? <span className="text-sm text-green-500">Copied!</span> : <Copy className="w-4 h-4" />}
-              </button>
-
-              <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-                <button
-                  onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                  className={`w-full flex items-center justify-between px-4 py-2 rounded-lg ${
-                    isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-5 h-5" />
-                    <span>Language</span>
-                  </div>
-                  <span>{LANGUAGES.find((l) => l.code === selectedLanguage)?.flag}</span>
-                </button>
-
-                {showLanguageMenu && (
-                  <div className={`border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-                    {LANGUAGES.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => {
-                          setSelectedLanguage(lang.code)
-                          setShowLanguageMenu(false)
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2 text-left ${
-                          selectedLanguage === lang.code
-                            ? isDarkMode
-                              ? "bg-gray-700"
-                              : "bg-gray-100"
-                            : isDarkMode
-                              ? "hover:bg-gray-700"
-                              : "hover:bg-gray-100"
-                        }`}
-                      >
-                        <span className="text-xl">{lang.flag}</span>
-                        <span>{lang.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <a
-                href="https://discord.gg/tnyXJZsGnq"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setShowMenu(false)}
-                className={`flex flex-col gap-1 px-4 py-2 rounded-lg transition-colors ${
-                  isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
-                  <span>Join Discord</span>
-                </div>
-                <span className="text-sm opacity-75 ml-8">Join the calls every Thursday</span>
-              </a>
 
               <button
                 onClick={() => {
-                  setIsDarkMode(!isDarkMode)
-                  setShowMenu(false)
+                  console.log("[v0] Menu button clicked, toggling menu")
+                  setShowMenu((prev) => !prev)
                 }}
-                className={`flex items-center justify-center gap-2 w-full px-6 py-3 rounded-lg transition-colors font-medium ${
-                  isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                }`}
+                className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                aria-label="Menu"
               >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                <span>Toggle Theme</span>
+                {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
+            </div>
+          </div>
+        </div>
+
+        {console.log("[v0] showMenu state:", showMenu)}
+        {showMenu && (
+          <div className="fixed inset-0 z-[100]" onClick={() => setShowMenu(false)}>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+            {/* Menu Panel */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className={`absolute right-0 top-0 min-h-full w-full sm:w-96 ${
+                isDarkMode ? "bg-gray-900" : "bg-white"
+              } shadow-2xl overflow-y-auto`}
+            >
+              <div className="p-6 min-h-screen">
+                {/* Menu Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold">Menu</h2>
+                  <button
+                    onClick={() => setShowMenu(false)}
+                    className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                    aria-label="Close menu"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Menu Items */}
+                <div className="space-y-3">
+                  {/* Treasury */}
+                  <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
+
+                  {/* Learn about Nouns */}
+                  <a
+                    href="https://nouns.world/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
+                    }`}
+                  >
+                    <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
+                    <span className="font-medium">{t("learnAboutNouns")}</span>
+                  </a>
+
+                  {/* Generate Toga PFP */}
+                  <a
+                    href="https://togatime.cloudnouns.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="font-medium">{t("generateTogaPFP")}</span>
+                  </a>
+
+                  {/* Copy Nouns Symbol */}
+                  <button
+                    onClick={copyNounsSymbol}
+                    className={`flex items-center justify-between w-full px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Copy className="w-5 h-5" />
+                      <span className="font-medium">Copy Nouns Symbol</span>
+                    </div>
+                    {copyFeedback && <span className="text-sm text-green-500 font-medium">Copied!</span>}
+                  </button>
+
+                  {/* Language Selector */}
+                  <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                    <button
+                      onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                        isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Globe className="w-5 h-5" />
+                        <span className="font-medium">{t("language")}</span>
+                      </div>
+                      <span className="text-xl">{LANGUAGES.find((l) => l.code === selectedLanguage)?.flag}</span>
+                    </button>
+
+                    {showLanguageMenu && (
+                      <div className={`border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                        {LANGUAGES.map((lang) => (
+                          <button
+                            key={lang.code}
+                            onClick={() => {
+                              setSelectedLanguage(lang.code)
+                              setShowLanguageMenu(false)
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                              selectedLanguage === lang.code
+                                ? isDarkMode
+                                  ? "bg-gray-800"
+                                  : "bg-gray-100"
+                                : isDarkMode
+                                  ? "hover:bg-gray-800"
+                                  : "hover:bg-gray-100"
+                            }`}
+                          >
+                            <span className="text-xl">{lang.flag}</span>
+                            <span className="font-medium">{lang.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Discord */}
+                  <a
+                    href="https://discord.gg/tnyXJZsGnq"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex flex-col gap-1.5 px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
+                      <span className="font-medium">{t("joinDiscord")}</span>
+                    </div>
+                    <span className={`text-sm ml-9 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {t("joinCallsThursday")}
+                    </span>
+                  </a>
+
+                  {/* Dark Mode Toggle */}
+                  <button
+                    onClick={() => {
+                      setIsDarkMode(!isDarkMode)
+                      setShowMenu(false)
+                    }}
+                    className={`flex items-center justify-center gap-3 w-full px-6 py-3 rounded-lg transition-colors font-medium ${
+                      isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+                    } text-white`}
+                  >
+                    {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    <span>{t("toggleTheme")}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
