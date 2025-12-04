@@ -102,7 +102,7 @@ const PROPOSAL_STATE_NAMES = [
   "Vetoed",
 ]
 
-export function useProposalIds(limit = 15) {
+export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "executed" | "defeated" = "all") {
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -110,6 +110,16 @@ export function useProposalIds(limit = 15) {
   useEffect(() => {
     const fetchProposalIds = async () => {
       try {
+        let statusCondition = ""
+        if (statusFilter === "active") {
+          statusCondition = ", where: { status: ACTIVE }"
+        } else if (statusFilter === "executed") {
+          statusCondition = ", where: { status: EXECUTED }"
+        } else if (statusFilter === "defeated") {
+          // Defeated proposals are marked as CANCELLED in the Subgraph
+          statusCondition = ", where: { status: CANCELLED }"
+        }
+
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -122,6 +132,7 @@ export function useProposalIds(limit = 15) {
                   first: ${limit}
                   orderBy: createdTimestamp
                   orderDirection: desc
+                  ${statusCondition}
                 ) {
                   id
                 }
@@ -152,7 +163,7 @@ export function useProposalIds(limit = 15) {
     }
 
     fetchProposalIds()
-  }, [limit])
+  }, [limit, statusFilter])
 
   return { proposalIds, totalCount, isLoading }
 }

@@ -42,7 +42,7 @@ const translations = {
     generateTogaPFP: "Generate Toga PFP",
     language: "Language",
     joinDiscord: "Join Discord",
-    joinCallsThursday: "Join the calls every Thursday",
+    joinCallsThursday: "Join the calls every Thursday in Discord",
     toggleTheme: "Toggle Theme",
     proposer: "Proposer",
     viewOnEtherscan: "View on Etherscan",
@@ -73,7 +73,7 @@ const translations = {
     generateTogaPFP: "生成 Toga 头像",
     language: "语言",
     joinDiscord: "加入 Discord",
-    joinCallsThursday: "每周四参加电话会议",
+    joinCallsThursday: "每周四在 Discord 参加电话会议",
     toggleTheme: "切换主题",
     proposer: "提议者",
     viewOnEtherscan: "在 Etherscan 上查看",
@@ -104,7 +104,7 @@ const translations = {
     generateTogaPFP: "Generar PFP Toga",
     language: "Idioma",
     joinDiscord: "Únete a Discord",
-    joinCallsThursday: "Únete a las llamadas todos los jueves",
+    joinCallsThursday: "Únete a las llamadas todos los jueves en Discord",
     toggleTheme: "Cambiar Tema",
     proposer: "Proponente",
     viewOnEtherscan: "Ver en Etherscan",
@@ -135,7 +135,7 @@ const translations = {
     generateTogaPFP: "Toga PFP जेनरेट करें",
     language: "भाषा",
     joinDiscord: "Discord में शामिल हों",
-    joinCallsThursday: "हर गुरुवार को कॉल में शामिल हों",
+    joinCallsThursday: "हर गुरुवार को Discord में कॉल में शामिल हों",
     toggleTheme: "थीम टॉगल करें",
     proposer: "प्रस्तावक",
     viewOnEtherscan: "Etherscan पर देखें",
@@ -166,7 +166,7 @@ const translations = {
     generateTogaPFP: "إنشاء صورة Toga",
     language: "اللغة",
     joinDiscord: "انضم إلى Discord",
-    joinCallsThursday: "انضم إلى المكالمات كل خميس",
+    joinCallsThursday: "انضم إلى المكالمات كل خميس على Discord",
     toggleTheme: "تبديل السمة",
     proposer: "المقترح",
     viewOnEtherscan: "عرض على Etherscan",
@@ -197,7 +197,7 @@ const translations = {
     generateTogaPFP: "Gerar PFP Toga",
     language: "Idioma",
     joinDiscord: "Junte-se ao Discord",
-    joinCallsThursday: "Participe das chamadas todas as quintas-feiras",
+    joinCallsThursday: "Participe das chamadas todas as quintas-feiras no Discord",
     toggleTheme: "Alternar Tema",
     proposer: "Proponente",
     viewOnEtherscan: "Ver no Etherscan",
@@ -228,7 +228,7 @@ const translations = {
     generateTogaPFP: "Toga PFP তৈরি করুন",
     language: "ভাষা",
     joinDiscord: "Discord-এ যোগ দিন",
-    joinCallsThursday: "প্রতি বৃহস্পতিবার কলে যোগ দিন",
+    joinCallsThursday: "প্রতি বৃহস্পতিবার Discord-এ কলে যোগ দিন",
     toggleTheme: "থিম টগল করুন",
     proposer: "প্রস্তাবক",
     viewOnEtherscan: "Etherscan-এ দেখুন",
@@ -259,7 +259,7 @@ const translations = {
     generateTogaPFP: "Создать PFP Toga",
     language: "Язык",
     joinDiscord: "Присоединиться к Discord",
-    joinCallsThursday: "Присоединяйтесь к звонкам каждый четверг",
+    joinCallsThursday: "Присоединяйтесь к звонкам каждый четверг на Discord",
     toggleTheme: "Переключить Тему",
     proposer: "Предлагатель",
     viewOnEtherscan: "Посмотреть на Etherscan",
@@ -290,7 +290,7 @@ const translations = {
     generateTogaPFP: "Toga PFPを生成",
     language: "言語",
     joinDiscord: "Discordに参加",
-    joinCallsThursday: "毎週木曜日に通話に参加",
+    joinCallsThursday: "毎週木曜日にDiscordで通話に参加",
     toggleTheme: "テーマを切り替え",
     proposer: "提案者",
     viewOnEtherscan: "Etherscanで表示",
@@ -321,7 +321,7 @@ const translations = {
     generateTogaPFP: "Générer PFP Toga",
     language: "Langue",
     joinDiscord: "Rejoindre Discord",
-    joinCallsThursday: "Rejoignez les appels tous les jeudis",
+    joinCallsThursday: "Rejoignez les appels tous les jeudis sur Discord",
     toggleTheme: "Changer le Thème",
     proposer: "Proposant",
     viewOnEtherscan: "Voir sur Etherscan",
@@ -381,7 +381,7 @@ export default function LiveGovernanceDashboard() {
     setTimeout(() => setCopyFeedback(false), 2000)
   }
 
-  const proposalIdsData = useProposalIds(displayedProposals)
+  const proposalIdsData = useProposalIds(displayedProposals, statusFilter)
   const candidateIdsData = useCandidateIds(displayedCandidates)
 
   const recentProposalIds = proposalIdsData?.proposalIds || []
@@ -421,9 +421,42 @@ export default function LiveGovernanceDashboard() {
             }
           } else {
             // For candidates, search in both slug and title
-            const titleQuery = `query { proposalCandidates(first: 10, where: { latestVersion_: { content_: { title_contains_nocase: "${debouncedSearch}" } } }, orderBy: createdTimestamp, orderDirection: desc) { id slug latestVersion { content { title } } } }`
-            const slugQuery = `query { proposalCandidates(first: 10, where: { slug_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id slug latestVersion { content { title } } } }`
-            query = isNumber ? slugQuery : titleQuery
+            if (isNumber) {
+              query = `query { 
+                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc) { 
+                  id 
+                  slug 
+                  latestVersion { 
+                    content { 
+                      title 
+                    } 
+                  } 
+                } 
+              }`
+            } else {
+              query = `query { 
+                proposalCandidates(
+                  first: 10, 
+                  where: { 
+                    latestVersion_: { 
+                      content_: { 
+                        title_contains_nocase: "${debouncedSearch}" 
+                      } 
+                    } 
+                  }, 
+                  orderBy: createdTimestamp, 
+                  orderDirection: desc
+                ) { 
+                  id 
+                  slug 
+                  latestVersion { 
+                    content { 
+                      title 
+                    } 
+                  } 
+                } 
+              }`
+            }
           }
 
           const response = await fetch(
@@ -440,7 +473,17 @@ export default function LiveGovernanceDashboard() {
             const results = isNumber && data?.data?.proposal ? [data.data.proposal] : data?.data?.proposals || []
             setSearchResults(results)
           } else {
-            setSearchResults(data?.data?.proposalCandidates || [])
+            let candidates = data?.data?.proposalCandidates || []
+            if (isNumber && candidates.length > 0) {
+              const searchNumber = Number.parseInt(debouncedSearch)
+              const index = totalCandidates - searchNumber
+              if (index >= 0 && index < candidates.length) {
+                candidates = [candidates[index]]
+              } else {
+                candidates = []
+              }
+            }
+            setSearchResults(candidates)
           }
         } catch (error) {
           console.error("Search error:", error)
@@ -454,7 +497,7 @@ export default function LiveGovernanceDashboard() {
     }, 300)
 
     return () => clearTimeout(searchTimeout)
-  }, [debouncedSearch, activeTab])
+  }, [debouncedSearch, activeTab, totalCandidates])
 
   const handleSelectProposal = (id: string) => {
     router.push(`/proposal/${id}`)
@@ -481,6 +524,37 @@ export default function LiveGovernanceDashboard() {
   }
 
   const searchPlaceholder = activeTab === "proposals" ? t("searchProposals") : t("searchCandidates")
+
+  // Translation API helper function for dynamic content
+  const translateText = async (text: string, targetLang: LanguageCode): Promise<string> => {
+    if (targetLang === "en" || !text) return text
+
+    try {
+      const response = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, targetLang }),
+      })
+      const data = await response.json()
+      return data.translatedText || text
+    } catch (error) {
+      console.error("[v0] Translation error:", error)
+      return text
+    }
+  }
+
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
+    if (savedLanguage && translations[savedLanguage]) {
+      setSelectedLanguage(savedLanguage)
+    }
+  }, [])
+
+  const handleLanguageChange = (langCode: LanguageCode) => {
+    setSelectedLanguage(langCode)
+    localStorage.setItem("nouns-language", langCode)
+    setShowLanguageMenu(false)
+  }
 
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
@@ -572,7 +646,9 @@ export default function LiveGovernanceDashboard() {
                     rel="noopener noreferrer"
                     onClick={() => setShowMenu(false)}
                     className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-colors ${
-                      isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
+                      isDarkMode
+                        ? "bg-gray-800 hover:bg-gray-700 text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
                     }`}
                   >
                     <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
@@ -627,8 +703,7 @@ export default function LiveGovernanceDashboard() {
                           <button
                             key={lang.code}
                             onClick={() => {
-                              setSelectedLanguage(lang.code)
-                              setShowLanguageMenu(false)
+                              handleLanguageChange(lang.code)
                             }}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                               selectedLanguage === lang.code
@@ -654,17 +729,12 @@ export default function LiveGovernanceDashboard() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setShowMenu(false)}
-                    className={`flex flex-col gap-1.5 px-4 py-3 rounded-lg transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
-                      <span className="font-medium">{t("joinDiscord")}</span>
-                    </div>
-                    <span className={`text-sm ml-9 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                      {t("joinCallsThursday")}
-                    </span>
+                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6 flex-shrink-0" />
+                    <span className="font-medium">{t("joinCallsThursday")}</span>
                   </a>
 
                   {/* Dark Mode Toggle */}
@@ -838,12 +908,13 @@ export default function LiveGovernanceDashboard() {
                 </div>
               ) : recentProposalIds.length > 0 ? (
                 <>
-                  {recentProposalIds.map((proposalId) => (
+                  {recentProposalIds.map((proposalId, index) => (
                     <ProposalVotingCard
                       key={proposalId}
                       proposalId={proposalId.toString()}
-                      statusFilter={statusFilter}
+                      proposalNumber={totalProposals - index}
                       isDarkMode={isDarkMode}
+                      selectedLanguage={selectedLanguage}
                     />
                   ))}
                   {hasMoreProposals && (

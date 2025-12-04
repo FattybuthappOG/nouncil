@@ -9,9 +9,56 @@ import { useRouter } from "next/navigation"
 import ReactMarkdown from "react-markdown"
 import { parseMarkdownMedia } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
+import { useState, useEffect } from "react"
+
+const translations = {
+  en: {
+    back: "Back",
+    candidate: "Candidate",
+    proposer: "Proposer",
+    viewOnEtherscan: "View on Etherscan",
+    transaction: "Transaction",
+    media: "Media",
+    description: "Description",
+    loadingCandidate: "Loading candidate...",
+    daysAgo: "days ago",
+    hoursAgo: "hours ago",
+    recently: "Recently",
+  },
+  zh: {
+    back: "返回",
+    candidate: "候选人",
+    proposer: "提议者",
+    viewOnEtherscan: "在 Etherscan 上查看",
+    transaction: "交易",
+    media: "媒体",
+    description: "描述",
+    loadingCandidate: "正在加载候选人...",
+    daysAgo: "天前",
+    hoursAgo: "小时前",
+    recently: "最近",
+  },
+  es: {
+    back: "Volver",
+    candidate: "Candidato",
+    proposer: "Proponente",
+    viewOnEtherscan: "Ver en Etherscan",
+    transaction: "Transacción",
+    media: "Medios",
+    description: "Descripción",
+    loadingCandidate: "Cargando candidato...",
+    daysAgo: "días atrás",
+    hoursAgo: "horas atrás",
+    recently: "Recientemente",
+  },
+}
+
+type LanguageCode = keyof typeof translations
 
 export default function CandidateDetailPage({ params }: { params: { id: string } }) {
   const candidateNumber = Number.parseInt(params.id)
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
+
   const { candidates, totalCount, isLoading: candidatesLoading } = useCandidateIds(1000)
 
   const candidate = candidates.find((c, idx) => totalCount - idx === candidateNumber)
@@ -20,10 +67,21 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const candidateData = useCandidateData(candidateId)
   const router = useRouter()
 
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
+    if (savedLanguage && translations[savedLanguage]) {
+      setSelectedLanguage(savedLanguage)
+    }
+  }, [])
+
+  const t = (key: string) => {
+    return translations[selectedLanguage]?.[key] || translations.en[key] || key
+  }
+
   if (candidatesLoading || candidateData.isLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-400">Loading candidate...</div>
+        <div className="text-gray-400">{t("loadingCandidate")}</div>
       </div>
     )
   }
@@ -31,15 +89,15 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const { images, videos } = parseMarkdownMedia(candidateData.fullDescription)
 
   const formatTimeAgo = (timestamp: number) => {
-    if (!timestamp) return "Recently"
+    if (!timestamp) return t("recently")
     const now = Math.floor(Date.now() / 1000)
     const diff = now - timestamp
     const days = Math.floor(diff / 86400)
     const hours = Math.floor(diff / 3600)
 
-    if (days > 0) return `${days} day${days > 1 ? "s" : ""} ago`
-    if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`
-    return "Recently"
+    if (days > 0) return `${days} ${t("daysAgo")}`
+    if (hours > 0) return `${hours} ${t("hoursAgo")}`
+    return t("recently")
   }
 
   return (
@@ -53,7 +111,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
             className="text-gray-300 hover:text-white hover:bg-gray-700"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+            {t("back")}
           </Button>
         </div>
       </header>
@@ -67,7 +125,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    Candidate #{candidateNumber}
+                    {t("candidate")} #{candidateNumber}
                   </Badge>
                 </div>
                 <h1 className="text-2xl font-bold text-gray-100 mb-2 break-words">{candidateData.description}</h1>
@@ -82,7 +140,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
 
             {/* Proposer Info */}
             <div className="flex items-center gap-2 p-3 bg-gray-700/30 rounded-lg border border-gray-600/50 break-all flex-wrap">
-              <span className="text-sm text-gray-400">Proposer:</span>
+              <span className="text-sm text-gray-400">{t("proposer")}:</span>
               <EnsDisplay address={candidateData.proposer} />
               <a
                 href={`https://etherscan.io/address/${candidateData.proposer}`}
@@ -97,7 +155,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
             {/* Transaction */}
             {candidateData.transactionHash && (
               <div className="flex items-center gap-2 text-sm break-all flex-wrap">
-                <span className="text-gray-400">Transaction:</span>
+                <span className="text-gray-400">{t("transaction")}:</span>
                 <a
                   href={`https://etherscan.io/tx/${candidateData.transactionHash}`}
                   target="_blank"
@@ -115,7 +173,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
         {/* Media Section */}
         {(images.length > 0 || videos.length > 0) && (
           <Card className="bg-gray-800 border-gray-700 p-6 overflow-hidden">
-            <h2 className="text-xl font-semibold text-gray-100 mb-4">Media</h2>
+            <h2 className="text-xl font-semibold text-gray-100 mb-4">{t("media")}</h2>
             <div className="space-y-4">
               {images.map((img, idx) => (
                 <img
@@ -141,7 +199,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
 
         {/* Description */}
         <Card className="bg-gray-800 border-gray-700 p-6 overflow-hidden">
-          <h2 className="text-xl font-semibold text-gray-100 mb-4">Description</h2>
+          <h2 className="text-xl font-semibold text-gray-100 mb-4">{t("description")}</h2>
           <div className="prose prose-invert max-w-none break-words overflow-hidden">
             <ReactMarkdown
               components={{
