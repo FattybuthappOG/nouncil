@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, Users, ExternalLink } from "lucide-react"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from "wagmi"
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -21,12 +21,9 @@ export default function ProposalDetailPage() {
   const { isConnected, address } = useAccount()
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
-  const [showWalletDialog, setShowWalletDialog] = useState(false)
 
   const { data: hash, writeContract, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
-  const { disconnect } = useDisconnect()
-  const { connect, connectors } = useConnect()
 
   const proposal = useProposalData(proposalId)
   const { title, content, media } = parseProposalDescription(
@@ -40,21 +37,11 @@ export default function ProposalDetailPage() {
   const abstainPercentage = totalVotes > 0 ? (Number(proposal.abstainVotes) / totalVotes) * 100 : 0
   const quorumPercentage = Number(proposal.quorum) > 0 ? (totalVotes / Number(proposal.quorum)) * 100 : 0
 
-  const handleConnectWallet = () => {
-    if (isConnected) {
-      disconnect()
-    } else {
-      setShowWalletDialog(true)
-    }
-  }
-
-  const handleSelectConnector = (connector: any) => {
-    connect({ connector })
-    setShowWalletDialog(false)
-  }
-
   const handleVote = (support: number) => {
-    if (!isConnected) return
+    if (!isConnected) {
+      router.push("/")
+      return
+    }
     setSelectedSupport(support)
   }
 
@@ -103,62 +90,33 @@ export default function ProposalDetailPage() {
             <span className="text-gray-300 text-sm">Nouncil</span>
           </div>
 
-          <Button
-            onClick={handleConnectWallet}
-            variant="ghost"
-            size="sm"
-            className="flex items-center gap-2 text-gray-300 hover:text-white hover:bg-gray-700"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-              />
-            </svg>
-            <span className="hidden sm:inline">
-              {isConnected ? `${address?.slice(0, 6)}...${address?.slice(-4)}` : "Connect Wallet"}
-            </span>
-          </Button>
+          {isConnected ? (
+            <div className="flex items-center gap-2 text-gray-300 text-sm">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="hidden sm:inline">
+                {address?.slice(0, 6)}...{address?.slice(-4)}
+              </span>
+            </div>
+          ) : (
+            <Button
+              onClick={() => router.push("/")}
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-2 text-gray-300 hover:text-white hover:bg-gray-700"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                />
+              </svg>
+              <span className="hidden sm:inline">Connect on Home</span>
+            </Button>
+          )}
         </div>
       </header>
-
-      {showWalletDialog && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowWalletDialog(false)}
-        >
-          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4 text-white">Connect Wallet</h3>
-            <div className="space-y-3">
-              {connectors.map((connector) => (
-                <button
-                  key={connector.id}
-                  onClick={() => handleSelectConnector(connector)}
-                  className="w-full flex items-center gap-3 p-4 rounded-lg border border-gray-700 hover:bg-gray-700 text-white transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                    />
-                  </svg>
-                  <span className="font-medium">{connector.name}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowWalletDialog(false)}
-              className="w-full mt-4 p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-white"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -327,7 +285,12 @@ export default function ProposalDetailPage() {
           </div>
 
           {!isConnected ? (
-            <div className="text-sm text-center w-full py-3 mt-6 text-gray-400">Connect wallet to vote</div>
+            <Button
+              onClick={() => router.push("/")}
+              className="w-full py-3 mt-6 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Connect Wallet to Vote
+            </Button>
           ) : isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-3 mt-6">
               <Badge variant="secondary" className="bg-green-100 text-green-800">
