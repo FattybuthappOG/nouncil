@@ -112,12 +112,14 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
       try {
         let statusCondition = ""
         if (statusFilter === "active") {
-          statusCondition = ", where: { status: ACTIVE }"
+          // Active proposals have status: ACTIVE
+          statusCondition = ', where: { status: "ACTIVE" }'
         } else if (statusFilter === "executed") {
-          statusCondition = ", where: { status: EXECUTED }"
+          // Executed proposals have status: EXECUTED
+          statusCondition = ', where: { status: "EXECUTED" }'
         } else if (statusFilter === "defeated") {
-          // Defeated proposals are marked as CANCELLED in the Subgraph
-          statusCondition = ", where: { status: CANCELLED }"
+          // Defeated proposals have status: DEFEATED in the Subgraph
+          statusCondition = ', where: { status: "DEFEATED" }'
         }
 
         const response = await fetch(
