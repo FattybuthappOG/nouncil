@@ -12,6 +12,6 @@ export const config = createConfig({
   }),
   ssr: true,
   transports: {
-    [mainnet.id]: http(),
+    [mainnet.id]: http("https://eth.merkle.io"),
   },
 })
