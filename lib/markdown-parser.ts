@@ -20,7 +20,7 @@ export function parseProposalDescription(description: string): {
   const media: { type: "image" | "video" | "gif" | "youtube"; url: string; embedUrl?: string }[] = []
 
   const imageRegex = /!\[.*?\]$$(.*?)$$/g
-  const videoRegex = /\[.*?\]$$(https?:\/\/.*?\.(mp4|webm|mov).*?)$$/gi
+  const videoRegex = /\[.*?\]$$(https?:\/\/.*?\.(mp4|webm|mov))$$/gi
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g
 
   let match
@@ -65,4 +65,27 @@ export function getProposalStateLabel(state: number): {
   ]
 
   return states[state] || { label: "Unknown", color: "gray" }
+}
+
+export function parseMarkdownMedia(description: string): {
+  images: string[]
+  videos: string[]
+} {
+  const images: string[] = []
+  const videos: string[] = []
+
+  // Extract image URLs from markdown
+  const imageRegex = /!\[.*?\]$$(.*?)$$/g
+  let match
+  while ((match = imageRegex.exec(description)) !== null) {
+    images.push(match[1])
+  }
+
+  // Extract YouTube video IDs
+  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g
+  while ((match = youtubeRegex.exec(description)) !== null) {
+    videos.push(match[1])
+  }
+
+  return { images, videos }
 }

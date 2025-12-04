@@ -151,6 +151,8 @@ export function useProposalIds(limit = 15) {
 }
 
 export function useProposalData(proposalId: number) {
+  const [currentBlock, setCurrentBlock] = useState<number>(0)
+  
   const [proposalData, setProposalData] = useState({
     id: proposalId,
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
@@ -175,6 +177,32 @@ export function useProposalData(proposalId: number) {
     functionName: "state",
     args: [BigInt(proposalId)],
   })
+
+  useEffect(() => {
+    const fetchCurrentBlock = async () => {
+      try {
+        const response = await fetch('https://eth.merkle.io', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_blockNumber',
+            params: [],
+            id: 1
+          })
+        })
+        const data = await response.json()
+        if (data.result) {
+          setCurrentBlock(parseInt(data.result, 16))
+        }
+      } catch (error) {
+        console.error('[v0] Failed to fetch current block:', error)
+      }
+    }
+    fetchCurrentBlock()
+    const interval = setInterval(fetchCurrentBlock, 15000) // Update every 15 seconds
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     const fetchProposalFromAPI = async () => {
@@ -226,6 +254,7 @@ export function useProposalData(proposalId: number) {
 
           const stateNum = Number(stateData || 1)
 
+          // quorumVotes is also a simple number
           setProposalData({
             id: proposalId,
             proposer: proposal.proposer?.id || "0x0000000000000000000000000000000000000000",
@@ -255,7 +284,7 @@ export function useProposalData(proposalId: number) {
     fetchProposalFromAPI()
   }, [proposalId, stateData])
 
-  return proposalData
+  return { ...proposalData, currentBlock }
 }
 
 export function useBatchProposals(proposalIds: number[]) {
@@ -287,4 +316,181 @@ export function useBatchProposals(proposalIds: number[]) {
   }, [proposalIds.join(",")])
 
   return { proposals, isLoading }
+}
+
+// Candidate fetching hooks
+export function useCandidateIds(limit = 15) {
+  const [candidates, setCandidates] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchCandidates = async () => {
+      try {
+        // Fetch all candidate data in one query
+        const response = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(
+                  first: ${limit}
+                  orderBy: createdTimestamp
+                  orderDirection: desc
+                ) {
+                  id
+                  slug
+                  proposer {
+                    id
+                  }
+                  description
+                  createdTimestamp
+                  createdTransactionHash
+                  signers {
+                    id
+                  }
+                  proposalIdToUpdate
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const data = await response.json()
+        console.log("[v0] Candidates full data response:", data)
+
+        if (data?.data?.proposalCandidates) {
+          const candidatesList = data.data.proposalCandidates.map((c: any) => {
+            const desc = c.description || `Candidate ${c.id}`
+            const title =
+              desc
+                .split("\n")[0]
+                .replace(/^#+\s*/, "")
+                .trim() ||
+              c.slug ||
+              `Candidate ${c.id}`
+
+            return {
+              id: c.id,
+              slug: c.slug || "",
+              proposer: c.proposer?.id || "0x0000000000000000000000000000000000000000",
+              description: title,
+              fullDescription: desc,
+              signers: c.signers?.map((s: any) => s.id) || [],
+              sponsorCount: c.signers?.length || 0,
+              sponsorThreshold: 2,
+              createdTimestamp: Number(c.createdTimestamp || 0),
+              transactionHash: c.createdTransactionHash || "",
+            }
+          })
+          setCandidates(candidatesList)
+          console.log("[v0] Processed candidates:", candidatesList.length)
+        }
+      } catch (error) {
+        console.error("[v0] Failed to fetch candidates:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCandidates()
+  }, [limit])
+
+  return { candidates, isLoading }
+}
+
+export function useCandidateData(candidateId: string) {
+  const [candidateData, setCandidateData] = useState({
+    id: candidateId,
+    slug: "",
+    proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    description: `Candidate ${candidateId}`,
+    fullDescription: "",
+    signers: [] as string[],
+    sponsorCount: 0,
+    sponsorThreshold: 2,
+    createdTimestamp: 0,
+    transactionHash: "",
+    isLoading: true,
+    error: false,
+  })
+
+  useEffect(() => {
+    const fetchCandidateFromAPI = async () => {
+      try {
+        // Fetch from the list with filter
+        const response = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(where: { id: "${candidateId}" }) {
+                  id
+                  slug
+                  proposer {
+                    id
+                  }
+                  description
+                  createdTimestamp
+                  createdTransactionHash
+                  signers {
+                    id
+                  }
+                  proposalIdToUpdate
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const data = await response.json()
+        const candidates = data?.data?.proposalCandidates
+        const candidate = candidates?.[0]
+
+        console.log(`[v0] Fetched candidate ${candidateId} from Subgraph:`, candidate)
+
+        if (candidate) {
+          const desc = candidate.description || `Candidate ${candidateId}`
+          const title =
+            desc
+              .split("\n")[0]
+              .replace(/^#+\s*/, "")
+              .trim() ||
+            candidate.slug ||
+            `Candidate ${candidateId}`
+
+          setCandidateData({
+            id: candidateId,
+            slug: candidate.slug || "",
+            proposer: candidate.proposer?.id || "0x0000000000000000000000000000000000000000",
+            description: title,
+            fullDescription: desc,
+            signers: candidate.signers?.map((s: any) => s.id) || [],
+            sponsorCount: candidate.signers?.length || 0,
+            sponsorThreshold: 2,
+            createdTimestamp: Number(candidate.createdTimestamp || 0),
+            transactionHash: candidate.createdTransactionHash || "",
+            isLoading: false,
+            error: false,
+          })
+        } else {
+          setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
+        }
+      } catch (error) {
+        console.error(`[v0] Failed to fetch candidate ${candidateId}:`, error)
+        setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
+      }
+    }
+
+    fetchCandidateFromAPI()
+  }, [candidateId])
+
+  return candidateData
 }

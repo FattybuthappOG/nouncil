@@ -9,7 +9,8 @@ import { useState, useEffect } from "react"
 import { useAccount, useConnect, useDisconnect } from "wagmi"
 import { TreasuryDropdown } from "./treasury-dropdown"
 import { ProposalVotingCard } from "./proposal-voting-card"
-import { useGovernorData, useRealtimeEvents } from "@/hooks/useContractData"
+import { CandidateCard } from "./candidate-card"
+import { useGovernorData, useRealtimeEvents, useCandidateIds } from "@/hooks/useContractData"
 
 export default function LiveGovernanceDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true)
@@ -20,9 +21,12 @@ export default function LiveGovernanceDashboard() {
   const [recentVotes, setRecentVotes] = useState([])
   const [recentProposals, setRecentProposals] = useState([])
   const [showWalletDialog, setShowWalletDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState<"proposals" | "candidates">("proposals")
 
   const { proposalCount: contractProposalCount, isLoading: isLoadingCount } = useGovernorData()
   const { recentVotes: realRecentVotes, recentProposals: realRecentProposals } = useRealtimeEvents()
+  const { candidates, isLoading: isLoadingCandidates } = useCandidateIds(15)
+  const safeCandidates = candidates || []
 
   useEffect(() => {
     setIsMounted(true)
@@ -259,49 +263,101 @@ export default function LiveGovernanceDashboard() {
             className={`flex gap-4 sm:gap-6 mb-4 sm:mb-6 border-b transition-colors duration-200 overflow-x-auto pb-3 ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}
           >
             <button
-              className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+              onClick={() => setActiveTab("proposals")}
+              className={`pb-3 transition-colors whitespace-nowrap border-b-2 ${
+                activeTab === "proposals"
+                  ? isDarkMode
+                    ? "border-blue-500 text-blue-400"
+                    : "border-blue-600 text-blue-600"
+                  : isDarkMode
+                    ? "border-transparent text-gray-400 hover:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
             >
               Proposals ({proposalCount})
             </button>
             <button
-              className={`pb-3 hover:text-blue-600 transition-colors whitespace-nowrap ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+              onClick={() => setActiveTab("candidates")}
+              className={`pb-3 transition-colors whitespace-nowrap border-b-2 ${
+                activeTab === "candidates"
+                  ? isDarkMode
+                    ? "border-blue-500 text-blue-400"
+                    : "border-blue-600 text-blue-600"
+                  : isDarkMode
+                    ? "border-transparent text-gray-400 hover:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
             >
-              Candidates
+              Candidates ({safeCandidates.length})
             </button>
           </div>
 
           {/* Live Activity Feed */}
           <div className="space-y-3 sm:space-y-4">
-            {recentProposalIds.length > 0 ? (
+            {activeTab === "proposals" ? (
               <>
-                {recentProposalIds.map((proposalId) => (
-                  <ProposalVotingCard key={proposalId} proposalId={proposalId} isDarkMode={isDarkMode} />
-                ))}
+                {recentProposalIds.length > 0 ? (
+                  <>
+                    {recentProposalIds.map((proposalId) => (
+                      <ProposalVotingCard key={proposalId} proposalId={proposalId} isDarkMode={isDarkMode} />
+                    ))}
 
-                {hasMoreProposals && (
-                  <div className="flex justify-center pt-4">
-                    <Button
-                      onClick={loadMoreProposals}
-                      variant="outline"
-                      className={`${
-                        isDarkMode
-                          ? "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
-                          : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      Load More Proposals ({displayedProposals}/{safeProposalCount})
-                    </Button>
+                    {hasMoreProposals && (
+                      <div className="flex justify-center pt-4">
+                        <Button
+                          onClick={loadMoreProposals}
+                          variant="outline"
+                          className={`${
+                            isDarkMode
+                              ? "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
+                              : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          Load More Proposals ({displayedProposals}/{safeProposalCount})
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div
+                    className={`flex items-center justify-center p-8 rounded-lg border ${
+                      isDarkMode
+                        ? "bg-gray-800 border-gray-700 text-gray-400"
+                        : "bg-white border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    <p>Loading proposals from Nouns DAO...</p>
                   </div>
                 )}
               </>
             ) : (
-              <div
-                className={`flex items-center justify-center p-8 rounded-lg border ${
-                  isDarkMode ? "bg-gray-800 border-gray-700 text-gray-400" : "bg-white border-gray-200 text-gray-500"
-                }`}
-              >
-                <p>Loading proposals from Nouns DAO...</p>
-              </div>
+              <>
+                {isLoadingCandidates ? (
+                  <div
+                    className={`flex items-center justify-center p-8 rounded-lg border ${
+                      isDarkMode
+                        ? "bg-gray-800 border-gray-700 text-gray-400"
+                        : "bg-white border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    <p>Loading candidates from Nouns DAO...</p>
+                  </div>
+                ) : safeCandidates.length > 0 ? (
+                  safeCandidates.map((candidate) => (
+                    <CandidateCard key={candidate.id} candidateId={candidate.id} isDarkMode={isDarkMode} />
+                  ))
+                ) : (
+                  <div
+                    className={`flex items-center justify-center p-8 rounded-lg border ${
+                      isDarkMode
+                        ? "bg-gray-800 border-gray-700 text-gray-400"
+                        : "bg-white border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    <p>No candidates found</p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Recent Votes */}

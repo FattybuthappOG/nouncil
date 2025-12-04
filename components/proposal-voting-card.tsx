@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
-import { useAccount } from "wagmi"
+import { useAccount, useBlockNumber } from "wagmi"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { useState } from "react"
@@ -21,9 +21,11 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
   const { isConnected } = useAccount()
   const proposal = useProposalData(proposalId)
 
+  const { data: currentBlockData } = useBlockNumber({ watch: true })
+  const currentBlock = Number(currentBlockData || 0)
+
   const { title, media } = parseProposalDescription(proposal.description || `Proposal ${proposalId}`)
 
-  const currentBlock = 21500000 // Approximate current block, should ideally come from chain
   const votingEnded = currentBlock > Number(proposal.endBlock)
   const votingStarted = currentBlock >= Number(proposal.startBlock)
   const blocksRemaining = votingEnded ? 0 : Number(proposal.endBlock) - currentBlock
@@ -44,11 +46,12 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
     console.log(`Voting ${support} on proposal ${proposalId}`)
   }
 
-  const forNouns = Math.floor(Number(proposal.forVotes) / 1e18)
-  const againstNouns = Math.floor(Number(proposal.againstVotes) / 1e18)
-  const abstainNouns = Math.floor(Number(proposal.abstainVotes) / 1e18)
-  const quorumNeeded = Math.floor(Number(proposal.quorum) / 1e18)
+  const forNouns = Number(proposal.forVotes)
+  const againstNouns = Number(proposal.againstVotes)
+  const abstainNouns = Number(proposal.abstainVotes)
+  const quorumNeeded = Number(proposal.quorum)
   const totalVotes = forNouns + againstNouns + abstainNouns
+  const quorumMet = totalVotes >= quorumNeeded
 
   return (
     <Card
@@ -68,34 +71,37 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
             </div>
             <CardTitle className={`text-lg mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>{title}</CardTitle>
 
-            <div className={`flex items-center gap-2 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-              <Clock className="w-4 h-4" />
-              {!votingStarted && (
-                <span>
-                  Voting starts in {Math.floor(((Number(proposal.startBlock) - currentBlock) * 12) / 3600)} hours
-                </span>
-              )}
-              {votingStarted && !votingEnded && daysRemaining > 0 && (
-                <span>
-                  {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining
-                </span>
-              )}
-              {votingStarted && !votingEnded && daysRemaining === 0 && (
-                <span>
-                  {hoursRemaining} hour{hoursRemaining !== 1 ? "s" : ""} remaining
-                </span>
-              )}
-              {votingEnded && daysEnded > 0 && (
-                <span>
-                  Ended {daysEnded} day{daysEnded !== 1 ? "s" : ""} ago
-                </span>
-              )}
-              {votingEnded && daysEnded === 0 && (
-                <span>
-                  Ended {hoursEnded} hour{hoursEnded !== 1 ? "s" : ""} ago
-                </span>
-              )}
-            </div>
+            {currentBlock > 0 && (
+              <div className={`flex items-center gap-2 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                <Clock className="w-4 h-4" />
+                {!votingStarted && (
+                  <span>
+                    Voting starts in {Math.floor(((Number(proposal.startBlock) - currentBlock) * 12) / 3600)} hours
+                  </span>
+                )}
+                {votingStarted && !votingEnded && daysRemaining > 0 && (
+                  <span>
+                    {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining
+                  </span>
+                )}
+                {votingStarted && !votingEnded && daysRemaining === 0 && (
+                  <span>
+                    {hoursRemaining} hour{hoursRemaining !== 1 ? "s" : ""} remaining
+                  </span>
+                )}
+                {votingEnded && daysEnded > 0 && (
+                  <span>
+                    Ended {daysEnded} day{daysEnded !== 1 ? "s" : ""} ago
+                  </span>
+                )}
+                {votingEnded && daysEnded === 0 && hoursEnded > 0 && (
+                  <span>
+                    Ended {hoursEnded} hour{hoursEnded !== 1 ? "s" : ""} ago
+                  </span>
+                )}
+                {votingEnded && hoursEnded === 0 && <span>Ended recently</span>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -146,7 +152,7 @@ export function ProposalVotingCard({ proposalId, isDarkMode, proposalData }: Pro
         </div>
 
         <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Quorum: {totalVotes} / {quorumNeeded} Nouns {totalVotes >= quorumNeeded ? "✓" : ""}
+          Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
         </div>
 
         {/* Voting Buttons */}
