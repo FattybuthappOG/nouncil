@@ -106,6 +106,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
   const [selectedSupport, setSelectedSupport] = useState<0 | 1 | 2 | null>(null)
   const [voteReason, setVoteReason] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
+  const [translatedContent, setTranslatedContent] = useState("")
 
   const { address, isConnected } = useAccount()
   const router = useRouter()
@@ -158,6 +159,30 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
     //   args: [BigInt(proposalId), selectedSupport as 0 | 1 | 2, voteReason, 22],
     // })
   }
+
+  useEffect(() => {
+    if (selectedLanguage === "en") {
+      setTranslatedContent(content)
+      return
+    }
+
+    const translateContent = async () => {
+      try {
+        const response = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(content.slice(0, 500))}&langpair=en|${selectedLanguage}`,
+        )
+        const data = await response.json()
+        if (data.responseStatus === 200 && data.responseData.translatedText) {
+          setTranslatedContent(data.responseData.translatedText)
+        }
+      } catch (error) {
+        console.error("Translation error:", error)
+        setTranslatedContent(content)
+      }
+    }
+
+    translateContent()
+  }, [selectedLanguage, content])
 
   if (proposal.isLoading) {
     return (
@@ -516,11 +541,12 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         </div>
 
         {/* Description */}
-        {content && (
+        {translatedContent && (
           <Card className="bg-gray-800 border-gray-700 p-6 overflow-hidden">
             <h2 className="text-xl font-semibold text-gray-100 mb-4">{t("description")}</h2>
             <div className="prose prose-invert prose-lg max-w-none break-words overflow-hidden">
               <ReactMarkdown
+                skipHtml={true}
                 components={{
                   h1: ({ node, ...props }) => <h1 className="text-3xl font-bold text-white mb-4 mt-8" {...props} />,
                   h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-white mb-3 mt-6" {...props} />,
@@ -559,7 +585,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                   img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
                 }}
               >
-                {content}
+                {translatedContent}
               </ReactMarkdown>
             </div>
           </Card>

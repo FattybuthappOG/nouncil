@@ -58,6 +58,7 @@ type LanguageCode = keyof typeof translations
 export default function CandidateDetailPage({ params }: { params: { id: string } }) {
   const candidateNumber = Number.parseInt(params.id)
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
+  const [translatedDescription, setTranslatedDescription] = useState("")
 
   const { candidates, totalCount, isLoading: candidatesLoading } = useCandidateIds(1000)
 
@@ -73,6 +74,34 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
       setSelectedLanguage(savedLanguage)
     }
   }, [])
+
+  useEffect(() => {
+    if (!candidateData.fullDescription) return
+
+    if (selectedLanguage === "en") {
+      setTranslatedDescription(candidateData.fullDescription)
+      return
+    }
+
+    const translateDescription = async () => {
+      try {
+        const response = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(candidateData.fullDescription.slice(0, 500))}&langpair=en|${selectedLanguage}`,
+        )
+        const data = await response.json()
+        if (data.responseStatus === 200 && data.responseData.translatedText) {
+          setTranslatedDescription(data.responseData.translatedText)
+        } else {
+          setTranslatedDescription(candidateData.fullDescription)
+        }
+      } catch (error) {
+        console.error("Translation error:", error)
+        setTranslatedDescription(candidateData.fullDescription)
+      }
+    }
+
+    translateDescription()
+  }, [selectedLanguage, candidateData.fullDescription])
 
   const t = (key: string) => {
     return translations[selectedLanguage]?.[key] || translations.en[key] || key
@@ -202,6 +231,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           <h2 className="text-xl font-semibold text-gray-100 mb-4">{t("description")}</h2>
           <div className="prose prose-invert max-w-none break-words overflow-hidden">
             <ReactMarkdown
+              skipHtml={true}
               components={{
                 h1: ({ node, ...props }) => (
                   <h1 className="text-3xl font-bold text-gray-100 mt-6 mb-4 break-words" {...props} />
@@ -245,7 +275,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                 img: () => null,
               }}
             >
-              {candidateData.fullDescription}
+              {translatedDescription || candidateData.fullDescription}
             </ReactMarkdown>
           </div>
         </Card>

@@ -733,8 +733,8 @@ export default function LiveGovernanceDashboard() {
                       isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
                     }`}
                   >
-                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6 flex-shrink-0" />
-                    <span className="font-medium">{t("joinCallsThursday")}</span>
+                    <img src="/images/discord.png" alt="Discord" className="w-6 h-6" />
+                    <span className="font-medium">Join the calls every Thursday in Discord</span>
                   </a>
 
                   {/* Dark Mode Toggle */}
@@ -743,12 +743,12 @@ export default function LiveGovernanceDashboard() {
                       setIsDarkMode(!isDarkMode)
                       setShowMenu(false)
                     }}
-                    className={`flex items-center justify-center gap-3 w-full px-6 py-3 rounded-lg transition-colors font-medium ${
-                      isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-                    } text-white`}
+                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
                   >
                     {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                    <span>{t("toggleTheme")}</span>
+                    <span className="font-medium">Light Theme</span>
                   </button>
                 </div>
               </div>
