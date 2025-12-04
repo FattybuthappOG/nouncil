@@ -112,13 +112,13 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
       try {
         let statusCondition = ""
         if (statusFilter === "active") {
-          // Active proposals have status: ACTIVE
+          // Active proposals use "ACTIVE" in status field
           statusCondition = ', where: { status: "ACTIVE" }'
         } else if (statusFilter === "executed") {
-          // Executed proposals have status: EXECUTED
+          // Executed proposals use "EXECUTED" in status field
           statusCondition = ', where: { status: "EXECUTED" }'
         } else if (statusFilter === "defeated") {
-          // Defeated proposals have status: DEFEATED in the Subgraph
+          // Defeated proposals use "DEFEATED" in status field
           statusCondition = ', where: { status: "DEFEATED" }'
         }
 
