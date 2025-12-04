@@ -1,5 +1,21 @@
 "use client"
 
+import { Textarea } from "@/components/ui/textarea"
+
+import { Input } from "@/components/ui/input"
+
+import { Label } from "@/components/ui/label"
+
+import { DialogTrigger } from "@/components/ui/dialog"
+
+import { DialogTitle } from "@/components/ui/dialog"
+
+import { DialogHeader } from "@/components/ui/dialog"
+
+import { DialogContent } from "@/components/ui/dialog"
+
+import { Dialog } from "@/components/ui/dialog"
+
 import { useCandidateData, useCandidateIds } from "@/hooks/useContractData"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,10 +27,8 @@ import { parseMarkdownMedia } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
 import { useState, useEffect } from "react"
 import { useAccount, useConnect, useDisconnect } from "wagmi"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { parseAbi } from "viem"
 
 type LanguageCode = keyof typeof translations
 
@@ -84,6 +98,12 @@ const translations = {
   },
 }
 
+const NOUNS_DAO_DATA_CONTRACT = "0xf790A5f59678dd733fb3De93493A91f472ca1365"
+
+const NOUNS_DAO_DATA_ABI = parseAbi([
+  "function addSignature((bytes32,uint256,address,bytes,uint256,string) sig) external",
+])
+
 export default function CandidateDetailPage({ params }: { params: { id: string } }) {
   const candidateNumber = Number.parseInt(params.id)
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
@@ -99,6 +119,10 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const candidateId = candidate?.id || params.id
   const candidateData = useCandidateData(candidateId)
   const router = useRouter()
+  const { writeContract, data: hash, error, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
@@ -139,25 +163,38 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
     return translations[selectedLanguage]?.[key] || translations.en[key] || key
   }
 
-  const handleSponsorClick = () => {
+  const handleSponsorClick = async () => {
     if (!isConnected) {
       alert(t("connectWallet"))
       return
     }
 
-    const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
+    try {
+      const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
 
-    const sponsorData = {
-      candidateId: candidateData.id,
-      slug: candidateData.slug,
-      expirationTimestamp,
-      reason: sponsorReason,
-      signer: address,
+      const slugBytes32 = `0x${Buffer.from(candidateData.slug.slice(0, 31)).toString("hex").padEnd(64, "0")}`
+
+      const emptySignature = "0x"
+
+      await writeContract({
+        address: NOUNS_DAO_DATA_CONTRACT,
+        abi: NOUNS_DAO_DATA_ABI,
+        functionName: "addSignature",
+        args: [
+          {
+            proposalIdOrSlug: slugBytes32,
+            expirationTimestamp: BigInt(expirationTimestamp),
+            signer: address!,
+            signature: emptySignature,
+            sig: BigInt(0), // proposalIdOrSlug as uint256
+            reason: sponsorReason || "Supporting this candidate",
+          },
+        ],
+      })
+    } catch (err) {
+      console.error("Sponsor transaction error:", err)
+      alert(`Error: ${err instanceof Error ? err.message : "Failed to sponsor"}`)
     }
-
-    alert(
-      `Sponsor data prepared:\n\nCandidate: ${candidateData.description}\nValidity: ${validityDays} days\nReason: ${sponsorReason || "No reason provided"}\n\nIn production, this would trigger a wallet signature request.`,
-    )
   }
 
   const formatTimeAgo = (timestamp: number) => {
@@ -346,9 +383,17 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                   <Button
                     onClick={handleSponsorClick}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={!isConnected}
+                    disabled={!isConnected || isPending || isConfirming}
                   >
-                    {isConnected ? t("generateTransaction") : t("connectWallet")}
+                    {isPending
+                      ? "Preparing..."
+                      : isConfirming
+                        ? "Confirming..."
+                        : isConfirmed
+                          ? "Sponsored!"
+                          : isConnected
+                            ? t("generateTransaction")
+                            : t("connectWallet")}
                   </Button>
                 </div>
               </DialogContent>
