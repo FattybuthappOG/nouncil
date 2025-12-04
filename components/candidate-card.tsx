@@ -90,3 +90,5 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber }: Cand
     </Card>
   )
 }
+
+export default CandidateCard

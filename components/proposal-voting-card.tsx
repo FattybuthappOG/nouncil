@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,6 @@ interface ProposalVotingCardProps {
   isDarkMode: boolean
   proposalData?: any
   statusFilter?: string
-  onVisibilityChange?: (visible: boolean) => void // Add callback for visibility tracking
 }
 
 export function ProposalVotingCard({
@@ -27,7 +26,6 @@ export function ProposalVotingCard({
   isDarkMode,
   proposalData,
   statusFilter = "all",
-  onVisibilityChange, // Destructure new prop
 }: ProposalVotingCardProps) {
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
@@ -57,14 +55,6 @@ export function ProposalVotingCard({
   const { label: stateLabel, color: stateColor } = getProposalStateLabel(proposal.state)
 
   const isVisible = statusFilter === "all" || stateLabel.toUpperCase() === statusFilter
-
-  useEffect(() => {
-    onVisibilityChange?.(isVisible)
-  }, [isVisible, onVisibilityChange])
-
-  if (!isVisible) {
-    return null
-  }
 
   let timingDisplay = null
   if (showTiming && currentBlock) {
@@ -303,3 +293,5 @@ export function ProposalVotingCard({
     </Card>
   )
 }
+
+export default ProposalVotingCard

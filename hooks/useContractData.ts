@@ -110,7 +110,6 @@ export function useProposalIds(limit = 15) {
   useEffect(() => {
     const fetchProposalIds = async () => {
       try {
-        // Use the Nouns Subgraph API
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -126,6 +125,11 @@ export function useProposalIds(limit = 15) {
                 ) {
                   id
                 }
+                _meta {
+                  block {
+                    number
+                  }
+                }
               }
             `,
             }),
@@ -139,8 +143,6 @@ export function useProposalIds(limit = 15) {
           if (ids.length > 0) {
             setTotalCount(Math.max(...ids))
           }
-          console.log("[v0] Fetched proposal IDs from Subgraph:", ids)
-          console.log("[v0] Total proposal count:", Math.max(...ids))
         }
       } catch (error) {
         console.error("[v0] Failed to fetch proposal IDs:", error)
@@ -335,7 +337,6 @@ export function useBatchProposals(proposalIds: number[]) {
   return { proposals, isLoading }
 }
 
-// Candidate fetching hooks
 export function useCandidateIds(limit = 15) {
   const [candidates, setCandidates] = useState<any[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
@@ -344,29 +345,7 @@ export function useCandidateIds(limit = 15) {
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
-        const countResponse = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
-                  id
-                }
-              }
-            `,
-            }),
-          },
-        )
-
-        const countData = await countResponse.json()
-        if (countData?.data?.proposalCandidates) {
-          setTotalCount(countData.data.proposalCandidates.length)
-          console.log("[v0] Total candidates count:", countData.data.proposalCandidates.length)
-        }
-
+        // Single optimized query to get both count and data
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -389,7 +368,6 @@ export function useCandidateIds(limit = 15) {
                     content {
                       title
                       description
-                      matchingProposalIds
                       targets
                       values
                       signatures
@@ -398,6 +376,9 @@ export function useCandidateIds(limit = 15) {
                   }
                   canceledTimestamp
                 }
+                allCandidates: proposalCandidates(first: 1, orderBy: createdTimestamp, orderDirection: desc) {
+                  id
+                }
               }
             `,
             }),
@@ -405,7 +386,15 @@ export function useCandidateIds(limit = 15) {
         )
 
         const data = await response.json()
-        console.log("[v0] Candidates full data response:", JSON.stringify(data))
+
+        if (data?.data?.allCandidates?.[0]?.id) {
+          // Extract the number from the ID to get total count
+          const latestId = data.data.allCandidates[0].id
+          const match = latestId.match(/(\d+)$/)
+          if (match) {
+            setTotalCount(Number.parseInt(match[1]))
+          }
+        }
 
         if (data?.data?.proposalCandidates) {
           const candidatesList = data.data.proposalCandidates.map((c: any) => {
@@ -429,9 +418,6 @@ export function useCandidateIds(limit = 15) {
             }
           })
           setCandidates(candidatesList)
-          console.log("[v0] Processed candidates:", candidatesList.length)
-        } else if (data?.errors) {
-          console.error("[v0] GraphQL errors:", data.errors)
         }
       } catch (error) {
         console.error("[v0] Failed to fetch candidates:", error)
@@ -485,7 +471,6 @@ export function useCandidateData(candidateId: string) {
                     content {
                       title
                       description
-                      matchingProposalIds
                       targets
                       values
                       signatures

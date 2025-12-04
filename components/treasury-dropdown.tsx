@@ -28,3 +28,5 @@ export function TreasuryDropdown({ isDarkMode }: TreasuryDropdownProps) {
     </Button>
   )
 }
+
+export default TreasuryDropdown
