@@ -163,6 +163,7 @@ export function useProposalData(proposalId: number) {
   const [proposalData, setProposalData] = useState({
     id: proposalId,
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    sponsors: [] as `0x${string}`[],
     forVotes: BigInt(0),
     againstVotes: BigInt(0),
     abstainVotes: BigInt(0),
@@ -234,6 +235,9 @@ export function useProposalData(proposalId: number) {
                   proposer {
                     id
                   }
+                  signers {
+                    id
+                  }
                   forVotes
                   againstVotes
                   abstainVotes
@@ -258,8 +262,6 @@ export function useProposalData(proposalId: number) {
         const data = await response.json()
         const proposal = data?.data?.proposal
 
-        console.log(`[v0] Fetched proposal ${proposalId} from Subgraph:`, proposal)
-
         if (proposal) {
           const desc = proposal.description || `Proposal ${proposalId}`
           const title =
@@ -270,9 +272,12 @@ export function useProposalData(proposalId: number) {
 
           const stateNum = Number(stateData || 1)
 
+          const sponsorsList = proposal.signers?.map((s: any) => s.id as `0x${string}`) || []
+
           setProposalData({
             id: proposalId,
             proposer: proposal.proposer?.id || "0x0000000000000000000000000000000000000000",
+            sponsors: sponsorsList,
             forVotes: BigInt(proposal.forVotes || 0),
             againstVotes: BigInt(proposal.againstVotes || 0),
             abstainVotes: BigInt(proposal.abstainVotes || 0),
@@ -345,7 +350,6 @@ export function useCandidateIds(limit = 15) {
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
-        // Single optimized query to get both count and data
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -376,9 +380,6 @@ export function useCandidateIds(limit = 15) {
                   }
                   canceledTimestamp
                 }
-                allCandidates: proposalCandidates(first: 1, orderBy: createdTimestamp, orderDirection: desc) {
-                  id
-                }
               }
             `,
             }),
@@ -387,13 +388,26 @@ export function useCandidateIds(limit = 15) {
 
         const data = await response.json()
 
-        if (data?.data?.allCandidates?.[0]?.id) {
-          // Extract the number from the ID to get total count
-          const latestId = data.data.allCandidates[0].id
-          const match = latestId.match(/(\d+)$/)
-          if (match) {
-            setTotalCount(Number.parseInt(match[1]))
-          }
+        const countResponse = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(first: 1000, orderBy: createdTimestamp) {
+                  id
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const countData = await countResponse.json()
+        if (countData?.data?.proposalCandidates) {
+          setTotalCount(countData.data.proposalCandidates.length)
         }
 
         if (data?.data?.proposalCandidates) {
@@ -487,8 +501,6 @@ export function useCandidateData(candidateId: string) {
 
         const data = await response.json()
         const candidate = data?.data?.proposalCandidate
-
-        console.log(`[v0] Fetched candidate ${candidateId} from Subgraph:`, candidate)
 
         if (candidate) {
           const content = candidate.latestVersion?.content || {}

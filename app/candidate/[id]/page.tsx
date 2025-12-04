@@ -7,13 +7,12 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, ExternalLink, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 import { parseMarkdownMedia } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
 
 export default function CandidateDetailPage({ params }: { params: { id: string } }) {
   const candidateNumber = Number.parseInt(params.id)
-  const { candidates, totalCount, isLoading: candidatesLoading } = useCandidateIds(1000) // Fetch all to map number to ID
+  const { candidates, totalCount, isLoading: candidatesLoading } = useCandidateIds(1000)
 
   const candidate = candidates.find((c, idx) => totalCount - idx === candidateNumber)
   const candidateId = candidate?.id || params.id
@@ -145,7 +144,6 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           <h2 className="text-xl font-semibold text-gray-100 mb-4">Description</h2>
           <div className="prose prose-invert max-w-none break-words overflow-hidden">
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ node, ...props }) => (
                   <h1 className="text-3xl font-bold text-gray-100 mt-6 mb-4 break-words" {...props} />
@@ -186,7 +184,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                       {...props}
                     />
                   ),
-                img: () => null, // Images handled separately
+                img: () => null,
               }}
             >
               {candidateData.fullDescription}

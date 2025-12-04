@@ -57,7 +57,7 @@
     "react-markdown": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
-    "remark-gfm": "latest",
+    "remark-gfm": "4.0.0",
     "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",

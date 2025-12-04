@@ -11,7 +11,6 @@ import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from "wagmi"
 import { useState } from "react"
 import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import { EnsDisplay } from "@/components/ens-display"
 import { TransactionSimulator } from "@/components/transaction-simulator"
@@ -187,6 +186,27 @@ export default function ProposalDetailPage() {
                 </span>
                 <a
                   href={`https://etherscan.io/address/${proposal.proposer}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 hover:text-blue-400 transition-colors"
+                >
+                  View on Etherscan <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
+            {proposal.sponsors && proposal.sponsors.length > 0 && (
+              <div className="flex items-center gap-4 flex-wrap break-all">
+                <span>
+                  Sponsors ({proposal.sponsors.length}):{" "}
+                  {proposal.sponsors.map((sponsor, idx) => (
+                    <span key={sponsor}>
+                      <EnsDisplay address={sponsor} className="inline" />
+                      {idx < proposal.sponsors.length - 1 && ", "}
+                    </span>
+                  ))}
+                </span>
+                <a
+                  href={`https://etherscan.io/address/${proposal.sponsors[0]}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 hover:text-blue-400 transition-colors"
@@ -399,7 +419,6 @@ export default function ProposalDetailPage() {
             <h2 className="text-xl font-bold text-white mb-4">Description</h2>
             <div className="prose prose-invert prose-lg max-w-none break-words overflow-hidden">
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
                 components={{
                   h1: ({ node, ...props }) => <h1 className="text-3xl font-bold text-white mb-4 mt-8" {...props} />,
                   h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-white mb-3 mt-6" {...props} />,

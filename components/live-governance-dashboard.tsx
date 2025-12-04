@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Moon, Sun, Menu, X, Search, Globe } from "lucide-react"
+import { Moon, Sun, Menu, X, Search, Globe, Copy } from "lucide-react"
 import ProposalVotingCard from "./proposal-voting-card"
 import CandidateCard from "./candidate-card"
 import TreasuryDropdown from "./treasury-dropdown"
@@ -52,6 +52,10 @@ const translations = {
     against: "Against",
     abstain: "Abstain",
     vote: "Vote",
+    loadingProposals: "Loading proposals...",
+    noProposalsFound: "No proposals found",
+    loading: "Loading...",
+    noCandidatesFound: "No candidates found",
   },
   zh: {
     proposals: "提案",
@@ -79,6 +83,10 @@ const translations = {
     against: "反对",
     abstain: "弃权",
     vote: "投票",
+    loadingProposals: "正在加载提案...",
+    noProposalsFound: "未找到提案",
+    loading: "正在加载...",
+    noCandidatesFound: "未找到候选人",
   },
   es: {
     proposals: "Propuestas",
@@ -106,6 +114,10 @@ const translations = {
     against: "En Contra",
     abstain: "Abstención",
     vote: "Votar",
+    loadingProposals: "Cargando propuestas...",
+    noProposalsFound: "No se encontraron propuestas",
+    loading: "Cargando...",
+    noCandidatesFound: "No se encontraron candidatos",
   },
   hi: {
     proposals: "प्रस्ताव",
@@ -129,10 +141,14 @@ const translations = {
     viewOnEtherscan: "Etherscan पर देखें",
     transactionSimulator: "लेनदेन सिमुलेटर",
     votes: "मत",
-    for: "के लिए",
-    against: "के खिलाफ",
+    for: " के लिए",
+    against: " के खिलाफ",
     abstain: "परहेज",
     vote: "वोट",
+    loadingProposals: "प्रस्ताव लोड हो रहे हैं...",
+    noProposalsFound: "कोई प्रस्ताव नहीं मिला",
+    loading: "लोड हो रहा है...",
+    noCandidatesFound: "कोई उम्मीदवार नहीं मिला",
   },
   ar: {
     proposals: "المقترحات",
@@ -160,6 +176,10 @@ const translations = {
     against: "ضد",
     abstain: "امتناع",
     vote: "تصويت",
+    loadingProposals: "جارٍ التحميل...",
+    noProposalsFound: "لم يتم العثور على أي مقترحات",
+    loading: "جارٍ التحميل...",
+    noCandidatesFound: "لم يتم العثور على أي مرشحين",
   },
   pt: {
     proposals: "Propostas",
@@ -187,6 +207,10 @@ const translations = {
     against: "Contra",
     abstain: "Abstenção",
     vote: "Votar",
+    loadingProposals: "Carregando propostas...",
+    noProposalsFound: "Nenhuma proposta encontrada",
+    loading: "Carregando...",
+    noCandidatesFound: "Nenhum candidato encontrado",
   },
   bn: {
     proposals: "প্রস্তাব",
@@ -214,6 +238,10 @@ const translations = {
     against: "বিপক্ষে",
     abstain: "বিরত থাকা",
     vote: "ভোট",
+    loadingProposals: "প্রস্তাব লোড হচ্ছে...",
+    noProposalsFound: "কোনো প্রস্তাব পাওয়া যায়নি",
+    loading: "লোড হচ্ছে...",
+    noCandidatesFound: "কোনো উম্মীদবার পাওয়া যায়নি",
   },
   ru: {
     proposals: "Предложения",
@@ -241,6 +269,10 @@ const translations = {
     against: "Против",
     abstain: "Воздержаться",
     vote: "Голосовать",
+    loadingProposals: "Загрузка предложений...",
+    noProposalsFound: "Предложений не найдено",
+    loading: "Загрузка...",
+    noCandidatesFound: "Кандидатов не найдено",
   },
   ja: {
     proposals: "提案",
@@ -268,6 +300,10 @@ const translations = {
     against: "反対",
     abstain: "棄権",
     vote: "投票",
+    loadingProposals: "提案を読み込んでいます...",
+    noProposalsFound: "提案が見つかりません",
+    loading: "読み込み中...",
+    noCandidatesFound: "候補者が見つかりません",
   },
   fr: {
     proposals: "Propositions",
@@ -295,12 +331,15 @@ const translations = {
     against: "Contre",
     abstain: "Abstention",
     vote: "Voter",
+    loadingProposals: "Chargement des propositions...",
+    noProposalsFound: "Aucune proposition trouvée",
+    loading: "Chargement...",
+    noCandidatesFound: "Aucun candidat trouvé",
   },
 }
 
-const t = (key: keyof typeof translations.en) => {
-  return translations["en" as keyof typeof translations]?.[key] || translations.en[key]
-}
+type LanguageCode = keyof typeof translations
+type SearchResult = { id: string; description?: string; slug?: string; latestVersion?: { content: { title: string } } }
 
 export default function LiveGovernanceDashboard() {
   const router = useRouter()
@@ -313,8 +352,9 @@ export default function LiveGovernanceDashboard() {
   const [displayedProposals, setDisplayedProposals] = useState(15)
   const [displayedCandidates, setDisplayedCandidates] = useState(15)
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated">("all")
-  const [selectedLanguage, setSelectedLanguage] = useState("en")
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
+  const [copyFeedback, setCopyFeedback] = useState(false)
 
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
@@ -329,18 +369,30 @@ export default function LiveGovernanceDashboard() {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })} ETH`
-    : "Loading..."
+    : "0 ETH"
+
+  const t = (key: string) => {
+    return translations[selectedLanguage]?.[key] || translations.en[key] || key
+  }
+
+  const copyNounsSymbol = () => {
+    navigator.clipboard.writeText("⌐◨-◨")
+    setCopyFeedback(true)
+    setTimeout(() => setCopyFeedback(false), 2000)
+  }
 
   const proposalIdsData = useProposalIds(displayedProposals)
   const candidateIdsData = useCandidateIds(displayedCandidates)
 
-  const safeProposalIds = proposalIdsData?.proposalIds || []
-  const safeCandidates = candidateIdsData?.candidates || []
+  const recentProposalIds = proposalIdsData?.proposalIds || []
   const totalProposals = proposalIdsData?.totalCount || 0
+  const safeCandidates = candidateIdsData?.candidates || []
   const totalCandidates = candidateIdsData?.totalCount || 0
-  const recentProposalIds = safeProposalIds.slice(0, displayedProposals)
 
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const hasMoreProposals = displayedProposals < totalProposals
+  const hasMoreCandidates = displayedCandidates < totalCandidates
+
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
   useEffect(() => {
@@ -351,22 +403,6 @@ export default function LiveGovernanceDashboard() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode)
   }, [isDarkMode])
-
-  // Simple translation function
-  const translate = async (text: string, targetLang: string) => {
-    if (targetLang === "en" || !text) return text
-
-    try {
-      // Using a simple translation approach - in production, you'd use a proper translation API
-      const response = await fetch(
-        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`,
-      )
-      const data = await response.json()
-      return data[0]?.[0]?.[0] || text
-    } catch {
-      return text
-    }
-  }
 
   useEffect(() => {
     const searchTimeout = setTimeout(async () => {
@@ -384,7 +420,10 @@ export default function LiveGovernanceDashboard() {
               query = `query { proposals(first: 10, where: { description_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id description } }`
             }
           } else {
-            query = `query { proposalCandidates(first: 10, where: { slug_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id slug latestVersion { content { title } } } }`
+            // For candidates, search in both slug and title
+            const titleQuery = `query { proposalCandidates(first: 10, where: { latestVersion_: { content_: { title_contains_nocase: "${debouncedSearch}" } } }, orderBy: createdTimestamp, orderDirection: desc) { id slug latestVersion { content { title } } } }`
+            const slugQuery = `query { proposalCandidates(first: 10, where: { slug_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id slug latestVersion { content { title } } } }`
+            query = isNumber ? slugQuery : titleQuery
           }
 
           const response = await fetch(
@@ -404,7 +443,7 @@ export default function LiveGovernanceDashboard() {
             setSearchResults(data?.data?.proposalCandidates || [])
           }
         } catch (error) {
-          console.error("[v0] Search error:", error)
+          console.error("Search error:", error)
           setSearchResults([])
         } finally {
           setIsSearching(false)
@@ -412,7 +451,7 @@ export default function LiveGovernanceDashboard() {
       } else {
         setSearchResults([])
       }
-    }, 300) // Debounce search by 300ms
+    }, 300)
 
     return () => clearTimeout(searchTimeout)
   }, [debouncedSearch, activeTab])
@@ -423,8 +462,12 @@ export default function LiveGovernanceDashboard() {
     setSearchResults([])
   }
 
-  const handleSelectCandidate = (id: string, index: number) => {
-    router.push(`/candidate/${totalCandidates - index}`)
+  const handleSelectCandidate = (id: string) => {
+    const candidateIndex = safeCandidates.findIndex((c) => c.id === id)
+    if (candidateIndex !== -1) {
+      const candidateNumber = totalCandidates - candidateIndex
+      router.push(`/candidate/${candidateNumber}`)
+    }
     setSearchQuery("")
     setSearchResults([])
   }
@@ -437,14 +480,10 @@ export default function LiveGovernanceDashboard() {
     setDisplayedCandidates((prev) => prev + 20)
   }
 
-  const hasMoreProposals = displayedProposals < totalProposals
-  const hasMoreCandidates = displayedCandidates < totalCandidates
-
   const searchPlaceholder = activeTab === "proposals" ? t("searchProposals") : t("searchCandidates")
 
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
-      {/* Header */}
       <header
         className={`sticky top-0 z-50 backdrop-blur-md border-b ${
           isDarkMode ? "bg-gray-900/95 border-gray-800" : "bg-white/95 border-gray-200"
@@ -452,11 +491,12 @@ export default function LiveGovernanceDashboard() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
+            {/* Logo */}
             <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <span className="text-4xl">⌐◨-◨</span>
+              <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
             </Link>
 
-            {/* Desktop - Connect Wallet and Menu */}
+            {/* Desktop - Connect Wallet and Menu Button */}
             <div className="hidden md:flex items-center gap-4">
               {isConnected ? (
                 <button
@@ -476,13 +516,14 @@ export default function LiveGovernanceDashboard() {
                     isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
                   }`}
                 >
-                  {t("connectWallet")}
+                  Connect Wallet
                 </button>
               )}
 
               <button
                 onClick={() => setShowMenu(!showMenu)}
                 className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                aria-label="Menu"
               >
                 <Menu className="w-6 h-6" />
               </button>
@@ -492,172 +533,190 @@ export default function LiveGovernanceDashboard() {
             <button
               onClick={() => setShowMenu(!showMenu)}
               className={`md:hidden p-2 rounded-lg ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+              aria-label="Menu"
             >
               {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
-        {/* Desktop Menu */}
+        {/* Desktop Slide-in Menu */}
         {showMenu && (
-          <div className="hidden md:block fixed inset-0 z-50">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setShowMenu(false)} />
-            <div
-              className={`absolute right-0 top-0 bottom-0 w-80 ${isDarkMode ? "bg-gray-900" : "bg-white"} shadow-2xl overflow-y-auto`}
-            >
-              <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-bold">Menu</h3>
-                  <button
-                    onClick={() => setShowMenu(false)}
-                    className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+          <>
+            <div className="hidden md:block fixed inset-0 z-50">
+              {/* Backdrop */}
+              <div className="absolute inset-0 bg-black/50" onClick={() => setShowMenu(false)} />
 
-                <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
-
-                <a
-                  href="https://nouns.world/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setShowMenu(false)}
-                  className={`flex items-center gap-2 w-full px-4 py-2 rounded-lg transition-colors ${
-                    isDarkMode
-                      ? "bg-gray-800 hover:bg-gray-700 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                  }`}
-                >
-                  <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
-                  <span>{t("learnAboutNouns")}</span>
-                </a>
-
-                <a
-                  href="https://noggles.wtf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setShowMenu(false)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                  }`}
-                >
-                  <span className="text-xl">⌐◨-◨</span>
-                  <span>{t("generateTogaPFP")}</span>
-                </a>
-
-                <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-                  <button
-                    onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                    className={`w-full flex items-center justify-between px-4 py-2 ${
-                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-5 h-5" />
-                      <span>{t("language")}</span>
-                    </div>
-                    <span>{LANGUAGES.find((l) => l.code === selectedLanguage)?.flag}</span>
-                  </button>
-
-                  {showLanguageMenu && (
-                    <div className={`border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-                      {LANGUAGES.map((lang) => (
-                        <button
-                          key={lang.code}
-                          onClick={() => {
-                            setSelectedLanguage(lang.code)
-                            setShowLanguageMenu(false)
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-2 text-left ${
-                            selectedLanguage === lang.code
-                              ? isDarkMode
-                                ? "bg-gray-700"
-                                : "bg-gray-100"
-                              : isDarkMode
-                                ? "hover:bg-gray-700"
-                                : "hover:bg-gray-100"
-                          }`}
-                        >
-                          <span className="text-xl">{lang.flag}</span>
-                          <span>{lang.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <a
-                  href="https://discord.gg/tnyXJZsGnq"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setShowMenu(false)}
-                  className={`flex flex-col gap-1 px-4 py-2 rounded-lg transition-colors ${
-                    isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
-                    <span>{t("joinDiscord")}</span>
+              {/* Menu Panel */}
+              <div
+                className={`absolute right-0 top-0 bottom-0 w-80 ${isDarkMode ? "bg-gray-900" : "bg-white"} shadow-2xl overflow-y-auto`}
+              >
+                <div className="p-6">
+                  {/* Menu Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold">Menu</h3>
+                    <button
+                      onClick={() => setShowMenu(false)}
+                      className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                      aria-label="Close menu"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
-                  <span className="text-sm opacity-75 ml-8">{t("joinCallsThursday")}</span>
-                </a>
 
-                <button
-                  onClick={() => {
-                    setIsDarkMode(!isDarkMode)
-                    setShowMenu(false)
-                  }}
-                  className={`flex items-center justify-center gap-2 w-full px-6 py-3 rounded-lg transition-colors font-medium ${
-                    isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-                  }`}
-                >
-                  {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                  <span>{t("toggleTheme")}</span>
-                </button>
+                  {/* Menu Items */}
+                  <div className="space-y-3">
+                    <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
+
+                    <a
+                      href="https://nouns.world/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-2 w-full px-4 py-2 rounded-lg transition-colors ${
+                        isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
+                      }`}
+                    >
+                      <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
+                      <span>Learn about Nouns</span>
+                    </a>
+
+                    <a
+                      href="https://noggles.wtf"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                      }`}
+                    >
+                      <span className="text-xl">⌐◨-◨</span>
+                      <span>Generate Toga PFP</span>
+                    </a>
+
+                    <button
+                      onClick={copyNounsSymbol}
+                      className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition-colors ${
+                        isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">⌐◨-◨</span>
+                        <span>Copy Nouns Symbol</span>
+                      </div>
+                      {copyFeedback ? (
+                        <span className="text-sm text-green-500">Copied!</span>
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+
+                    <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                      <button
+                        onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                        className={`w-full flex items-center justify-between px-4 py-2 rounded-lg ${
+                          isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-5 h-5" />
+                          <span>Language</span>
+                        </div>
+                        <span>{LANGUAGES.find((l) => l.code === selectedLanguage)?.flag}</span>
+                      </button>
+
+                      {showLanguageMenu && (
+                        <div className={`border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                          {LANGUAGES.map((lang) => (
+                            <button
+                              key={lang.code}
+                              onClick={() => {
+                                setSelectedLanguage(lang.code)
+                                setShowLanguageMenu(false)
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-2 text-left ${
+                                selectedLanguage === lang.code
+                                  ? isDarkMode
+                                    ? "bg-gray-700"
+                                    : "bg-gray-100"
+                                  : isDarkMode
+                                    ? "hover:bg-gray-700"
+                                    : "hover:bg-gray-100"
+                              }`}
+                            >
+                              <span className="text-xl">{lang.flag}</span>
+                              <span>{lang.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <a
+                      href="https://discord.gg/tnyXJZsGnq"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex flex-col gap-1 px-4 py-2 rounded-lg transition-colors ${
+                        isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
+                        <span>Join Discord</span>
+                      </div>
+                      <span className="text-sm opacity-75 ml-8">Join the calls every Thursday</span>
+                    </a>
+
+                    <button
+                      onClick={() => {
+                        setIsDarkMode(!isDarkMode)
+                        setShowMenu(false)
+                      }}
+                      className={`flex items-center justify-center gap-2 w-full px-6 py-3 rounded-lg transition-colors font-medium ${
+                        isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+                      } text-white`}
+                    >
+                      {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                      <span>Toggle Theme</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
 
-        {/* Mobile Menu */}
+        {/* Mobile Dropdown Menu */}
         {showMenu && (
           <div
             className={`md:hidden border-t ${isDarkMode ? "border-gray-800 bg-gray-900" : "border-gray-200 bg-white"}`}
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-3">
-              {/* Mobile Connect Wallet */}
-              <div>
-                {isConnected ? (
-                  <button
-                    onClick={() => {
-                      disconnect()
-                      setShowMenu(false)
-                    }}
-                    className={`w-full px-4 py-2 rounded-lg transition-colors font-medium ${
-                      isDarkMode
-                        ? "bg-gray-800 hover:bg-gray-700 text-white"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                    }`}
-                  >
-                    Disconnect {address?.slice(0, 6)}...{address?.slice(-4)}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setShowWalletDialog(true)
-                      setShowMenu(false)
-                    }}
-                    className={`w-full px-4 py-2 rounded-lg transition-colors font-medium ${
-                      isDarkMode
-                        ? "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-blue-500 hover:bg-blue-600 text-white"
-                    }`}
-                  >
-                    {t("connectWallet")}
-                  </button>
-                )}
-              </div>
+              {isConnected ? (
+                <button
+                  onClick={() => {
+                    disconnect()
+                    setShowMenu(false)
+                  }}
+                  className={`w-full px-4 py-2 rounded-lg transition-colors font-medium ${
+                    isDarkMode
+                      ? "bg-gray-800 hover:bg-gray-700 text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+                  }`}
+                >
+                  Disconnect {address?.slice(0, 6)}...{address?.slice(-4)}
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowWalletDialog(true)
+                    setShowMenu(false)
+                  }}
+                  className={`w-full px-4 py-2 rounded-lg transition-colors font-medium ${
+                    isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
+                  }`}
+                >
+                  Connect Wallet
+                </button>
+              )}
 
               <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
 
@@ -667,13 +726,11 @@ export default function LiveGovernanceDashboard() {
                 rel="noopener noreferrer"
                 onClick={() => setShowMenu(false)}
                 className={`flex items-center gap-2 w-full px-4 py-2 rounded-lg transition-colors ${
-                  isDarkMode
-                    ? "bg-gray-800 hover:bg-gray-700 text-white"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+                  isDarkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200"
                 }`}
               >
                 <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
-                <span>{t("learnAboutNouns")}</span>
+                <span>Learn about Nouns</span>
               </a>
 
               <a
@@ -686,19 +743,32 @@ export default function LiveGovernanceDashboard() {
                 }`}
               >
                 <span className="text-xl">⌐◨-◨</span>
-                <span>{t("generateTogaPFP")}</span>
+                <span>Generate Toga PFP</span>
               </a>
+
+              <button
+                onClick={copyNounsSymbol}
+                className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition-colors ${
+                  isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⌐◨-◨</span>
+                  <span>Copy Nouns Symbol</span>
+                </div>
+                {copyFeedback ? <span className="text-sm text-green-500">Copied!</span> : <Copy className="w-4 h-4" />}
+              </button>
 
               <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
                 <button
                   onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                  className={`w-full flex items-center justify-between px-4 py-2 ${
+                  className={`w-full flex items-center justify-between px-4 py-2 rounded-lg ${
                     isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <Globe className="w-5 h-5" />
-                    <span>{t("language")}</span>
+                    <span>Language</span>
                   </div>
                   <span>{LANGUAGES.find((l) => l.code === selectedLanguage)?.flag}</span>
                 </button>
@@ -741,9 +811,9 @@ export default function LiveGovernanceDashboard() {
               >
                 <div className="flex items-center gap-2">
                   <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
-                  <span>{t("joinDiscord")}</span>
+                  <span>Join Discord</span>
                 </div>
-                <span className="text-sm opacity-75 ml-8">{t("joinCallsThursday")}</span>
+                <span className="text-sm opacity-75 ml-8">Join the calls every Thursday</span>
               </a>
 
               <button
@@ -756,7 +826,7 @@ export default function LiveGovernanceDashboard() {
                 }`}
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                <span>{t("toggleTheme")}</span>
+                <span>Toggle Theme</span>
               </button>
             </div>
           </div>
@@ -765,12 +835,15 @@ export default function LiveGovernanceDashboard() {
 
       {/* Wallet Connection Dialog */}
       {showWalletDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowWalletDialog(false)}
+        >
           <div
             className={`max-w-md w-full rounded-2xl p-6 ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold mb-4">{t("connectWallet")}</h3>
+            <h3 className="text-xl font-bold mb-4">Connect Wallet</h3>
             <div className="space-y-3">
               {connectors.map((connector) => (
                 <button
@@ -805,7 +878,7 @@ export default function LiveGovernanceDashboard() {
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Bar */}
         <div className="mb-8">
           <div className="relative max-w-2xl mx-auto">
@@ -831,9 +904,7 @@ export default function LiveGovernanceDashboard() {
                   <button
                     key={result.id}
                     onClick={() =>
-                      activeTab === "proposals"
-                        ? handleSelectProposal(result.id)
-                        : handleSelectCandidate(result.id, index)
+                      activeTab === "proposals" ? handleSelectProposal(result.id) : handleSelectCandidate(result.id)
                     }
                     className={`w-full px-4 py-3 text-left hover:bg-opacity-50 border-b last:border-b-0 ${
                       isDarkMode ? "hover:bg-gray-700 border-gray-700" : "hover:bg-gray-100 border-gray-200"
@@ -907,16 +978,18 @@ export default function LiveGovernanceDashboard() {
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {activeTab === "proposals" && (
             <>
-              {proposalIdsData.isLoading ? (
-                <div className="text-center py-12 text-gray-500">Loading proposals...</div>
+              {proposalIdsData?.isLoading ? (
+                <div className="text-center py-12 text-gray-500">
+                  <p>{t("loading")}</p>
+                </div>
               ) : recentProposalIds.length > 0 ? (
                 <>
                   {recentProposalIds.map((proposalId) => (
                     <ProposalVotingCard
                       key={proposalId}
-                      proposalId={proposalId}
-                      isDarkMode={isDarkMode}
+                      proposalId={proposalId.toString()}
                       statusFilter={statusFilter}
+                      isDarkMode={isDarkMode}
                     />
                   ))}
                   {hasMoreProposals && (
@@ -935,32 +1008,41 @@ export default function LiveGovernanceDashboard() {
                   )}
                 </>
               ) : (
-                <div className="text-center py-12 text-gray-500">No proposals found</div>
+                <div className="col-span-full text-center py-12 text-gray-500">
+                  <p>{t("noProposalsFound")}</p>
+                </div>
               )}
             </>
           )}
 
           {activeTab === "candidates" && (
             <>
-              {candidateIdsData.isLoading ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p>Loading candidates from Nouns DAO...</p>
+              {candidateIdsData?.isLoading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <p className="mt-4 text-gray-500">{t("loading")}</p>
                 </div>
-              ) : safeCandidates.length > 0 ? (
+              ) : safeCandidates.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("noCandidatesFound")}</p>
+                </div>
+              ) : (
                 <>
-                  {safeCandidates.map((candidate, index) => (
-                    <CandidateCard
-                      key={candidate.id}
-                      candidateId={candidate.id}
-                      isDarkMode={isDarkMode}
-                      candidateNumber={totalCandidates - index}
-                    />
-                  ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {safeCandidates.map((candidate, index) => (
+                      <CandidateCard
+                        key={candidate.id}
+                        candidateId={candidate.id}
+                        candidateNumber={totalCandidates - index}
+                        isDarkMode={isDarkMode}
+                      />
+                    ))}
+                  </div>
                   {hasMoreCandidates && (
-                    <div className="col-span-full flex justify-center mt-6">
+                    <div className="flex justify-center mt-8">
                       <button
                         onClick={loadMoreCandidates}
-                        className={`px-6 py-3 rounded-lg transition-colors font-medium ${
+                        className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                           isDarkMode
                             ? "bg-blue-600 hover:bg-blue-700 text-white"
                             : "bg-blue-500 hover:bg-blue-600 text-white"
@@ -971,13 +1053,13 @@ export default function LiveGovernanceDashboard() {
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="text-center py-12 text-gray-500">No candidates found</div>
               )}
             </>
           )}
         </div>
-      </main>
+      </div>
+
+      {/* Transaction Simulator */}
     </div>
   )
 }
