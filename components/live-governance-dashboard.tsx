@@ -604,8 +604,7 @@ export default function LiveGovernanceDashboard() {
 
               <button
                 onClick={() => {
-                  console.log("[v0] Menu button clicked, toggling menu")
-                  setShowMenu((prev) => !prev)
+                  setShowMenu(!showMenu)
                 }}
                 className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
                 aria-label="Menu"

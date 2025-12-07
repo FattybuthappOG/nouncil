@@ -166,23 +166,37 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
       return
     }
 
-    const translateContent = async () => {
+    // Check cache first
+    const cacheKey = `proposal-${proposalId}-${selectedLanguage}`
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) {
+      setTranslatedContent(cached)
+      return
+    }
+
+    // Debounce translation API call
+    const timer = setTimeout(async () => {
       try {
+        const textToTranslate = content.slice(0, 300) // Reduced from 500 to 300
         const response = await fetch(
-          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(content.slice(0, 500))}&langpair=en|${selectedLanguage}`,
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=en|${selectedLanguage}`,
         )
         const data = await response.json()
         if (data.responseStatus === 200 && data.responseData.translatedText) {
-          setTranslatedContent(data.responseData.translatedText)
+          const translated = data.responseData.translatedText
+          setTranslatedContent(translated)
+          sessionStorage.setItem(cacheKey, translated)
+        } else {
+          setTranslatedContent(content)
         }
       } catch (error) {
         console.error("Translation error:", error)
         setTranslatedContent(content)
       }
-    }
+    }, 500)
 
-    translateContent()
-  }, [selectedLanguage, content])
+    return () => clearTimeout(timer)
+  }, [selectedLanguage, content, proposalId])
 
   if (proposal.isLoading) {
     return (
