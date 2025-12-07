@@ -1,21 +1,11 @@
 "use client"
 
-import { Textarea } from "@/components/ui/textarea"
-
-import { Input } from "@/components/ui/input"
-
-import { Label } from "@/components/ui/label"
-
-import { DialogTrigger } from "@/components/ui/dialog"
-
 import { DialogTitle } from "@/components/ui/dialog"
 
-import { DialogHeader } from "@/components/ui/dialog"
-
-import { DialogContent } from "@/components/ui/dialog"
-
-import { Dialog } from "@/components/ui/dialog"
-
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { useCandidateData, useCandidateIds } from "@/hooks/useContractData"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -101,7 +91,7 @@ const translations = {
 const NOUNS_DAO_DATA_CONTRACT = "0xf790A5f59678dd733fb3De93493A91f472ca1365"
 
 const NOUNS_DAO_DATA_ABI = parseAbi([
-  "function addSignature((bytes32,uint256,address,bytes,uint256,string) sig) external",
+  "function addSignature(bytes sig, uint256 expirationTimestamp, address proposer, string slug, uint256 proposalIdToUpdate, bytes encodedProp, string reason) external",
 ])
 
 export default function CandidateDetailPage({ params }: { params: { id: string } }) {
@@ -172,27 +162,35 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
     try {
       const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
 
-      const slugBytes32 = `0x${Buffer.from(candidateData.slug.slice(0, 31)).toString("hex").padEnd(64, "0")}`
+      const emptySignature = "0x00"
 
-      const emptySignature = "0x"
+      const emptyEncodedProp = "0x00"
+
+      console.log("[v0] Sponsoring candidate:", {
+        slug: candidateData.slug,
+        proposer: candidateData.proposer,
+        expirationTimestamp,
+        reason: sponsorReason || "Supporting this candidate",
+      })
 
       await writeContract({
         address: NOUNS_DAO_DATA_CONTRACT,
         abi: NOUNS_DAO_DATA_ABI,
         functionName: "addSignature",
         args: [
-          {
-            proposalIdOrSlug: slugBytes32,
-            expirationTimestamp: BigInt(expirationTimestamp),
-            signer: address!,
-            signature: emptySignature,
-            sig: BigInt(0), // proposalIdOrSlug as uint256
-            reason: sponsorReason || "Supporting this candidate",
-          },
+          emptySignature,
+          BigInt(expirationTimestamp),
+          candidateData.proposer,
+          candidateData.slug,
+          BigInt(0), // proposalIdToUpdate - 0 for new candidates
+          emptyEncodedProp,
+          sponsorReason || "Supporting this candidate",
         ],
       })
+
+      console.log("[v0] Sponsor transaction submitted successfully")
     } catch (err) {
-      console.error("Sponsor transaction error:", err)
+      console.error("[v0] Sponsor transaction error:", err)
       alert(`Error: ${err instanceof Error ? err.message : "Failed to sponsor"}`)
     }
   }

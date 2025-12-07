@@ -616,7 +616,6 @@ export default function LiveGovernanceDashboard() {
           </div>
         </div>
 
-        {console.log("[v0] showMenu state:", showMenu)}
         {showMenu && (
           <div className="fixed inset-0 z-[100]" onClick={() => setShowMenu(false)}>
             {/* Backdrop */}
@@ -632,7 +631,7 @@ export default function LiveGovernanceDashboard() {
               <div className="p-6 min-h-screen">
                 {/* Menu Header */}
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold">Menu</h2>
+                  <h2 className="text-xl font-bold"></h2>
                   <button
                     onClick={() => setShowMenu(false)}
                     className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
@@ -741,8 +740,8 @@ export default function LiveGovernanceDashboard() {
                       isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
                     }`}
                   >
-                    <img src="/images/discord.png" alt="Discord" className="w-6 h-6" />
-                    <span className="font-medium">Join the calls every Thursday in Discord</span>
+                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
+                    <span className="font-medium">{t("joinCallsThursday")}</span>
                   </a>
 
                   {/* Dark Mode Toggle */}
