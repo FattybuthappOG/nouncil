@@ -141,7 +141,6 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           setTranslatedDescription(candidateData.fullDescription)
         }
       } catch (error) {
-        console.error("Translation error:", error)
         setTranslatedDescription(candidateData.fullDescription)
       }
     }
@@ -166,13 +165,6 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
 
       const emptyEncodedProp = "0x00"
 
-      console.log("[v0] Sponsoring candidate:", {
-        slug: candidateData.slug,
-        proposer: candidateData.proposer,
-        expirationTimestamp,
-        reason: sponsorReason || "Supporting this candidate",
-      })
-
       await writeContract({
         address: NOUNS_DAO_DATA_CONTRACT,
         abi: NOUNS_DAO_DATA_ABI,
@@ -187,10 +179,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           sponsorReason || "Supporting this candidate",
         ],
       })
-
-      console.log("[v0] Sponsor transaction submitted successfully")
     } catch (err) {
-      console.error("[v0] Sponsor transaction error:", err)
       alert(`Error: ${err instanceof Error ? err.message : "Failed to sponsor"}`)
     }
   }

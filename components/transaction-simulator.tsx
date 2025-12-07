@@ -86,15 +86,12 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
                 if (ensName) {
                   names[target] = ensName
                 }
-              } catch (error) {
-                console.log(`[v0] No ENS name for ${target}`)
-              }
+              } catch (error) {}
             }
           }
           setContractNames(names)
         }
       } catch (error) {
-        console.error("[v0] Failed to fetch transaction data:", error)
       } finally {
         setIsLoading(false)
       }

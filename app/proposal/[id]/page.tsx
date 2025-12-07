@@ -107,6 +107,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
   const [voteReason, setVoteReason] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [translatedContent, setTranslatedContent] = useState("")
+  const [translatedDescription, setTranslatedDescription] = useState("")
 
   const { address, isConnected } = useAccount()
   const router = useRouter()
@@ -145,13 +146,6 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
   const submitVote = () => {
     if (selectedSupport === null || !isConnected) return
 
-    console.log("[v0] Submitting vote:", {
-      proposalId,
-      support: selectedSupport,
-      reason: voteReason,
-      clientId: 22,
-    })
-
     // writeContract({
     //   address: GOVERNOR_CONTRACT.address,
     //   abi: GOVERNOR_CONTRACT.abi,
@@ -163,6 +157,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
   useEffect(() => {
     if (selectedLanguage === "en") {
       setTranslatedContent(content)
+      setTranslatedDescription(proposal.description || "")
       return
     }
 
@@ -189,14 +184,25 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         } else {
           setTranslatedContent(content)
         }
+
+        // Translate proposal description
+        const descriptionResponse = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(proposal.description || "")}&langpair=en|${selectedLanguage}`,
+        )
+        const descriptionData = await descriptionResponse.json()
+        if (descriptionData.responseStatus === 200 && descriptionData.responseData.translatedText) {
+          setTranslatedDescription(descriptionData.responseData.translatedText)
+        } else {
+          setTranslatedDescription(proposal.description || "")
+        }
       } catch (error) {
-        console.error("Translation error:", error)
-        setTranslatedContent(content)
+        // Silently fail - keep original text
+        setTranslatedDescription(proposal.description || "")
       }
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [selectedLanguage, content, proposalId])
+  }, [selectedLanguage, content, proposalId, proposal.description])
 
   if (proposal.isLoading) {
     return (
@@ -555,7 +561,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         </div>
 
         {/* Description */}
-        {translatedContent && (
+        {translatedDescription && (
           <Card className="bg-gray-800 border-gray-700 p-6 overflow-hidden">
             <h2 className="text-xl font-semibold text-gray-100 mb-4">{t("description")}</h2>
             <div className="prose prose-invert prose-lg max-w-none break-words overflow-hidden">
@@ -599,7 +605,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                   img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
                 }}
               >
-                {translatedContent}
+                {translatedDescription}
               </ReactMarkdown>
             </div>
           </Card>

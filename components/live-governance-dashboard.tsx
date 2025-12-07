@@ -486,7 +486,6 @@ export default function LiveGovernanceDashboard() {
             setSearchResults(candidates)
           }
         } catch (error) {
-          console.error("Search error:", error)
           setSearchResults([])
         } finally {
           setIsSearching(false)
@@ -538,7 +537,6 @@ export default function LiveGovernanceDashboard() {
       const data = await response.json()
       return data.translatedText || text
     } catch (error) {
-      console.error("[v0] Translation error:", error)
       return text
     }
   }
@@ -560,7 +558,7 @@ export default function LiveGovernanceDashboard() {
       await connect({ connector })
       setShowWalletDialog(false)
     } catch (error) {
-      console.error("[v0] Wallet connection error:", error)
+      // errors handled by wagmi
     }
   }
 

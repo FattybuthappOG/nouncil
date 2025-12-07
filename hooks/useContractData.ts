@@ -29,8 +29,6 @@ export function useGovernorData() {
 
   const safeProposalCount = proposalCountError ? 0 : Number(proposalCount || 0)
 
-  console.log("[v0] Proposal count from contract:", safeProposalCount)
-
   return {
     proposalCount: safeProposalCount,
     votingPeriod: Number(votingPeriod || 0),
@@ -69,7 +67,6 @@ export function useRealtimeEvents() {
     abi: GOVERNOR_CONTRACT.abi,
     eventName: "VoteCast",
     onLogs(logs) {
-      console.log("[v0] Vote events detected:", logs.length)
       logs.forEach((log) => {
         const newVote = {
           voter: log.args.voter,
@@ -112,13 +109,10 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
       try {
         let statusCondition = ""
         if (statusFilter === "active") {
-          // Active proposals use "ACTIVE" in status field
           statusCondition = ', where: { status: "ACTIVE" }'
         } else if (statusFilter === "executed") {
-          // Executed proposals use "EXECUTED" in status field
           statusCondition = ', where: { status: "EXECUTED" }'
         } else if (statusFilter === "defeated") {
-          // Defeated proposals use "DEFEATED" in status field
           statusCondition = ', where: { status: "DEFEATED" }'
         }
 
@@ -158,7 +152,7 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
           }
         }
       } catch (error) {
-        console.error("[v0] Failed to fetch proposal IDs:", error)
+        // Silently fail and continue
       } finally {
         setIsLoading(false)
       }
@@ -313,7 +307,6 @@ export function useProposalData(proposalId: number) {
           setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
-        console.error(`[v0] Failed to fetch proposal ${proposalId} from Subgraph:`, error)
         setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
@@ -346,7 +339,6 @@ export function useBatchProposals(proposalIds: number[]) {
       }
       setProposals(results)
       setIsLoading(false)
-      console.log(`[v0] Batch loaded ${results.length} proposals`)
     }
 
     fetchProposals()
@@ -447,7 +439,7 @@ export function useCandidateIds(limit = 15) {
           setCandidates(candidatesList)
         }
       } catch (error) {
-        console.error("[v0] Failed to fetch candidates:", error)
+        // Silently fail
       } finally {
         setIsLoading(false)
       }
@@ -566,7 +558,6 @@ export function useCandidateData(candidateId: string) {
           setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
-        console.error(`[v0] Failed to fetch candidate ${candidateId}:`, error)
         setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
