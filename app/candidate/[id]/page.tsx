@@ -20,6 +20,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi"
 import { useWriteContract } from "wagmi"
 import { encodeAbiParameters } from "viem"
 import { useSignTypedData } from "wagmi"
+import { keccak256 } from "viem"
 
 type LanguageCode = keyof typeof translations
 
@@ -184,6 +185,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
 
       const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
 
+      // Encode the proposal data
       const encodedProp = encodeAbiParameters(
         [
           { name: "targets", type: "address[]" },
@@ -199,6 +201,10 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
         ],
       )
 
+      // Hash the encoded proposal
+      const encodedPropHash = keccak256(encodedProp)
+
+      // Sign the typed data with the hash, not the raw bytes
       const signature = await signTypedDataAsync({
         domain: {
           name: "Nouns DAO",
@@ -211,7 +217,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
             { name: "proposer", type: "address" },
             { name: "slug", type: "string" },
             { name: "proposalIdToUpdate", type: "uint256" },
-            { name: "encodedProp", type: "bytes" },
+            { name: "encodedPropHash", type: "bytes32" },
             { name: "expirationTimestamp", type: "uint256" },
             { name: "reason", type: "string" },
           ],
@@ -221,7 +227,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           proposer: candidateData.proposer as `0x${string}`,
           slug: candidateData.slug,
           proposalIdToUpdate: BigInt(0),
-          encodedProp: encodedProp,
+          encodedPropHash: encodedPropHash,
           expirationTimestamp: BigInt(expirationTimestamp),
           reason: sponsorReason,
         },
@@ -437,7 +443,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                             setValidityDays(value)
                           }
                         }}
-                        className="bg-gray-800 border-gray-700 text-gray-100"
+                        className="bg-gray-800 border-gray-700 text-gray-100 col-span-3"
                       />
                       <span className="text-gray-400">{t("days")}</span>
                     </div>
