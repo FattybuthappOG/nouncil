@@ -18,7 +18,8 @@ import { EnsDisplay } from "@/components/ens-display"
 import { useState, useEffect } from "react"
 import { useAccount, useConnect, useDisconnect } from "wagmi"
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
-import { parseAbi } from "viem"
+import { parseAbi, encodeAbiParameters } from "viem"
+import { useSignTypedData } from "wagmi"
 
 type LanguageCode = keyof typeof translations
 
@@ -98,9 +99,10 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const candidateNumber = Number.parseInt(params.id)
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [translatedDescription, setTranslatedDescription] = useState("")
-  const [validityDays, setValidityDays] = useState(7)
+  const [validityDays, setValidityDays] = useState(42)
   const [sponsorReason, setSponsorReason] = useState("")
   const [showWalletDialog, setShowWalletDialog] = useState(false)
+  const [showSponsorDialog, setShowSponsorDialog] = useState(false)
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
   const { disconnect } = useDisconnect()
@@ -113,6 +115,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash,
   })
+  const { signTypedData, data: signedData } = useSignTypedData()
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
@@ -153,7 +156,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   }
 
   const handleSponsorClick = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       alert(t("connectWallet"))
       return
     }
@@ -161,24 +164,71 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
     try {
       const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
 
-      const emptySignature = "0x00"
+      // Generate the message to sign using EIP-712 typed data
+      const domain = {
+        name: "Nouns DAO",
+        version: "1",
+        chainId: 1,
+        verifyingContract: NOUNS_DAO_DATA_CONTRACT as `0x${string}`,
+      }
 
-      const emptyEncodedProp = "0x00"
-
-      await writeContract({
-        address: NOUNS_DAO_DATA_CONTRACT,
-        abi: NOUNS_DAO_DATA_ABI,
-        functionName: "addSignature",
-        args: [
-          emptySignature,
-          BigInt(expirationTimestamp),
-          candidateData.proposer,
-          candidateData.slug,
-          BigInt(0), // proposalIdToUpdate - 0 for new candidates
-          emptyEncodedProp,
-          sponsorReason || "Supporting this candidate",
+      const types = {
+        Proposal: [
+          { name: "proposer", type: "address" },
+          { name: "slug", type: "string" },
+          { name: "expirationTimestamp", type: "uint256" },
         ],
-      })
+      }
+
+      const message = {
+        proposer: candidateData.proposer as `0x${string}`,
+        slug: candidateData.slug,
+        expirationTimestamp: BigInt(expirationTimestamp),
+      }
+
+      // Sign the typed data
+      signTypedData(
+        {
+          domain,
+          types,
+          primaryType: "Proposal",
+          message,
+        },
+        {
+          onSuccess: async (signature) => {
+            // Encode the proposal data
+            const encodedProp = encodeAbiParameters(
+              [
+                { name: "proposer", type: "address" },
+                { name: "slug", type: "string" },
+                { name: "description", type: "string" },
+              ],
+              [candidateData.proposer as `0x${string}`, candidateData.slug, candidateData.description],
+            )
+
+            // Submit the transaction
+            await writeContract({
+              address: NOUNS_DAO_DATA_CONTRACT,
+              abi: NOUNS_DAO_DATA_ABI,
+              functionName: "addSignature",
+              args: [
+                signature as `0x${string}`,
+                BigInt(expirationTimestamp),
+                candidateData.proposer as `0x${string}`,
+                candidateData.slug,
+                BigInt(0), // proposalIdToUpdate - 0 for new candidates
+                encodedProp,
+                sponsorReason, // Optional reason, can be empty string
+              ],
+            })
+
+            setShowSponsorDialog(false)
+          },
+          onError: (error) => {
+            alert(`Signature error: ${error.message}`)
+          },
+        },
+      )
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : "Failed to sponsor"}`)
     }
@@ -326,7 +376,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
             )}
 
             {/* Sponsor Button */}
-            <Dialog>
+            <Dialog open={showSponsorDialog} onOpenChange={setShowSponsorDialog}>
               <DialogTrigger asChild>
                 <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">{t("sponsorCandidate")}</Button>
               </DialogTrigger>
@@ -346,7 +396,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                         min="1"
                         max="365"
                         value={validityDays}
-                        onChange={(e) => setValidityDays(Number.parseInt(e.target.value) || 7)}
+                        onChange={(e) => setValidityDays(Number.parseInt(e.target.value) || 42)}
                         className="bg-gray-700 border-gray-600 text-gray-100"
                       />
                       <span className="text-gray-400">{t("days")}</span>
@@ -373,13 +423,13 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                     disabled={!isConnected || isPending || isConfirming}
                   >
                     {isPending
-                      ? "Preparing..."
+                      ? "Signing..."
                       : isConfirming
                         ? "Confirming..."
                         : isConfirmed
                           ? "Sponsored!"
                           : isConnected
-                            ? t("generateTransaction")
+                            ? "Sponsor"
                             : t("connectWallet")}
                   </Button>
                 </div>
