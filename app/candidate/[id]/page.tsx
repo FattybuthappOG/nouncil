@@ -52,6 +52,7 @@ const translations = {
     sponsored: "Sponsored!",
     idle: "Sponsor",
     userRejected: "Transaction rejected by user",
+    sponsorSuccess: "Successfully sponsored candidate!",
   },
   zh: {
     back: "返回",
@@ -80,6 +81,7 @@ const translations = {
     sponsored: "已赞助！",
     idle: "赞助",
     userRejected: "用户拒绝交易",
+    sponsorSuccess: "成功赞助候选人！",
   },
   es: {
     back: "Volver",
@@ -108,6 +110,7 @@ const translations = {
     sponsored: "Patrocinado！",
     idle: "Patrocinar",
     userRejected: "Transacción rechazada por el usuario",
+    sponsorSuccess: "¡Candidato patrocinado con éxito!",
   },
 }
 
@@ -186,52 +189,51 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
       setSponsorStatus("preparing")
 
       const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
-      console.log("[v0] Expiration timestamp:", expirationTimestamp)
+      console.log("[v0] Expiration timestamp:", expirationTimestamp, "Validity days:", validityDays)
 
-      // Step 1: Create the proposal encoding
-      const encodedProp = encodeAbiParameters(
+      const proposalEncodeData = encodeAbiParameters(
         [
           { name: "targets", type: "address[]" },
           { name: "values", type: "uint256[]" },
           { name: "signatures", type: "string[]" },
           { name: "calldatas", type: "bytes[]" },
-          { name: "description", type: "string" },
         ],
         [
           [], // targets - empty for candidates
           [], // values - empty for candidates
           [], // signatures - empty for candidates
           [], // calldatas - empty for candidates
-          candidateData.description || "", // description
         ],
       )
-      console.log("[v0] Encoded prop:", encodedProp)
+      console.log("[v0] Proposal encode data:", proposalEncodeData)
 
-      // Step 2: Create the sig digest that needs to be signed
-      const sigDigest = keccak256(
+      const messageHash = keccak256(
         encodeAbiParameters(
           [
             { name: "proposer", type: "address" },
-            { name: "slug", type: "string" },
-            { name: "proposalIdToUpdate", type: "uint256" },
-            { name: "encodedProp", type: "bytes" },
-            { name: "expirationTimestamp", type: "uint256" },
-            { name: "verifyingContract", type: "address" },
+            { name: "targets", type: "address[]" },
+            { name: "values", type: "uint256[]" },
+            { name: "signatures", type: "string[]" },
+            { name: "calldatas", type: "bytes[]" },
+            { name: "description", type: "string" },
+            { name: "expiry", type: "uint256" },
           ],
           [
             candidateData.proposer as `0x${string}`,
-            candidateData.slug,
-            BigInt(0),
-            encodedProp,
+            [],
+            [],
+            [],
+            [],
+            candidateData.description || candidateData.slug,
             BigInt(expirationTimestamp),
-            NOUNS_DAO_DATA_CONTRACT as `0x${string}`,
           ],
         ),
       )
-      console.log("[v0] Sig digest to sign:", sigDigest)
+      console.log("[v0] Message hash to sign:", messageHash)
 
-      // Step 3: Get the user to sign the digest
       console.log("[v0] Requesting signature from wallet...")
+      setSponsorStatus("signing")
+
       const signature = await signTypedDataAsync({
         domain: {
           name: "Nouns DAO",
@@ -242,28 +244,31 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
         types: {
           Proposal: [
             { name: "proposer", type: "address" },
-            { name: "slug", type: "string" },
-            { name: "proposalIdToUpdate", type: "uint256" },
-            { name: "encodedProp", type: "bytes" },
-            { name: "expirationTimestamp", type: "uint256" },
+            { name: "targets", type: "address[]" },
+            { name: "values", type: "uint256[]" },
+            { name: "signatures", type: "string[]" },
+            { name: "calldatas", type: "bytes[]" },
+            { name: "description", type: "string" },
+            { name: "expiry", type: "uint256" },
           ],
         },
         primaryType: "Proposal",
         message: {
           proposer: candidateData.proposer as `0x${string}`,
-          slug: candidateData.slug,
-          proposalIdToUpdate: BigInt(0),
-          encodedProp: encodedProp as `0x${string}`,
-          expirationTimestamp: BigInt(expirationTimestamp),
+          targets: [],
+          values: [],
+          signatures: [],
+          calldatas: [],
+          description: candidateData.description || candidateData.slug,
+          expiry: BigInt(expirationTimestamp),
         },
       })
       console.log("[v0] Signature received:", signature)
 
       setSponsorStatus("confirming")
 
-      // Step 4: Submit the transaction
       console.log("[v0] Submitting transaction to contract...")
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: NOUNS_DAO_DATA_CONTRACT,
         abi: NOUNS_DAO_DATA_ABI,
         functionName: "addSignature",
@@ -273,26 +278,19 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           candidateData.proposer as `0x${string}`,
           candidateData.slug,
           BigInt(0), // proposalIdToUpdate - 0 for candidates
-          encodedProp as `0x${string}`,
+          proposalEncodeData as `0x${string}`,
           sponsorReason || "", // Optional reason
         ],
       })
 
-      console.log("[v0] Transaction successful!")
+      console.log("[v0] Transaction submitted:", hash)
       setSponsorStatus("sponsored")
-      setTimeout(() => {
-        setShowSponsorDialog(false)
-        setSponsorStatus("idle")
-        setSponsorReason("")
-      }, 2000)
+      setShowSponsorDialog(false)
+      alert(t("sponsorSuccess") || "Successfully sponsored candidate!")
     } catch (error: any) {
       console.error("[v0] Sponsor error:", error)
       setSponsorStatus("idle")
-      if (error.message?.includes("User rejected")) {
-        alert(t("userRejected") || "Transaction rejected by user")
-      } else {
-        alert(t("sponsorError") || `Error sponsoring candidate: ${error.message}`)
-      }
+      alert(error.message || "Failed to sponsor candidate")
     }
   }
 
@@ -458,7 +456,12 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                         min="1"
                         max="365"
                         value={validityDays}
-                        onChange={(e) => setValidityDays(Number.parseInt(e.target.value) || 42)}
+                        onChange={(e) => {
+                          const value = Number.parseInt(e.target.value)
+                          if (!isNaN(value) && value >= 1) {
+                            setValidityDays(value)
+                          }
+                        }}
                         className="bg-gray-700 border-gray-600 text-gray-100"
                       />
                       <span className="text-gray-400">{t("days")}</span>
