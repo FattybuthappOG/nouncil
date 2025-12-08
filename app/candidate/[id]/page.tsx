@@ -17,9 +17,10 @@ import { parseMarkdownMedia } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
 import { useState, useEffect } from "react"
 import { useAccount, useConnect, useDisconnect } from "wagmi"
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useWriteContract } from "wagmi"
 import { parseAbi, encodeAbiParameters } from "viem"
 import { useSignTypedData } from "wagmi"
+import { keccak256 } from "viem"
 
 type LanguageCode = keyof typeof translations
 
@@ -44,6 +45,13 @@ const translations = {
     explainWhy: "Explain why you want to sponsor this candidate...",
     generateTransaction: "Generate Sponsor Transaction",
     connectWallet: "Connect wallet to sponsor",
+    transactionCancelled: "Transaction cancelled",
+    sponsorError: "Sponsor error",
+    preparing: "Preparing...",
+    confirming: "Confirming...",
+    sponsored: "Sponsored!",
+    idle: "Sponsor",
+    userRejected: "Transaction rejected by user",
   },
   zh: {
     back: "返回",
@@ -65,6 +73,13 @@ const translations = {
     explainWhy: "解释您为何要赞助此候选人...",
     generateTransaction: "生成赞助交易",
     connectWallet: "连接钱包以赞助",
+    transactionCancelled: "交易已取消",
+    sponsorError: "赞助错误",
+    preparing: "准备中...",
+    confirming: "确认中...",
+    sponsored: "已赞助！",
+    idle: "赞助",
+    userRejected: "用户拒绝交易",
   },
   es: {
     back: "Volver",
@@ -86,6 +101,13 @@ const translations = {
     explainWhy: "Explica por qué quieres patrocinar este candidato...",
     generateTransaction: "Generar Transacción de Patrocinio",
     connectWallet: "Conectar billetera para patrocinar",
+    transactionCancelled: "Transacción cancelada",
+    sponsorError: "Error de patrocinio",
+    preparing: "Preparando...",
+    confirming: "Confirmando...",
+    sponsored: "Patrocinado！",
+    idle: "Patrocinar",
+    userRejected: "Transacción rechazada por el usuario",
   },
 }
 
@@ -103,6 +125,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const [sponsorReason, setSponsorReason] = useState("")
   const [showWalletDialog, setShowWalletDialog] = useState(false)
   const [showSponsorDialog, setShowSponsorDialog] = useState(false)
+  const [sponsorStatus, setSponsorStatus] = useState("idle")
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
   const { disconnect } = useDisconnect()
@@ -111,11 +134,8 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const candidateId = candidate?.id || params.id
   const candidateData = useCandidateData(candidateId)
   const router = useRouter()
-  const { writeContract, data: hash, error, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
-  })
-  const { signTypedData, data: signedData } = useSignTypedData()
+  const { writeContractAsync } = useWriteContract()
+  const { signTypedDataAsync } = useSignTypedData()
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
@@ -162,75 +182,117 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
     }
 
     try {
+      console.log("[v0] Starting sponsor process for candidate:", candidateData.slug)
+      setSponsorStatus("preparing")
+
       const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
+      console.log("[v0] Expiration timestamp:", expirationTimestamp)
 
-      // Generate the message to sign using EIP-712 typed data
-      const domain = {
-        name: "Nouns DAO",
-        version: "1",
-        chainId: 1,
-        verifyingContract: NOUNS_DAO_DATA_CONTRACT as `0x${string}`,
-      }
-
-      const types = {
-        Proposal: [
-          { name: "proposer", type: "address" },
-          { name: "slug", type: "string" },
-          { name: "expirationTimestamp", type: "uint256" },
+      // Step 1: Create the proposal encoding
+      const encodedProp = encodeAbiParameters(
+        [
+          { name: "targets", type: "address[]" },
+          { name: "values", type: "uint256[]" },
+          { name: "signatures", type: "string[]" },
+          { name: "calldatas", type: "bytes[]" },
+          { name: "description", type: "string" },
         ],
-      }
-
-      const message = {
-        proposer: candidateData.proposer as `0x${string}`,
-        slug: candidateData.slug,
-        expirationTimestamp: BigInt(expirationTimestamp),
-      }
-
-      // Sign the typed data
-      signTypedData(
-        {
-          domain,
-          types,
-          primaryType: "Proposal",
-          message,
-        },
-        {
-          onSuccess: async (signature) => {
-            // Encode the proposal data
-            const encodedProp = encodeAbiParameters(
-              [
-                { name: "proposer", type: "address" },
-                { name: "slug", type: "string" },
-                { name: "description", type: "string" },
-              ],
-              [candidateData.proposer as `0x${string}`, candidateData.slug, candidateData.description],
-            )
-
-            // Submit the transaction
-            await writeContract({
-              address: NOUNS_DAO_DATA_CONTRACT,
-              abi: NOUNS_DAO_DATA_ABI,
-              functionName: "addSignature",
-              args: [
-                signature as `0x${string}`,
-                BigInt(expirationTimestamp),
-                candidateData.proposer as `0x${string}`,
-                candidateData.slug,
-                BigInt(0), // proposalIdToUpdate - 0 for new candidates
-                encodedProp,
-                sponsorReason, // Optional reason, can be empty string
-              ],
-            })
-
-            setShowSponsorDialog(false)
-          },
-          onError: (error) => {
-            alert(`Signature error: ${error.message}`)
-          },
-        },
+        [
+          [], // targets - empty for candidates
+          [], // values - empty for candidates
+          [], // signatures - empty for candidates
+          [], // calldatas - empty for candidates
+          candidateData.description || "", // description
+        ],
       )
-    } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : "Failed to sponsor"}`)
+      console.log("[v0] Encoded prop:", encodedProp)
+
+      // Step 2: Create the sig digest that needs to be signed
+      const sigDigest = keccak256(
+        encodeAbiParameters(
+          [
+            { name: "proposer", type: "address" },
+            { name: "slug", type: "string" },
+            { name: "proposalIdToUpdate", type: "uint256" },
+            { name: "encodedProp", type: "bytes" },
+            { name: "expirationTimestamp", type: "uint256" },
+            { name: "verifyingContract", type: "address" },
+          ],
+          [
+            candidateData.proposer as `0x${string}`,
+            candidateData.slug,
+            BigInt(0),
+            encodedProp,
+            BigInt(expirationTimestamp),
+            NOUNS_DAO_DATA_CONTRACT as `0x${string}`,
+          ],
+        ),
+      )
+      console.log("[v0] Sig digest to sign:", sigDigest)
+
+      // Step 3: Get the user to sign the digest
+      console.log("[v0] Requesting signature from wallet...")
+      const signature = await signTypedDataAsync({
+        domain: {
+          name: "Nouns DAO",
+          version: "1",
+          chainId: 1,
+          verifyingContract: NOUNS_DAO_DATA_CONTRACT as `0x${string}`,
+        },
+        types: {
+          Proposal: [
+            { name: "proposer", type: "address" },
+            { name: "slug", type: "string" },
+            { name: "proposalIdToUpdate", type: "uint256" },
+            { name: "encodedProp", type: "bytes" },
+            { name: "expirationTimestamp", type: "uint256" },
+          ],
+        },
+        primaryType: "Proposal",
+        message: {
+          proposer: candidateData.proposer as `0x${string}`,
+          slug: candidateData.slug,
+          proposalIdToUpdate: BigInt(0),
+          encodedProp: encodedProp as `0x${string}`,
+          expirationTimestamp: BigInt(expirationTimestamp),
+        },
+      })
+      console.log("[v0] Signature received:", signature)
+
+      setSponsorStatus("confirming")
+
+      // Step 4: Submit the transaction
+      console.log("[v0] Submitting transaction to contract...")
+      await writeContractAsync({
+        address: NOUNS_DAO_DATA_CONTRACT,
+        abi: NOUNS_DAO_DATA_ABI,
+        functionName: "addSignature",
+        args: [
+          signature as `0x${string}`,
+          BigInt(expirationTimestamp),
+          candidateData.proposer as `0x${string}`,
+          candidateData.slug,
+          BigInt(0), // proposalIdToUpdate - 0 for candidates
+          encodedProp as `0x${string}`,
+          sponsorReason || "", // Optional reason
+        ],
+      })
+
+      console.log("[v0] Transaction successful!")
+      setSponsorStatus("sponsored")
+      setTimeout(() => {
+        setShowSponsorDialog(false)
+        setSponsorStatus("idle")
+        setSponsorReason("")
+      }, 2000)
+    } catch (error: any) {
+      console.error("[v0] Sponsor error:", error)
+      setSponsorStatus("idle")
+      if (error.message?.includes("User rejected")) {
+        alert(t("userRejected") || "Transaction rejected by user")
+      } else {
+        alert(t("sponsorError") || `Error sponsoring candidate: ${error.message}`)
+      }
     }
   }
 
@@ -420,17 +482,12 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                   <Button
                     onClick={handleSponsorClick}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={!isConnected || isPending || isConfirming}
+                    disabled={sponsorStatus !== "idle"}
                   >
-                    {isPending
-                      ? "Signing..."
-                      : isConfirming
-                        ? "Confirming..."
-                        : isConfirmed
-                          ? "Sponsored!"
-                          : isConnected
-                            ? "Sponsor"
-                            : t("connectWallet")}
+                    {sponsorStatus === "preparing" && (t("preparing") || "Preparing...")}
+                    {sponsorStatus === "confirming" && (t("confirming") || "Confirming...")}
+                    {sponsorStatus === "sponsored" && (t("sponsored") || "Sponsored!")}
+                    {sponsorStatus === "idle" && (t("sponsor") || "Sponsor")}
                   </Button>
                 </div>
               </DialogContent>
