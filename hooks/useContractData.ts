@@ -109,11 +109,11 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
       try {
         let statusCondition = ""
         if (statusFilter === "active") {
-          statusCondition = ', where: { status: "ACTIVE" }'
+          statusCondition = ", where: { status: ACTIVE }"
         } else if (statusFilter === "executed") {
-          statusCondition = ', where: { status: "EXECUTED" }'
+          statusCondition = ", where: { status: EXECUTED }"
         } else if (statusFilter === "defeated") {
-          statusCondition = ', where: { status: "DEFEATED" }'
+          statusCondition = ", where: { status: DEFEATED }"
         }
 
         const response = await fetch(
