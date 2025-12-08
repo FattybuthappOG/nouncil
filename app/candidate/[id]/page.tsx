@@ -20,6 +20,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi"
 import { useWriteContract } from "wagmi"
 import { encodeAbiParameters } from "viem"
 import { useSignTypedData } from "wagmi"
+import { keccak256 } from "viem"
 
 type LanguageCode = keyof typeof translations
 
@@ -184,39 +185,6 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
 
       const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
 
-      const signature = await signTypedDataAsync({
-        domain: {
-          name: "Nouns DAO",
-          chainId: 1,
-          verifyingContract: "0xf790A5f59678dd733fb3De93493A91f472ca1365",
-        },
-        types: {
-          Signature: [
-            { name: "signer", type: "address" },
-            { name: "sig", type: "bytes" },
-            { name: "expirationTimestamp", type: "uint256" },
-            { name: "proposer", type: "address" },
-            { name: "slug", type: "string" },
-            { name: "proposalIdToUpdate", type: "uint256" },
-            { name: "encodedProp", type: "bytes" },
-            { name: "reason", type: "string" },
-          ],
-        },
-        primaryType: "Signature",
-        message: {
-          signer: address,
-          sig: "0x",
-          expirationTimestamp: BigInt(expirationTimestamp),
-          proposer: candidateData.proposer,
-          slug: candidateData.slug,
-          proposalIdToUpdate: BigInt(0),
-          encodedProp: "0x",
-          reason: sponsorReason,
-        },
-      })
-
-      setSponsorStatus("confirming")
-
       const encodedProp = encodeAbiParameters(
         [
           { name: "targets", type: "address[]" },
@@ -225,12 +193,42 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           { name: "calldatas", type: "bytes[]" },
         ],
         [
-          (candidateData.targets || []) as `0x${string}`[],
-          (candidateData.values || []).map((v) => BigInt(v)),
+          candidateData.targets || [],
+          candidateData.values?.map((v: string) => BigInt(v)) || [],
           candidateData.signatures || [],
-          (candidateData.calldatas || []) as `0x${string}`[],
+          candidateData.calldatas || [],
         ],
       )
+
+      const signature = await signTypedDataAsync({
+        domain: {
+          name: "Nouns DAO",
+          version: "1",
+          chainId: 1,
+          verifyingContract: "0xf790A5f59678dd733fb3De93493A91f472ca1365",
+        },
+        types: {
+          Proposal: [
+            { name: "proposer", type: "address" },
+            { name: "slug", type: "string" },
+            { name: "proposalIdToUpdate", type: "uint256" },
+            { name: "encodedPropHash", type: "bytes32" },
+            { name: "expirationTimestamp", type: "uint256" },
+            { name: "reason", type: "string" },
+          ],
+        },
+        primaryType: "Proposal",
+        message: {
+          proposer: candidateData.proposer as `0x${string}`,
+          slug: candidateData.slug,
+          proposalIdToUpdate: BigInt(0),
+          encodedPropHash: keccak256(encodedProp),
+          expirationTimestamp: BigInt(expirationTimestamp),
+          reason: sponsorReason,
+        },
+      })
+
+      setSponsorStatus("confirming")
 
       const hash = await writeContractAsync({
         address: "0xf790A5f59678dd733fb3De93493A91f472ca1365",
@@ -253,22 +251,22 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
         ],
         functionName: "addSignature",
         args: [
-          signature,
+          signature as `0x${string}`,
           BigInt(expirationTimestamp),
-          candidateData.proposer,
+          candidateData.proposer as `0x${string}`,
           candidateData.slug,
           BigInt(0),
-          encodedProp,
+          encodedProp as `0x${string}`,
           sponsorReason,
         ],
       })
 
       setSponsorStatus("sponsored")
       setShowSponsorDialog(false)
-      alert(`Successfully sponsored! Transaction: ${hash}`)
+      alert(`Successfully sponsored candidate! Transaction: ${hash}`)
     } catch (error: any) {
       setSponsorStatus("idle")
-      alert(`Error sponsoring candidate: ${error.message || "Unknown error"}`)
+      alert(`Error sponsoring candidate: ${error.message || error}`)
     }
   }
 
@@ -465,11 +463,10 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     disabled={sponsorStatus !== "idle"}
                   >
-                    {sponsorStatus === "preparing" && "Preparing..."}
-                    {sponsorStatus === "signing" && "Sign Message (No Gas)"}
-                    {sponsorStatus === "confirming" && "Confirm Transaction (Gas Required)"}
-                    {sponsorStatus === "sponsored" && "Sponsored!"}
-                    {sponsorStatus === "idle" && "Sponsor"}
+                    {sponsorStatus === "preparing" && t("preparing")}
+                    {sponsorStatus === "confirming" && t("confirming")}
+                    {sponsorStatus === "sponsored" && t("sponsored")}
+                    {sponsorStatus === "idle" && t("sponsor")}
                   </Button>
                 </div>
               </DialogContent>
