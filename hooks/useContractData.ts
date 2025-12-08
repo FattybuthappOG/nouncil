@@ -107,13 +107,13 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
   useEffect(() => {
     const fetchProposalIds = async () => {
       try {
-        let statusCondition = ""
+        let whereClause = ""
         if (statusFilter === "active") {
-          statusCondition = ", where: { status: ACTIVE }"
+          whereClause = ", where: { status: ACTIVE }"
         } else if (statusFilter === "executed") {
-          statusCondition = ", where: { status: EXECUTED }"
+          whereClause = ", where: { status: EXECUTED }"
         } else if (statusFilter === "defeated") {
-          statusCondition = ", where: { status: DEFEATED }"
+          whereClause = ", where: { status: DEFEATED }"
         }
 
         const response = await fetch(
@@ -128,14 +128,10 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
                   first: ${limit}
                   orderBy: createdTimestamp
                   orderDirection: desc
-                  ${statusCondition}
+                  ${whereClause}
                 ) {
                   id
-                }
-                _meta {
-                  block {
-                    number
-                  }
+                  status
                 }
               }
             `,
@@ -144,6 +140,7 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
         )
 
         const data = await response.json()
+
         if (data?.data?.proposals) {
           const ids = data.data.proposals.map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
@@ -152,7 +149,7 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
           }
         }
       } catch (error) {
-        // Silently fail and continue
+        // Silently handle error
       } finally {
         setIsLoading(false)
       }
