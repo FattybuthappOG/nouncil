@@ -11,6 +11,7 @@ import TreasuryDropdown from "./treasury-dropdown"
 import { useProposalIds, useCandidateIds } from "@/hooks/useContractData"
 import WalletConnectButton from "./wallet-connect-button" // Import WalletConnect button instead of AppKit
 import { useConnect } from "wagmi" // Declare the useConnect variable
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Language configuration
 const LANGUAGES = [
@@ -37,6 +38,7 @@ const translations = {
     active: "Active",
     executed: "Executed",
     defeated: "Defeated",
+    canceled: "Canceled",
     loadMore: "Load 20 More",
     connectWallet: "Connect Wallet",
     treasury: "Treasury",
@@ -58,6 +60,7 @@ const translations = {
     noProposalsFound: "No proposals found",
     loading: "Loading...",
     noCandidatesFound: "No candidates found",
+    filterByStatus: "Filter by Status",
   },
   zh: {
     proposals: "提案",
@@ -68,6 +71,7 @@ const translations = {
     active: "活跃",
     executed: "已执行",
     defeated: "已失败",
+    canceled: "已取消",
     loadMore: "加载更多20个",
     connectWallet: "连接钱包",
     treasury: "财政",
@@ -89,6 +93,7 @@ const translations = {
     noProposalsFound: "未找到提案",
     loading: "正在加载...",
     noCandidatesFound: "未找到候选人",
+    filterByStatus: "按状态过滤",
   },
   es: {
     proposals: "Propuestas",
@@ -99,6 +104,7 @@ const translations = {
     active: "Activo",
     executed: "Ejecutado",
     defeated: "Derrotado",
+    canceled: "Cancelado",
     loadMore: "Cargar 20 Más",
     connectWallet: "Conectar Billetera",
     treasury: "Tesorería",
@@ -120,6 +126,7 @@ const translations = {
     noProposalsFound: "No se encontraron propuestas",
     loading: "Cargando...",
     noCandidatesFound: "No se encontraron candidatos",
+    filterByStatus: "Filtrar por Estado",
   },
   hi: {
     proposals: "प्रस्ताव",
@@ -130,6 +137,7 @@ const translations = {
     active: "सक्रिय",
     executed: "निष्पादित",
     defeated: "पराजित",
+    canceled: "रद्द",
     loadMore: "20 और लोड करें",
     connectWallet: "वॉलेट कनेक्ट करें",
     treasury: "ट्रेजरी",
@@ -151,6 +159,7 @@ const translations = {
     noProposalsFound: "कोई प्रस्ताव नहीं मिला",
     loading: "लोड हो रहा है...",
     noCandidatesFound: "कोई उम्मीदवार नहीं मिला",
+    filterByStatus: "स्थिति के आधार पर फ़िल्टर करें",
   },
   ar: {
     proposals: "المقترحات",
@@ -161,6 +170,7 @@ const translations = {
     active: "نشط",
     executed: "منفذ",
     defeated: "مهزوم",
+    canceled: "ملغى",
     loadMore: "تحميل 20 أكثر",
     connectWallet: "ربط المحفظة",
     treasury: "الخزانة",
@@ -182,6 +192,7 @@ const translations = {
     noProposalsFound: "لم يتم العثور على أي مقترحات",
     loading: "جارٍ التحميل...",
     noCandidatesFound: "لم يتم العثور على أي مرشحين",
+    filterByStatus: "تصفية حسب الحالة",
   },
   pt: {
     proposals: "Propostas",
@@ -192,6 +203,7 @@ const translations = {
     active: "Ativo",
     executed: "Executado",
     defeated: "Derrotado",
+    canceled: "Cancelado",
     loadMore: "Carregar Mais 20",
     connectWallet: "Conectar Carteira",
     treasury: "Tesouraria",
@@ -213,6 +225,7 @@ const translations = {
     noProposalsFound: "Nenhuma proposta encontrada",
     loading: "Carregando...",
     noCandidatesFound: "Nenhum candidato encontrado",
+    filterByStatus: "Filtrar por Status",
   },
   bn: {
     proposals: "প্রস্তাব",
@@ -223,6 +236,7 @@ const translations = {
     active: "সক্রিয়",
     executed: "সম্পাদিত",
     defeated: "পরাজিত",
+    canceled: "বাতিল",
     loadMore: "আরও 20 লোড করুন",
     connectWallet: "ওয়ালেট সংযুক্ত করুন",
     treasury: "ট্রেজারি",
@@ -244,6 +258,7 @@ const translations = {
     noProposalsFound: "কোনো প্রস্তাব পাওয়া যায়নি",
     loading: "লোড হচ্ছে...",
     noCandidatesFound: "কোনো উম্মীদবার পাওয়া যায়নি",
+    filterByStatus: "স্থিতি অনুযায়ী ফিল্টার করুন",
   },
   ru: {
     proposals: "Предложения",
@@ -254,6 +269,7 @@ const translations = {
     active: "Активный",
     executed: "Выполнено",
     defeated: "Отклонено",
+    canceled: "Отменено",
     loadMore: "Загрузить Еще 20",
     connectWallet: "Подключить Кошелек",
     treasury: "Казна",
@@ -275,6 +291,7 @@ const translations = {
     noProposalsFound: "Предложений не найдено",
     loading: "Загрузка...",
     noCandidatesFound: "Кандидатов не найдено",
+    filterByStatus: "Фильтровать по статусу",
   },
   ja: {
     proposals: "提案",
@@ -285,6 +302,7 @@ const translations = {
     active: "アクティブ",
     executed: "実行済み",
     defeated: "否決",
+    canceled: "キャンセル済み",
     loadMore: "さらに20件読み込む",
     connectWallet: "ウォレットを接続",
     treasury: "財務",
@@ -306,6 +324,7 @@ const translations = {
     noProposalsFound: "提案が見つかりません",
     loading: "読み込み中...",
     noCandidatesFound: "候補者が見つかりません",
+    filterByStatus: "ステータスでフィルター",
   },
   fr: {
     proposals: "Propositions",
@@ -316,6 +335,7 @@ const translations = {
     active: "Actif",
     executed: "Exécuté",
     defeated: "Rejeté",
+    canceled: "Annulé",
     loadMore: "Charger 20 de Plus",
     connectWallet: "Connecter le Portefeuille",
     treasury: "Trésorerie",
@@ -337,6 +357,7 @@ const translations = {
     noProposalsFound: "Aucune proposition trouvée",
     loading: "Chargement...",
     noCandidatesFound: "Aucun candidat trouvé",
+    filterByStatus: "Filtrer par Statut",
   },
 }
 
@@ -352,7 +373,7 @@ export default function LiveGovernanceDashboard() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [displayedProposals, setDisplayedProposals] = useState(20)
   const [displayedCandidates, setDisplayedCandidates] = useState(15)
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated" | "canceled">("all")
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState(false)
@@ -502,6 +523,10 @@ export default function LiveGovernanceDashboard() {
     return () => clearTimeout(searchTimeout)
   }, [debouncedSearch, activeTab, totalCandidates])
 
+  useEffect(() => {
+    setDisplayedProposals(20)
+  }, [statusFilter])
+
   const handleSelectProposal = (id: string) => {
     router.push(`/proposal/${id}`)
     setSearchQuery("")
@@ -569,6 +594,11 @@ export default function LiveGovernanceDashboard() {
   }
 
   const filteredProposalIds = proposalIds
+
+  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "defeated" | "canceled") => {
+    setStatusFilter(filter)
+    setDisplayedProposals(20)
+  }
 
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
@@ -826,18 +856,20 @@ export default function LiveGovernanceDashboard() {
           </div>
 
           {activeTab === "proposals" && (
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                isDarkMode ? "bg-gray-800 text-white border-gray-700" : "bg-white text-gray-900 border-gray-300"
-              } border focus:outline-none focus:ring-2 focus:ring-blue-500`}
-            >
-              <option value="all">{t("showAll")}</option>
-              <option value="active">{t("active")}</option>
-              <option value="executed">{t("executed")}</option>
-              <option value="defeated">{t("defeated")}</option>
-            </select>
+            <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-6">
+              <Select value={statusFilter} onValueChange={(value) => handleStatusFilterChange(value as any)}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder={t("filterByStatus")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("showAll")}</SelectItem>
+                  <SelectItem value="active">{t("active")}</SelectItem>
+                  <SelectItem value="executed">{t("executed")}</SelectItem>
+                  <SelectItem value="defeated">{t("defeated")}</SelectItem>
+                  <SelectItem value="canceled">{t("canceled")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 
@@ -864,7 +896,7 @@ export default function LiveGovernanceDashboard() {
                         : "bg-blue-500 hover:bg-blue-600 text-white"
                     }`}
                   >
-                    Load More Proposals
+                    {t("loadMore")}
                   </button>
                 </div>
               )}

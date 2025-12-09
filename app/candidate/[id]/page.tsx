@@ -240,7 +240,7 @@ export default function CandidateDetailPage() {
           encodedProp,
           "",
         ],
-        chainId: 1, // Explicitly specify mainnet
+        chainId: 1,
       })
 
       setSponsorStatus("success")
@@ -249,9 +249,29 @@ export default function CandidateDetailPage() {
     } catch (error: any) {
       console.error("[v0] Sponsor error:", error)
 
-      const errorMessage = error?.message || error?.toString() || "Unknown error"
+      let errorMessage = "Unknown error"
 
-      if (errorMessage.includes("User rejected") || errorMessage.includes("User denied") || error.code === 4001) {
+      try {
+        if (typeof error === "string") {
+          errorMessage = error
+        } else if (error?.message) {
+          errorMessage = String(error.message)
+        } else if (error?.toString && typeof error.toString === "function") {
+          errorMessage = error.toString()
+        } else {
+          errorMessage = JSON.stringify(error)
+        }
+      } catch (stringifyError) {
+        errorMessage = "Failed to process error message"
+      }
+
+      const errorString = String(errorMessage).toLowerCase()
+      if (
+        errorString.includes("user rejected") ||
+        errorString.includes("user denied") ||
+        errorString.includes("user cancelled") ||
+        error.code === 4001
+      ) {
         setSponsorStatus("idle")
         return
       }

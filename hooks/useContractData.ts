@@ -99,45 +99,19 @@ const PROPOSAL_STATE_NAMES = [
   "Vetoed",
 ]
 
-export function useProposalIds(limit = 20, statusFilter: "all" | "active" | "executed" | "defeated" = "all") {
+export function useProposalIds(
+  limit = 20,
+  statusFilter: "all" | "active" | "executed" | "defeated" | "canceled" = "all",
+) {
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    console.log("[v0] useProposalIds called with:", { limit, statusFilter })
+
     const fetchProposalIds = async () => {
       try {
-        const countResponse = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposals(first: 1000, orderBy: createdTimestamp) {
-                  id
-                }
-              }
-            `,
-            }),
-          },
-        )
-
-        const countData = await countResponse.json()
-        if (countData?.data?.proposals) {
-          setTotalCount(countData.data.proposals.length)
-        }
-
-        let whereClause = ""
-        if (statusFilter === "active") {
-          whereClause = ", where: { status_in: [ACTIVE, PENDING] }"
-        } else if (statusFilter === "executed") {
-          whereClause = ", where: { status: EXECUTED }"
-        } else if (statusFilter === "defeated") {
-          whereClause = ", where: { status: DEFEATED }"
-        }
-
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -146,14 +120,10 @@ export function useProposalIds(limit = 20, statusFilter: "all" | "active" | "exe
             body: JSON.stringify({
               query: `
               query {
-                proposals(
-                  first: ${limit}
-                  orderBy: createdTimestamp
-                  orderDirection: desc
-                  ${whereClause}
-                ) {
+                proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
                   id
                   status
+                  objectionPeriodEndBlock
                 }
               }
             `,
@@ -164,11 +134,49 @@ export function useProposalIds(limit = 20, statusFilter: "all" | "active" | "exe
         const data = await response.json()
 
         if (data?.data?.proposals) {
-          const ids = data.data.proposals.map((p: any) => Number.parseInt(p.id))
+          const allProposals = data.data.proposals
+
+          console.log(
+            "[v0] First 10 proposals statuses:",
+            allProposals.slice(0, 10).map((p: any) => ({ id: p.id, status: p.status })),
+          )
+          console.log("[v0] Unique status values:", [...new Set(allProposals.map((p: any) => p.status))])
+
+          let filtered = allProposals
+          if (statusFilter === "active") {
+            filtered = allProposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING")
+          } else if (statusFilter === "executed") {
+            filtered = allProposals.filter((p: any) => p.status === "EXECUTED")
+          } else if (statusFilter === "defeated") {
+            console.log("[v0] Filtering for defeated proposals, total before filter:", allProposals.length)
+            filtered = allProposals.filter(
+              (p: any) =>
+                p.status === "CANCELLED" && p.objectionPeriodEndBlock && Number(p.objectionPeriodEndBlock) > 0,
+            )
+            console.log("[v0] Defeated proposals found:", filtered.length)
+            console.log(
+              "[v0] First 5 defeated proposals:",
+              filtered.slice(0, 5).map((p: any) => ({ id: p.id, status: p.status })),
+            )
+          } else if (statusFilter === "canceled") {
+            console.log("[v0] Filtering for canceled proposals, total before filter:", allProposals.length)
+            filtered = allProposals.filter(
+              (p: any) =>
+                p.status === "CANCELLED" && (!p.objectionPeriodEndBlock || Number(p.objectionPeriodEndBlock) === 0),
+            )
+            console.log("[v0] Canceled proposals found:", filtered.length)
+            console.log(
+              "[v0] First 5 canceled proposals:",
+              filtered.slice(0, 5).map((p: any) => ({ id: p.id, status: p.status })),
+            )
+          }
+
+          setTotalCount(filtered.length)
+          const ids = filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
         }
       } catch (error) {
-        // Silently handle error
+        console.error("[v0] Error fetching proposals:", error)
       } finally {
         setIsLoading(false)
       }
@@ -243,7 +251,6 @@ export function useProposalData(proposalId: number) {
   useEffect(() => {
     const fetchProposalFromAPI = async () => {
       try {
-        // Use the Nouns Subgraph API
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -296,24 +303,29 @@ export function useProposalData(proposalId: number) {
           const stateNum = stateData !== undefined ? Number(stateData) : 1
           const stateName = PROPOSAL_STATE_NAMES[stateNum] || "Pending"
 
-          console.log("[v0] Proposal", proposalId, "state:", stateNum, "stateName:", stateName, "stateData:", stateData)
-
           const sponsorsList = proposal.signers?.map((s: any) => s.id as `0x${string}`) || []
+
+          const safeStartBlock = proposal.startBlock ? BigInt(proposal.startBlock) : BigInt(0)
+          const safeEndBlock = proposal.endBlock ? BigInt(proposal.endBlock) : BigInt(0)
+          const safeForVotes = proposal.forVotes ? BigInt(proposal.forVotes) : BigInt(0)
+          const safeAgainstVotes = proposal.againstVotes ? BigInt(proposal.againstVotes) : BigInt(0)
+          const safeAbstainVotes = proposal.abstainVotes ? BigInt(proposal.abstainVotes) : BigInt(0)
+          const safeQuorum = proposal.quorumVotes ? BigInt(proposal.quorumVotes) : BigInt(200)
 
           setProposalData({
             id: proposalId,
             proposer: proposal.proposer?.id || "0x0000000000000000000000000000000000000000",
             sponsors: sponsorsList,
-            forVotes: BigInt(proposal.forVotes || 0),
-            againstVotes: BigInt(proposal.againstVotes || 0),
-            abstainVotes: BigInt(proposal.abstainVotes || 0),
+            forVotes: safeForVotes,
+            againstVotes: safeAgainstVotes,
+            abstainVotes: safeAbstainVotes,
             state: stateNum,
             stateName: stateName,
-            quorum: BigInt(proposal.quorumVotes || 200),
+            quorum: safeQuorum,
             description: title,
             fullDescription: desc,
-            startBlock: BigInt(proposal.startBlock || 0),
-            endBlock: BigInt(proposal.endBlock || 0),
+            startBlock: safeStartBlock,
+            endBlock: safeEndBlock,
             transactionHash: proposal.createdTransactionHash || "",
             targets: proposal.targets || [],
             values: proposal.values || [],
@@ -348,11 +360,9 @@ export function useBatchProposals(proposalIds: number[]) {
     }
 
     setIsLoading(true)
-    // Fetch proposals sequentially to avoid overwhelming the RPC
     const fetchProposals = async () => {
       const results: any[] = []
       for (const id of proposalIds) {
-        // Add small delay between requests
         await new Promise((resolve) => setTimeout(resolve, 100))
         results.push({ id, loading: false })
       }

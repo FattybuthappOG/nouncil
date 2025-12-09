@@ -56,17 +56,6 @@ export function ProposalVotingCard({
 
   const displayStatus = proposal.stateName || "Pending"
 
-  console.log(
-    "[v0] ProposalCard",
-    proposalId,
-    "stateName:",
-    proposal.stateName,
-    "state:",
-    proposal.state,
-    "displayStatus:",
-    displayStatus,
-  )
-
   const isVisible = statusFilter === "all" || displayStatus.toUpperCase() === statusFilter
 
   let timingDisplay = null
