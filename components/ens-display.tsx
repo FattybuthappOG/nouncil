@@ -35,3 +35,5 @@ export function EnsDisplay({ address, className = "", showFull = false }: EnsDis
     <span className={displayClassName}>{showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`}</span>
   )
 }
+
+export default EnsDisplay

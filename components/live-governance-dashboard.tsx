@@ -1,14 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi"
+import { useAccount, useDisconnect, useBalance } from "wagmi"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Moon, Sun, Menu, X, Search, Globe, Copy } from "lucide-react"
+import { Moon, Sun, X, Search, Globe, Copy, Menu } from "lucide-react"
 import ProposalVotingCard from "./proposal-voting-card"
 import CandidateCard from "./candidate-card"
 import TreasuryDropdown from "./treasury-dropdown"
 import { useProposalIds, useCandidateIds } from "@/hooks/useContractData"
+import WalletConnectButton from "./wallet-connect-button" // Import WalletConnect button instead of AppKit
+import { useConnect } from "wagmi" // Declare the useConnect variable
 
 // Language configuration
 const LANGUAGES = [
@@ -108,7 +110,7 @@ const translations = {
     toggleTheme: "Cambiar Tema",
     proposer: "Proponente",
     viewOnEtherscan: "Ver en Etherscan",
-    transactionSimulator: "Simulador de Transacciones",
+    transactionSimulator: "Simulateur de Transacciones",
     votes: "Votos",
     for: "A Favor",
     against: "En Contra",
@@ -558,12 +560,8 @@ export default function LiveGovernanceDashboard() {
     if (isConnected) {
       disconnect()
     } else {
-      // Find WalletConnect connector and connect with it to show QR modal
-      const walletConnectConnector = connectors.find((c) => c.id === "walletConnect")
-      if (walletConnectConnector) {
-        connect({ connector: walletConnectConnector })
-      } else {
-        // Fallback to first available connector (injected)
+      // Connect with first available connector (injected wallet)
+      if (connectors[0]) {
         connect({ connector: connectors[0] })
       }
     }
@@ -572,40 +570,26 @@ export default function LiveGovernanceDashboard() {
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
       <header
-        className={`sticky top-0 z-50 backdrop-blur-md border-b ${
-          isDarkMode ? "bg-gray-900/95 border-gray-800" : "bg-white/95 border-gray-200"
-        }`}
+        className={`${
+          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+        } border-b sticky top-0 z-50 backdrop-blur`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
-            </Link>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          {/* Logo */}
+          <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+            <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
+          </Link>
 
-            <div className="flex items-center gap-3">
-              {/* Connect Wallet Button */}
-              <button
-                onClick={handleWalletClick}
-                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
-                  isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-                }`}
-              >
-                {isConnected
-                  ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
-                  : translations[selectedLanguage].connectWallet}
-              </button>
+          <div className="flex items-center gap-4">
+            <WalletConnectButton />
 
-              <button
-                onClick={() => {
-                  setShowMenu(!showMenu)
-                }}
-                className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
-                aria-label="Menu"
-              >
-                {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
+            <button
+              onClick={() => setShowMenu(true)}
+              className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
+              aria-label="Open menu"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
           </div>
         </div>
 
