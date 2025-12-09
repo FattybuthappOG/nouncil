@@ -1,32 +1,37 @@
-import { http, createConfig } from "wagmi"
+import { createConfig, http, cookieStorage, createStorage } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { injected, walletConnect } from "wagmi/connectors"
 
-const connectors = [
-  injected(),
-  walletConnect({
-    projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "6ce41bba38061829592921cc0b22152e",
-    metadata: {
-      name: "Nouncil",
-      description: "Nouns DAO Governance Interface",
-      url: "https://nouncil.vercel.app",
-      icons: ["https://nouncil.vercel.app/favicon.ico"],
-    },
-    showQrModal: true,
-  }),
-]
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
 
-export function getConfig() {
-  return createConfig({
-    chains: [mainnet],
-    connectors,
-    ssr: true,
-    transports: {
-      [mainnet.id]: http("https://eth.merkle.io", {
-        timeout: 30_000,
-        retryCount: 3,
-        retryDelay: 1000,
-      }),
-    },
-  })
+if (!projectId) {
+  console.warn("[v0] WalletConnect Project ID not found - WalletConnect will not be available")
 }
+
+const metadata = {
+  name: "Nouncil",
+  description: "Nouncil DAO Governance Dashboard",
+  url: "https://nouncil.vercel.app",
+  icons: ["https://nouncil.vercel.app/apple-icon"],
+}
+
+export const config = createConfig({
+  chains: [mainnet],
+  connectors: projectId
+    ? [
+        injected(),
+        walletConnect({
+          projectId,
+          metadata,
+          showQrModal: true,
+        }),
+      ]
+    : [injected()],
+  ssr: true,
+  storage: createStorage({
+    storage: cookieStorage,
+  }),
+  transports: {
+    [mainnet.id]: http(),
+  },
+})

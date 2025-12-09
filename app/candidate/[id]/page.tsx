@@ -182,7 +182,6 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
 
       const expirationTimestamp = Math.floor(Date.now() / 1000) + validityDays * 24 * 60 * 60
 
-      // Encode the proposal data
       const encodedProp = encodeAbiParameters(
         [
           { name: "targets", type: "address[]" },
@@ -198,48 +197,49 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
         ],
       )
 
-      console.log("[v0] Sponsor data:", {
-        candidateId,
-        expirationTimestamp,
-        proposer: candidateData.proposer,
-        slug: candidateData.slug,
-        encodedPropLength: encodedProp.length,
-      })
+      const encodedPropHash = keccak256(encodedProp)
 
-      // Create the message hash that will be signed
-      const proposalEncHash = keccak256(encodedProp)
-
-      const sigDigest = keccak256(
-        encodeAbiParameters(
-          [
-            { name: "expirationTimestamp", type: "uint256" },
-            { name: "proposer", type: "address" },
-            { name: "slug", type: "string" },
-            { name: "proposalIdToUpdate", type: "uint256" },
-            { name: "encodedPropHash", type: "bytes32" },
-          ],
-          [
-            BigInt(expirationTimestamp),
-            candidateData.proposer as `0x${string}`,
-            candidateData.slug || "",
-            BigInt(0),
-            proposalEncHash,
-          ],
-        ),
+      const messageToSign = encodeAbiParameters(
+        [
+          { name: "expirationTimestamp", type: "uint256" },
+          { name: "proposer", type: "address" },
+          { name: "slug", type: "string" },
+          { name: "proposalIdToUpdate", type: "uint256" },
+          { name: "encodedPropHash", type: "bytes32" },
+        ],
+        [
+          BigInt(expirationTimestamp),
+          candidateData.proposer as `0x${string}`,
+          candidateData.slug || "",
+          BigInt(0),
+          encodedPropHash,
+        ],
       )
 
-      console.log("[v0] Requesting signature...")
+      const sigDigest = keccak256(messageToSign)
+
+      console.log("[v0] Sponsor transaction preparation:")
+      console.log("[v0] - Expiration timestamp:", expirationTimestamp)
+      console.log("[v0] - Proposer:", candidateData.proposer)
+      console.log("[v0] - Slug:", candidateData.slug)
+      console.log("[v0] - Encoded prop hash:", encodedPropHash)
+      console.log("[v0] - Sig digest:", sigDigest)
+
       setSponsorStatus("signing")
 
-      // Sign the digest
       const signature = await signMessageAsync({
         message: { raw: sigDigest },
       })
 
-      console.log("[v0] Signature obtained, submitting transaction...")
+      console.log("[v0] Signature obtained:", signature)
+      console.log("[v0] Signature length:", signature.length)
+
+      if (signature.length !== 132) {
+        throw new Error(`Invalid signature length: expected 132 chars (0x + 65 bytes * 2), got ${signature.length}`)
+      }
+
       setSponsorStatus("confirming")
 
-      // Submit the transaction with the signature
       const hash = await writeContractAsync({
         address: "0xf790A5f59678dd733fb3De93493A91f472ca1365",
         abi: [
@@ -261,24 +261,32 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
         ],
         functionName: "addSignature",
         args: [
-          signature,
+          signature as `0x${string}`,
           BigInt(expirationTimestamp),
           candidateData.proposer as `0x${string}`,
           candidateData.slug || "",
           BigInt(0),
-          encodedProp,
+          encodedProp as `0x${string}`,
           sponsorReason,
         ],
       })
 
       console.log("[v0] Transaction submitted:", hash)
+
       setSponsorStatus("sponsored")
       setShowSponsorDialog(false)
       alert(`Successfully sponsored! Transaction: ${hash}`)
     } catch (error: any) {
       console.error("[v0] Sponsor error:", error)
+
+      if (error?.message?.includes("User rejected") || error?.message?.includes("User denied")) {
+        console.log("[v0] User cancelled sponsor transaction")
+        setSponsorStatus("idle")
+        return
+      }
+
       setSponsorStatus("idle")
-      alert(`Error sponsoring candidate: ${error.message || "Unknown error"}`)
+      alert("Failed to sponsor candidate. Please try again.")
     }
   }
 
@@ -475,11 +483,11 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     disabled={sponsorStatus !== "idle"}
                   >
-                    {sponsorStatus === "preparing" && "Preparing..."}
+                    {sponsorStatus === "preparing" && t("preparing")}
                     {sponsorStatus === "signing" && "Sign Message (No Gas)"}
-                    {sponsorStatus === "confirming" && "Confirm Transaction (Gas Required)"}
-                    {sponsorStatus === "sponsored" && "Sponsored!"}
-                    {sponsorStatus === "idle" && "Sponsor"}
+                    {sponsorStatus === "confirming" && t("confirming")}
+                    {sponsorStatus === "sponsored" && t("sponsored")}
+                    {sponsorStatus === "idle" && t("idle")}
                   </Button>
                 </div>
               </DialogContent>

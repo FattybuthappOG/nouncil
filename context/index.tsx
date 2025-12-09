@@ -1,20 +1,12 @@
 "use client"
 
-import { getConfig } from "@/config"
+import { config } from "@/config"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { WagmiProvider } from "wagmi"
 
 function ContextProvider({ children }: { children: ReactNode }) {
-  const [config] = useState(() => {
-    // Only create config on client side
-    if (typeof window !== "undefined") {
-      return getConfig()
-    }
-    return null
-  })
-
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -26,10 +18,6 @@ function ContextProvider({ children }: { children: ReactNode }) {
         },
       }),
   )
-
-  if (!config) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  }
 
   return (
     <WagmiProvider config={config}>

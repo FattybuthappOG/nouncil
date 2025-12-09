@@ -39,6 +39,7 @@
     "@radix-ui/react-tooltip": "latest",
     "@tanstack/react-query": "latest",
     "@wagmi/core": "2.13.9",
+    "@web3modal/wagmi": "5.1.11",
     "autoprefixer": "10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

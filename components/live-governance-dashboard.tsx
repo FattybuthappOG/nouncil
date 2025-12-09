@@ -345,7 +345,6 @@ export default function LiveGovernanceDashboard() {
   const router = useRouter()
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [showMenu, setShowMenu] = useState(false)
-  const [showWalletDialog, setShowWalletDialog] = useState(false)
   const [activeTab, setActiveTab] = useState<"proposals" | "candidates">("proposals")
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
@@ -357,8 +356,8 @@ export default function LiveGovernanceDashboard() {
   const [copyFeedback, setCopyFeedback] = useState(false)
 
   const { address, isConnected } = useAccount()
-  const { connectors, connect } = useConnect()
   const { disconnect } = useDisconnect()
+  const { connectors, connect } = useConnect()
 
   const { data: balanceData } = useBalance({
     address: "0x0BC3807Ec262cB779b38D65b38158acC3bfedE10",
@@ -555,12 +554,18 @@ export default function LiveGovernanceDashboard() {
     localStorage.setItem("nouns-language", lang)
   }
 
-  const handleConnect = async (connector: any) => {
-    try {
-      await connect({ connector })
-      setShowWalletDialog(false)
-    } catch (error) {
-      // errors handled by wagmi
+  const handleWalletClick = () => {
+    if (isConnected) {
+      disconnect()
+    } else {
+      // Find WalletConnect connector and connect with it to show QR modal
+      const walletConnectConnector = connectors.find((c) => c.id === "walletConnect")
+      if (walletConnectConnector) {
+        connect({ connector: walletConnectConnector })
+      } else {
+        // Fallback to first available connector (injected)
+        connect({ connector: connectors[0] })
+      }
     }
   }
 
@@ -580,27 +585,16 @@ export default function LiveGovernanceDashboard() {
 
             <div className="flex items-center gap-3">
               {/* Connect Wallet Button */}
-              {isConnected ? (
-                <button
-                  onClick={() => disconnect()}
-                  className={`px-4 py-2 rounded-lg transition-colors font-medium ${
-                    isDarkMode
-                      ? "bg-gray-800 hover:bg-gray-700 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                  }`}
-                >
-                  {address?.slice(0, 6)}...{address?.slice(-4)}
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowWalletDialog(true)}
-                  className={`px-4 py-2 rounded-lg transition-colors font-medium ${
-                    isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-                  }`}
-                >
-                  {t("connectWallet")}
-                </button>
-              )}
+              <button
+                onClick={handleWalletClick}
+                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                  isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+              >
+                {isConnected
+                  ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
+                  : translations[selectedLanguage].connectWallet}
+              </button>
 
               <button
                 onClick={() => {
@@ -762,47 +756,6 @@ export default function LiveGovernanceDashboard() {
           </div>
         )}
       </header>
-
-      {/* Wallet Connection Dialog */}
-      {showWalletDialog && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowWalletDialog(false)}
-        >
-          <div
-            className={`max-w-md w-full rounded-2xl p-6 ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-xl font-bold mb-4">Connect Wallet</h3>
-            <div className="space-y-3">
-              {connectors.map((connector) => (
-                <button
-                  key={connector.id}
-                  onClick={() => handleConnect(connector)}
-                  className={`w-full p-4 rounded-lg flex items-center gap-3 transition-colors ${
-                    isDarkMode
-                      ? "bg-gray-700 hover:bg-gray-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-                  }`}
-                >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                  </svg>
-                  <span className="font-medium">{connector.name}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowWalletDialog(false)}
-              className={`w-full mt-4 p-3 rounded-lg ${
-                isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-              }`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
