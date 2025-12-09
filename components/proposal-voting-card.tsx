@@ -49,12 +49,25 @@ export function ProposalVotingCard({
 
   const { title, media } = parseProposalDescription(proposal.description || `Proposal ${proposalId}`)
 
-  const votingIsActive = proposal.state === 1 // Active state from Subgraph
+  const votingIsActive = proposal.state === 1 || proposal.state === 0
   const showTiming = currentBlock !== null && !blockError
 
   const { label: stateLabel, color: stateColor } = getProposalStateLabel(proposal.state)
 
-  const isVisible = statusFilter === "all" || stateLabel.toUpperCase() === statusFilter
+  const displayStatus = proposal.stateName || "Pending"
+
+  console.log(
+    "[v0] ProposalCard",
+    proposalId,
+    "stateName:",
+    proposal.stateName,
+    "state:",
+    proposal.state,
+    "displayStatus:",
+    displayStatus,
+  )
+
+  const isVisible = statusFilter === "all" || displayStatus.toUpperCase() === statusFilter
 
   let timingDisplay = null
   if (showTiming && currentBlock) {
@@ -122,7 +135,7 @@ export function ProposalVotingCard({
                 #{proposalId}
               </Badge>
               <Badge variant="outline" className={`text-${stateColor}-600 border-${stateColor}-600`}>
-                {stateLabel}
+                {displayStatus}
               </Badge>
             </div>
             <CardTitle className={`text-lg mb-2 ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>{title}</CardTitle>

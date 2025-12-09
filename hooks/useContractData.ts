@@ -99,7 +99,7 @@ const PROPOSAL_STATE_NAMES = [
   "Vetoed",
 ]
 
-export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "executed" | "defeated" = "all") {
+export function useProposalIds(limit = 20, statusFilter: "all" | "active" | "executed" | "defeated" = "all") {
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -107,9 +107,31 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
   useEffect(() => {
     const fetchProposalIds = async () => {
       try {
+        const countResponse = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposals(first: 1000, orderBy: createdTimestamp) {
+                  id
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const countData = await countResponse.json()
+        if (countData?.data?.proposals) {
+          setTotalCount(countData.data.proposals.length)
+        }
+
         let whereClause = ""
         if (statusFilter === "active") {
-          whereClause = ", where: { status: ACTIVE }"
+          whereClause = ", where: { status_in: [ACTIVE, PENDING] }"
         } else if (statusFilter === "executed") {
           whereClause = ", where: { status: EXECUTED }"
         } else if (statusFilter === "defeated") {
@@ -144,9 +166,6 @@ export function useProposalIds(limit = 15, statusFilter: "all" | "active" | "exe
         if (data?.data?.proposals) {
           const ids = data.data.proposals.map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
-          if (ids.length > 0) {
-            setTotalCount(Math.max(...ids))
-          }
         }
       } catch (error) {
         // Silently handle error
@@ -274,7 +293,10 @@ export function useProposalData(proposalId: number) {
               .replace(/^#+\s*/, "")
               .trim() || `Proposal ${proposalId}`
 
-          const stateNum = Number(stateData || 1)
+          const stateNum = stateData !== undefined ? Number(stateData) : 1
+          const stateName = PROPOSAL_STATE_NAMES[stateNum] || "Pending"
+
+          console.log("[v0] Proposal", proposalId, "state:", stateNum, "stateName:", stateName, "stateData:", stateData)
 
           const sponsorsList = proposal.signers?.map((s: any) => s.id as `0x${string}`) || []
 
@@ -286,7 +308,7 @@ export function useProposalData(proposalId: number) {
             againstVotes: BigInt(proposal.againstVotes || 0),
             abstainVotes: BigInt(proposal.abstainVotes || 0),
             state: stateNum,
-            stateName: PROPOSAL_STATE_NAMES[stateNum] || "Unknown",
+            stateName: stateName,
             quorum: BigInt(proposal.quorumVotes || 200),
             description: title,
             fullDescription: desc,
@@ -520,7 +542,11 @@ export function useCandidateData(candidateId: string) {
         if (candidate) {
           const content = candidate.latestVersion?.content || {}
           const desc = content.description || `Candidate ${candidateId}`
-          const title = content.title || candidate.slug || `Candidate ${candidateId}`
+          const title =
+            desc
+              .split("\n")[0]
+              .replace(/^#+\s*/, "")
+              .trim() || `Candidate ${candidateId}`
 
           const sponsorsList: `0x${string}`[] = []
           if (candidate.versions) {

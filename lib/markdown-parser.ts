@@ -20,7 +20,7 @@ export function parseProposalDescription(description: string): {
   const media: { type: "image" | "video" | "gif" | "youtube"; url: string; embedUrl?: string }[] = []
 
   const imageRegex = /!\[.*?\]$$(.*?)$$/g
-  const videoRegex = /\[.*?\]$$(https?:\/\/.*?\.(mp4|webm|mov))$$/gi
+  const videoRegex = /\[(.*?)\]$$(https?:\/\/.*?\.(mp4|webm|mov))$$/gi
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g
 
   let match
@@ -31,7 +31,7 @@ export function parseProposalDescription(description: string): {
   }
 
   while ((match = videoRegex.exec(description)) !== null) {
-    media.push({ type: "video", url: match[1] })
+    media.push({ type: "video", url: match[2] })
   }
 
   while ((match = youtubeRegex.exec(description)) !== null) {
@@ -62,9 +62,10 @@ export function getProposalStateLabel(state: number): {
     { label: "Queued", color: "purple" },
     { label: "Expired", color: "gray" },
     { label: "Executed", color: "green" },
+    { label: "Vetoed", color: "red" },
   ]
 
-  return states[state] || { label: "Unknown", color: "gray" }
+  return states[state] || { label: "Pending", color: "yellow" }
 }
 
 export function parseMarkdownMedia(description: string): {

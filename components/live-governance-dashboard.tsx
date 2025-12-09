@@ -350,7 +350,7 @@ export default function LiveGovernanceDashboard() {
   const [activeTab, setActiveTab] = useState<"proposals" | "candidates">("proposals")
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [displayedProposals, setDisplayedProposals] = useState(15)
+  const [displayedProposals, setDisplayedProposals] = useState(20)
   const [displayedCandidates, setDisplayedCandidates] = useState(15)
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated">("all")
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
@@ -383,15 +383,16 @@ export default function LiveGovernanceDashboard() {
   }
 
   const proposalIdsData = useProposalIds(displayedProposals, statusFilter)
+  const { proposalIds, isLoading: proposalIdsLoading, totalCount } = proposalIdsData
+
   const candidateIdsData = useCandidateIds(displayedCandidates)
 
-  const recentProposalIds = proposalIdsData?.proposalIds || []
-  const totalProposals = proposalIdsData?.totalCount || 0
   const safeCandidates = candidateIdsData?.candidates || []
   const totalCandidates = candidateIdsData?.totalCount || 0
 
-  const hasMoreProposals = displayedProposals < totalProposals
   const hasMoreCandidates = displayedCandidates < totalCandidates
+
+  const hasMoreProposals = displayedProposals < totalCount
 
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -517,12 +518,12 @@ export default function LiveGovernanceDashboard() {
     setSearchResults([])
   }
 
-  const loadMoreProposals = () => {
-    setDisplayedProposals((prev) => prev + 20)
-  }
-
   const loadMoreCandidates = () => {
     setDisplayedCandidates((prev) => prev + 20)
+  }
+
+  const loadMoreProposals = () => {
+    setDisplayedProposals((prev) => prev + 20)
   }
 
   const searchPlaceholder = activeTab === "proposals" ? t("searchProposals") : t("searchCandidates")
@@ -566,6 +567,8 @@ export default function LiveGovernanceDashboard() {
       }
     }
   }
+
+  const filteredProposalIds = proposalIds
 
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
@@ -804,7 +807,7 @@ export default function LiveGovernanceDashboard() {
                     : "bg-gray-200 text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t("proposals")} ({totalProposals})
+              {t("proposals")} ({totalCount})
             </button>
             <button
               onClick={() => setActiveTab("candidates")}
@@ -841,43 +844,31 @@ export default function LiveGovernanceDashboard() {
         {/* Content Grid */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {activeTab === "proposals" && (
-            <>
-              {proposalIdsData?.isLoading ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p>{t("loading")}</p>
-                </div>
-              ) : recentProposalIds.length > 0 ? (
-                <>
-                  {recentProposalIds.map((proposalId, index) => (
-                    <ProposalVotingCard
-                      key={proposalId}
-                      proposalId={proposalId.toString()}
-                      proposalNumber={totalProposals - index}
-                      isDarkMode={isDarkMode}
-                      selectedLanguage={selectedLanguage}
-                    />
-                  ))}
-                  {hasMoreProposals && (
-                    <div className="col-span-full flex justify-center mt-6">
-                      <button
-                        onClick={loadMoreProposals}
-                        className={`px-6 py-3 rounded-lg transition-colors font-medium ${
-                          isDarkMode
-                            ? "bg-blue-600 hover:bg-blue-700 text-white"
-                            : "bg-blue-500 hover:bg-blue-600 text-white"
-                        }`}
-                      >
-                        {t("loadMore")}
-                      </button>
-                    </div>
-                  )}
-                </>
+            <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-6">
+              {proposalIdsLoading ? (
+                <div className="col-span-2 text-center py-8">Loading proposals...</div>
+              ) : filteredProposalIds.length === 0 ? (
+                <div className="col-span-2 text-center py-8">No proposals found for this filter.</div>
               ) : (
-                <div className="col-span-full text-center py-12 text-gray-500">
-                  <p>{t("noProposalsFound")}</p>
+                filteredProposalIds.map((id) => (
+                  <ProposalVotingCard key={id} proposalId={id} isDarkMode={isDarkMode} statusFilter={statusFilter} />
+                ))
+              )}
+              {hasMoreProposals && (
+                <div className="flex justify-center mt-8">
+                  <button
+                    onClick={loadMoreProposals}
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                      isDarkMode
+                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                        : "bg-blue-500 hover:bg-blue-600 text-white"
+                    }`}
+                  >
+                    Load More Proposals
+                  </button>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {activeTab === "candidates" && (

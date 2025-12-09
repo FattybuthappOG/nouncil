@@ -249,13 +249,15 @@ export default function CandidateDetailPage() {
     } catch (error: any) {
       console.error("[v0] Sponsor error:", error)
 
-      if (error.message?.includes("User rejected") || error.message?.includes("User denied") || error.code === 4001) {
+      const errorMessage = error?.message || error?.toString() || "Unknown error"
+
+      if (errorMessage.includes("User rejected") || errorMessage.includes("User denied") || error.code === 4001) {
         setSponsorStatus("idle")
         return
       }
 
       setSponsorStatus("error")
-      alert(`Failed to sponsor candidate: ${error.message || "Unknown error"}`)
+      alert(`Failed to sponsor candidate: ${errorMessage}`)
     }
   }
 
