@@ -108,8 +108,6 @@ export function useProposalIds(
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    console.log("[v0] useProposalIds called with:", { limit, statusFilter })
-
     const fetchProposalIds = async () => {
       try {
         const response = await fetch(
@@ -136,38 +134,20 @@ export function useProposalIds(
         if (data?.data?.proposals) {
           const allProposals = data.data.proposals
 
-          console.log(
-            "[v0] First 10 proposals statuses:",
-            allProposals.slice(0, 10).map((p: any) => ({ id: p.id, status: p.status })),
-          )
-          console.log("[v0] Unique status values:", [...new Set(allProposals.map((p: any) => p.status))])
-
           let filtered = allProposals
           if (statusFilter === "active") {
             filtered = allProposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING")
           } else if (statusFilter === "executed") {
             filtered = allProposals.filter((p: any) => p.status === "EXECUTED")
           } else if (statusFilter === "defeated") {
-            console.log("[v0] Filtering for defeated proposals, total before filter:", allProposals.length)
             filtered = allProposals.filter(
               (p: any) =>
                 p.status === "CANCELLED" && p.objectionPeriodEndBlock && Number(p.objectionPeriodEndBlock) > 0,
             )
-            console.log("[v0] Defeated proposals found:", filtered.length)
-            console.log(
-              "[v0] First 5 defeated proposals:",
-              filtered.slice(0, 5).map((p: any) => ({ id: p.id, status: p.status })),
-            )
           } else if (statusFilter === "canceled") {
-            console.log("[v0] Filtering for canceled proposals, total before filter:", allProposals.length)
             filtered = allProposals.filter(
               (p: any) =>
                 p.status === "CANCELLED" && (!p.objectionPeriodEndBlock || Number(p.objectionPeriodEndBlock) === 0),
-            )
-            console.log("[v0] Canceled proposals found:", filtered.length)
-            console.log(
-              "[v0] First 5 canceled proposals:",
-              filtered.slice(0, 5).map((p: any) => ({ id: p.id, status: p.status })),
             )
           }
 
@@ -176,7 +156,7 @@ export function useProposalIds(
           setProposalIds(ids)
         }
       } catch (error) {
-        console.error("[v0] Error fetching proposals:", error)
+        console.error("Error fetching proposals:", error)
       } finally {
         setIsLoading(false)
       }
