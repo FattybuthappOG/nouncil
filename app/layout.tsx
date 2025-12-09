@@ -4,6 +4,8 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import ContextProvider from "@/context"
 import { headers } from "next/headers"
+import { cookieToInitialState } from "wagmi"
+import { getConfig } from "@/config"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,10 +40,19 @@ export default async function RootLayout({
   const headersObj = await headers()
   const cookies = headersObj.get("cookie")
 
+  let initialState
+  try {
+    initialState = cookieToInitialState(getConfig(), cookies)
+  } catch (error) {
+    // If cookie is malformed, start fresh with undefined state
+    console.warn("Failed to parse wagmi cookie state, starting fresh:", error)
+    initialState = undefined
+  }
+
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ContextProvider cookies={cookies}>{children}</ContextProvider>
+        <ContextProvider initialState={initialState}>{children}</ContextProvider>
       </body>
     </html>
   )

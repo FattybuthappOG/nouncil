@@ -157,7 +157,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
   useEffect(() => {
     if (selectedLanguage === "en") {
       setTranslatedContent(content)
-      setTranslatedDescription(proposal.description || "")
+      setTranslatedDescription(proposal.fullDescription || "")
       return
     }
 
@@ -172,7 +172,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
     // Debounce translation API call
     const timer = setTimeout(async () => {
       try {
-        const textToTranslate = content.slice(0, 300) // Reduced from 500 to 300
+        const textToTranslate = content.slice(0, 300)
         const response = await fetch(
           `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=en|${selectedLanguage}`,
         )
@@ -185,24 +185,22 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
           setTranslatedContent(content)
         }
 
-        // Translate proposal description
         const descriptionResponse = await fetch(
-          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(proposal.description || "")}&langpair=en|${selectedLanguage}`,
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(proposal.fullDescription || "")}&langpair=en|${selectedLanguage}`,
         )
         const descriptionData = await descriptionResponse.json()
         if (descriptionData.responseStatus === 200 && descriptionData.responseData.translatedText) {
           setTranslatedDescription(descriptionData.responseData.translatedText)
         } else {
-          setTranslatedDescription(proposal.description || "")
+          setTranslatedDescription(proposal.fullDescription || "")
         }
       } catch (error) {
-        // Silently fail - keep original text
-        setTranslatedDescription(proposal.description || "")
+        setTranslatedDescription(proposal.fullDescription || "")
       }
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [selectedLanguage, content, proposalId, proposal.description])
+  }, [selectedLanguage, content, proposalId, proposal.fullDescription])
 
   if (proposal.isLoading) {
     return (
@@ -261,7 +259,8 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                   strokeWidth={2}
                   d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                 />
-              </svg>
+              </path>
+            </svg>
               Connect Wallet
             </Button>
           )} */}
@@ -290,7 +289,8 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                       strokeWidth={2}
                       d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                     />
-                  </svg>
+                  </path>
+                </svg>
                   <span className="font-medium text-white">{connector.name}</span>
                 </button>
               ))}
