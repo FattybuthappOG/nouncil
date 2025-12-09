@@ -13,7 +13,7 @@ import { useState, useEffect } from "react"
 import ReactMarkdown from "react-markdown"
 import { EnsDisplay } from "@/components/ens-display"
 import { TransactionSimulator } from "@/components/transaction-simulator"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 
 const translations = {
   en: {
@@ -204,34 +204,34 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
 
   if (proposal.isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-400">Loading proposal...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground">Loading proposal...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white overflow-hidden">
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 sticky top-0 z-50">
+    <div className="min-h-screen bg-background text-foreground overflow-hidden">
+      <header className="bg-card border-border px-4 py-3 sticky top-0 z-50">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/")}
-              className="text-gray-300 hover:text-white hover:bg-gray-700"
+              className="text-muted-foreground hover:text-foreground hover:bg-border"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               {t("back")}
             </Button>
             <img src="/images/logo.webp" alt="Nouncil Logo" className="w-8 h-8 object-contain" />
-            <span className="text-gray-300 text-sm hidden sm:inline">Nouncil</span>
+            <span className="text-muted-foreground text-sm hidden sm:inline">Nouncil</span>
           </div>
 
           {/* Wallet Connection */}
           {/* {isConnected ? (
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-gray-300 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
                 <span className="hidden sm:inline">
                   <EnsDisplay address={address} />
@@ -241,7 +241,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                 onClick={() => disconnect()}
                 variant="ghost"
                 size="sm"
-                className="text-gray-400 hover:text-white hover:bg-gray-700"
+                className="text-muted-foreground hover:text-foreground hover:bg-border"
               >
                 Disconnect
               </Button>
@@ -250,7 +250,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
             <Button
               onClick={() => setShowWalletDialog(true)}
               size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary/80 text-background"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -269,9 +269,9 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
 
       {/* Wallet Dialog */}
       {/* {showWalletDialog && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full border border-gray-700 shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4">Connect Your Wallet</h2>
+        <div className="fixed inset-0 bg-background/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl p-6 max-w-md w-full border border-border shadow-2xl">
+            <h2 className="text-xl font-bold text-foreground mb-4">Connect Your Wallet</h2>
             <div className="space-y-3">
               {connectors.map((connector) => (
                 <button
@@ -280,9 +280,9 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                     connect({ connector })
                     setShowWalletDialog(false)
                   }}
-                  className="w-full flex items-center gap-3 p-4 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-left border border-gray-600"
+                  className="w-full flex items-center gap-3 p-4 rounded-lg bg-border hover:bg-border/80 transition-colors text-left border border-border"
                 >
-                  <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -291,13 +291,13 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                     />
                   </path>
                 </svg>
-                  <span className="font-medium text-white">{connector.name}</span>
+                  <span className="font-medium text-foreground">{connector.name}</span>
                 </button>
               ))}
             </div>
             <button
               onClick={() => setShowWalletDialog(false)}
-              className="w-full mt-4 p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+              className="w-full mt-4 p-3 rounded-lg bg-border hover:bg-border/80 text-muted-foreground transition-colors"
             >
               Cancel
             </button>
@@ -305,76 +305,75 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         </div>
       )} */}
 
-      <div className="max-w-4xl mx-auto px-4 py-8 overflow-hidden">
-        {/* Proposal Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              Proposal {proposalId}
-            </Badge>
-            <Badge variant="outline" className={`text-${stateColor}-400 border-${stateColor}-400`}>
-              {stateLabel}
-            </Badge>
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-4 break-words">{title}</h1>
-          <div className="flex flex-col gap-2 text-sm text-gray-400">
-            {proposal.proposer && proposal.proposer !== "0x0000000000000000000000000000000000000000" && (
-              <div className="flex items-center gap-4 flex-wrap break-all">
-                <span>
-                  {t("proposer")}: <EnsDisplay address={proposal.proposer} className="inline" />
-                </span>
-                <a
-                  href={`https://etherscan.io/address/${proposal.proposer}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:opacity-70 transition-opacity"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            )}
-            {proposal.sponsors && proposal.sponsors.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap break-all">
-                <span>
-                  {t("sponsors")} ({proposal.sponsors.length}):
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {proposal.sponsors.map((sponsor, idx) => (
-                    <div key={idx} className="flex items-center gap-1">
-                      <EnsDisplay address={sponsor} />
-                      <a
-                        href={`https://etherscan.io/address/${sponsor}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:opacity-70 transition-opacity"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  ))}
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Header Card */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+              <Badge variant="outline" className={`text-${stateColor}-400 border-${stateColor}-400`}>
+                {stateLabel}
+              </Badge>
+            </div>
+            <h1 className="text-3xl font-bold text-foreground mb-4 break-words">{title}</h1>
+            <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+              {proposal.proposer && proposal.proposer !== "0x0000000000000000000000000000000000000000" && (
+                <div className="flex items-center gap-4 flex-wrap break-all">
+                  <span>
+                    {t("proposer")}: <EnsDisplay address={proposal.proposer} className="inline" />
+                  </span>
+                  <a
+                    href={`https://etherscan.io/address/${proposal.proposer}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:opacity-70 transition-opacity"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
-              </div>
-            )}
+              )}
+              {proposal.sponsors && proposal.sponsors.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap break-all">
+                  <span>
+                    {t("sponsors")} ({proposal.sponsors.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {proposal.sponsors.map((sponsor, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <EnsDisplay address={sponsor} />
+                        <a
+                          href={`https://etherscan.io/address/${sponsor}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:opacity-70 transition-opacity"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-            {/* Voting Timing */}
-            {(proposal.startBlock || proposal.endBlock) && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Clock className="w-4 h-4" />
-                {proposal.state === 0 && proposal.startBlock
-                  ? `${t("votingStarts")} ${proposal.startBlock}`
-                  : proposal.endBlock
-                    ? `${t("votingEnds")} ${proposal.endBlock}`
-                    : null}
-              </div>
-            )}
-          </div>
-        </div>
+              {/* Voting Timing */}
+              {(proposal.startBlock || proposal.endBlock) && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  {proposal.state === 0 && proposal.startBlock
+                    ? `${t("votingStarts")} ${proposal.startBlock}`
+                    : proposal.endBlock
+                      ? `${t("votingEnds")} ${proposal.endBlock}`
+                      : null}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Media */}
         {media.length > 0 && (
-          <div className="mb-8 space-y-4">
+          <div className="space-y-4">
             {media.map((item, idx) => (
-              <div key={idx} className="rounded-lg overflow-hidden bg-gray-800">
+              <div key={idx} className="rounded-lg overflow-hidden bg-card">
                 {item.type === "image" && (
                   <img
                     src={item.url || "/placeholder.svg"}
@@ -414,191 +413,208 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         <TransactionSimulator proposalId={proposalId} />
 
         {/* Voting Stats */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
-          <h2 className="text-xl font-bold text-white mb-4">{t("votingResults")}</h2>
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t("votingResults")}</h2>
 
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between text-sm mb-2">
-                <div className="flex items-center gap-2">
-                  <ThumbsUp className="w-4 h-4 text-green-500" />
-                  <span className="text-gray-300">{t("for")}</span>
-                </div>
-                <span className="font-medium text-white">
-                  {Number(proposal.forVotes).toLocaleString()} ({forPercentage.toFixed(1)}%)
-                </span>
-              </div>
-              <Progress value={forPercentage} className="h-3 bg-gray-700">
-                <div
-                  className="h-full bg-green-600 rounded-full transition-all"
-                  style={{ width: `${forPercentage}%` }}
-                />
-              </Progress>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-sm mb-2">
-                <div className="flex items-center gap-2">
-                  <ThumbsDown className="w-4 h-4 text-red-500" />
-                  <span className="text-gray-300">{t("against")}</span>
-                </div>
-                <span className="font-medium text-white">
-                  {Number(proposal.againstVotes).toLocaleString()} ({againstPercentage.toFixed(1)}%)
-                </span>
-              </div>
-              <Progress value={againstPercentage} className="h-3 bg-gray-700">
-                <div
-                  className="h-full bg-red-600 rounded-full transition-all"
-                  style={{ width: `${againstPercentage}%` }}
-                />
-              </Progress>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-sm mb-2">
-                <div className="flex items-center gap-2">
-                  <Minus className="w-4 h-4 text-yellow-500" />
-                  <span className="text-gray-300">{t("abstain")}</span>
-                </div>
-                <span className="font-medium text-white">
-                  {Number(proposal.abstainVotes).toLocaleString()} ({abstainPercentage.toFixed(1)}%)
-                </span>
-              </div>
-              <Progress value={abstainPercentage} className="h-3 bg-gray-700">
-                <div
-                  className="h-full bg-yellow-600 rounded-full transition-all"
-                  style={{ width: `${abstainPercentage}%` }}
-                />
-              </Progress>
-            </div>
-
-            <div className="pt-4 border-t border-gray-700">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-blue-400" />
-                  <span className="text-gray-300">{t("quorumProgress")}</span>
-                </div>
-                <span className="font-medium text-white">
-                  {totalVotes.toLocaleString()} / {Number(proposal.quorum).toLocaleString()} (
-                  {quorumPercentage.toFixed(1)}%)
-                </span>
-              </div>
-              <Progress value={Math.min(quorumPercentage, 100)} className="h-3 bg-gray-700">
-                <div
-                  className={`h-full rounded-full transition-all ${quorumPercentage >= 100 ? "bg-green-600" : "bg-blue-600"}`}
-                  style={{ width: `${Math.min(quorumPercentage, 100)}%` }}
-                />
-              </Progress>
-            </div>
-          </div>
-
-          {/* Voting Actions */}
-          {!isConnected ? (
-            <div className="text-sm text-center w-full py-3 mt-6 text-gray-400">{t("connectToVote")}</div>
-          ) : proposal.state === 1 ? (
-            <div className="mt-6 space-y-4">
-              {selectedSupport === null ? (
-                <>
-                  <div className="text-sm text-gray-300 mb-2">{t("castYourVote")}</div>
-                  <div className="flex gap-3">
-                    <Button onClick={() => handleVote(1)} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
-                      <ThumbsUp className="w-4 h-4 mr-2" />
-                      {t("for")}
-                    </Button>
-                    <Button onClick={() => handleVote(0)} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
-                      <ThumbsDown className="w-4 h-4 mr-2" />
-                      {t("against")}
-                    </Button>
-                    <Button
-                      onClick={() => handleVote(2)}
-                      className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white"
-                    >
-                      <Minus className="w-4 h-4 mr-2" />
-                      {t("abstain")}
-                    </Button>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <div className="flex items-center gap-2">
+                    <ThumbsUp className="w-4 h-4 text-green-500" />
+                    <span className="text-muted-foreground">{t("for")}</span>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-300">
-                      {t("voting")}:{" "}
-                      <span className="font-semibold text-white">
-                        {selectedSupport === 1 ? t("for") : selectedSupport === 0 ? t("against") : t("abstain")}
-                      </span>
+                  <span className="font-medium text-foreground">
+                    {Number(proposal.forVotes).toLocaleString()} ({forPercentage.toFixed(1)}%)
+                  </span>
+                </div>
+                <Progress value={forPercentage} className="h-3 bg-border">
+                  <div
+                    className="h-full bg-green-600 rounded-full transition-all"
+                    style={{ width: `${forPercentage}%` }}
+                  />
+                </Progress>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <div className="flex items-center gap-2">
+                    <ThumbsDown className="w-4 h-4 text-red-500" />
+                    <span className="text-muted-foreground">{t("against")}</span>
+                  </div>
+                  <span className="font-medium text-foreground">
+                    {Number(proposal.againstVotes).toLocaleString()} ({againstPercentage.toFixed(1)}%)
+                  </span>
+                </div>
+                <Progress value={againstPercentage} className="h-3 bg-border">
+                  <div
+                    className="h-full bg-red-600 rounded-full transition-all"
+                    style={{ width: `${againstPercentage}%` }}
+                  />
+                </Progress>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <div className="flex items-center gap-2">
+                    <Minus className="w-4 h-4 text-yellow-500" />
+                    <span className="text-muted-foreground">{t("abstain")}</span>
+                  </div>
+                  <span className="font-medium text-foreground">
+                    {Number(proposal.abstainVotes).toLocaleString()} ({abstainPercentage.toFixed(1)}%)
+                  </span>
+                </div>
+                <Progress value={abstainPercentage} className="h-3 bg-border">
+                  <div
+                    className="h-full bg-yellow-600 rounded-full transition-all"
+                    style={{ width: `${abstainPercentage}%` }}
+                  />
+                </Progress>
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-400" />
+                    <span className="text-muted-foreground">{t("quorumProgress")}</span>
+                  </div>
+                  <span className="font-medium text-foreground">
+                    {totalVotes.toLocaleString()} / {Number(proposal.quorum).toLocaleString()} (
+                    {quorumPercentage.toFixed(1)}%)
+                  </span>
+                </div>
+                <Progress value={Math.min(quorumPercentage, 100)} className="h-3 bg-border">
+                  <div
+                    className={`h-full rounded-full transition-all ${quorumPercentage >= 100 ? "bg-green-600" : "bg-blue-600"}`}
+                    style={{ width: `${Math.min(quorumPercentage, 100)}%` }}
+                  />
+                </Progress>
+              </div>
+            </div>
+
+            {/* Voting Actions */}
+            {!isConnected ? (
+              <div className="text-sm text-center w-full py-3 mt-6 text-muted-foreground">{t("connectToVote")}</div>
+            ) : proposal.state === 1 ? (
+              <div className="mt-6 space-y-4">
+                {selectedSupport === null ? (
+                  <>
+                    <div className="text-sm text-muted-foreground mb-2">{t("castYourVote")}</div>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => handleVote(1)}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-background"
+                      >
+                        <ThumbsUp className="w-4 h-4 mr-2" />
+                        {t("for")}
+                      </Button>
+                      <Button
+                        onClick={() => handleVote(0)}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-background"
+                      >
+                        <ThumbsDown className="w-4 h-4 mr-2" />
+                        {t("against")}
+                      </Button>
+                      <Button
+                        onClick={() => handleVote(2)}
+                        className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-background"
+                      >
+                        <Minus className="w-4 h-4 mr-2" />
+                        {t("abstain")}
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedSupport(null)}
-                      className="text-gray-400 hover:text-white"
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {t("voting")}:{" "}
+                        <span className="font-semibold text-foreground">
+                          {selectedSupport === 1 ? t("for") : selectedSupport === 0 ? t("against") : t("abstain")}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedSupport(null)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        {t("change")}
+                      </Button>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-2 block">{t("reasonForVote")}</label>
+                      <Textarea
+                        value={voteReason}
+                        onChange={(e) => setVoteReason(e.target.value)}
+                        placeholder={t("explainYourVote")}
+                        className="bg-border border-border text-background placeholder:text-muted-foreground min-h-[100px]"
+                      />
+                    </div>
+                    {/* <Button
+                      onClick={submitVote}
+                      disabled={isPending || isConfirming}
+                      className="w-full bg-primary hover:bg-primary/80 text-background"
                     >
-                      {t("change")}
-                    </Button>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-300 mb-2 block">{t("reasonForVote")}</label>
-                    <Textarea
-                      value={voteReason}
-                      onChange={(e) => setVoteReason(e.target.value)}
-                      placeholder={t("explainYourVote")}
-                      className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-500 min-h-[100px]"
-                    />
-                  </div>
-                  {/* <Button
-                    onClick={submitVote}
-                    disabled={isPending || isConfirming}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {isPending || isConfirming ? t("submittingVote") : t("submitVote")}
-                  </Button> */}
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="text-sm text-center w-full py-3 mt-6 text-gray-400">{t("votingClosed")}</div>
-          )}
-        </div>
+                      {isPending || isConfirming ? t("submittingVote") : t("submitVote")}
+                    </Button> */}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-center w-full py-3 mt-6 text-muted-foreground">{t("votingClosed")}</div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Description */}
         {translatedDescription && (
-          <Card className="bg-gray-800 border-gray-700 p-6 overflow-hidden">
-            <h2 className="text-xl font-semibold text-gray-100 mb-4">{t("description")}</h2>
-            <div className="prose prose-invert prose-lg max-w-none break-words overflow-hidden">
+          <Card className="bg-card border-border p-6 overflow-hidden">
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t("description")}</h2>
+            <div className="prose prose-invert dark:prose-invert prose-neutral prose-lg max-w-none break-words overflow-hidden">
               <ReactMarkdown
                 skipHtml={true}
                 components={{
-                  h1: ({ node, ...props }) => <h1 className="text-3xl font-bold text-white mb-4 mt-8" {...props} />,
-                  h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-white mb-3 mt-6" {...props} />,
-                  h3: ({ node, ...props }) => <h3 className="text-xl font-semibold text-white mb-2 mt-4" {...props} />,
-                  h4: ({ node, ...props }) => (
-                    <h4 className="text-lg font-semibold text-gray-200 mb-2 mt-3" {...props} />
+                  h1: ({ node, ...props }) => (
+                    <h1 className="text-3xl font-bold text-foreground mb-4 mt-8" {...props} />
                   ),
-                  p: ({ node, ...props }) => <p className="text-gray-300 mb-4 leading-relaxed" {...props} />,
+                  h2: ({ node, ...props }) => (
+                    <h2 className="text-2xl font-bold text-foreground mb-3 mt-6" {...props} />
+                  ),
+                  h3: ({ node, ...props }) => (
+                    <h3 className="text-xl font-semibold text-foreground mb-2 mt-4" {...props} />
+                  ),
+                  h4: ({ node, ...props }) => (
+                    <h4 className="text-lg font-semibold text-foreground mb-2 mt-3" {...props} />
+                  ),
+                  p: ({ node, ...props }) => <p className="text-muted-foreground mb-4 leading-relaxed" {...props} />,
                   ul: ({ node, ...props }) => (
-                    <ul className="list-disc list-inside text-gray-300 mb-4 space-y-2" {...props} />
+                    <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
-                    <ol className="list-decimal list-inside text-gray-300 mb-4 space-y-2" {...props} />
+                    <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2" {...props} />
                   ),
-                  li: ({ node, ...props }) => <li className="text-gray-300" {...props} />,
+                  li: ({ node, ...props }) => <li className="text-muted-foreground" {...props} />,
                   a: ({ node, ...props }) => (
                     <a
-                      className="text-blue-400 hover:text-blue-300 underline transition-colors"
+                      className="text-primary hover:underline transition-colors"
                       target="_blank"
                       rel="noopener noreferrer"
                       {...props}
                     />
                   ),
                   blockquote: ({ node, ...props }) => (
-                    <blockquote className="border-l-4 border-gray-600 pl-4 italic text-gray-400 my-4" {...props} />
+                    <blockquote
+                      className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
+                      {...props}
+                    />
                   ),
                   code: ({ node, inline, ...props }: any) =>
                     inline ? (
-                      <code className="bg-gray-700 text-gray-200 px-1.5 py-0.5 rounded text-sm" {...props} />
+                      <code className="bg-border text-foreground px-1.5 py-0.5 rounded text-sm" {...props} />
                     ) : (
                       <code
-                        className="block bg-gray-700 text-gray-200 p-4 rounded-lg my-4 overflow-x-auto"
+                        className="block bg-border text-foreground p-4 rounded-lg my-4 overflow-x-auto"
                         {...props}
                       />
                     ),
