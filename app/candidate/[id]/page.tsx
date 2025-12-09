@@ -16,11 +16,8 @@ import ReactMarkdown from "react-markdown"
 import { parseMarkdownMedia } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
 import { useState, useEffect } from "react"
-import { useAccount, useConnect, useDisconnect } from "wagmi"
-import { useWriteContract } from "wagmi"
-import { encodeAbiParameters } from "viem"
-import { useSignTypedData } from "wagmi"
-import { keccak256 } from "viem"
+import { useAccount, useConnect, useDisconnect, useWriteContract, useSignMessage } from "wagmi"
+import { encodeAbiParameters, keccak256 } from "viem"
 
 type LanguageCode = keyof typeof translations
 
@@ -134,7 +131,7 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
   const candidateData = useCandidateData(candidateId)
   const router = useRouter()
   const { writeContractAsync } = useWriteContract()
-  const { signTypedDataAsync } = useSignTypedData()
+  const { signMessageAsync } = useSignMessage()
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
@@ -194,47 +191,55 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
           { name: "calldatas", type: "bytes[]" },
         ],
         [
-          candidateData.targets || [],
-          candidateData.values?.map((v: string) => BigInt(v)) || [],
+          (candidateData.targets || []) as `0x${string}`[],
+          (candidateData.values || []).map((v) => BigInt(v)),
           candidateData.signatures || [],
-          candidateData.calldatas || [],
+          (candidateData.calldatas || []) as `0x${string}`[],
         ],
       )
 
-      // Hash the encoded proposal
-      const encodedPropHash = keccak256(encodedProp)
+      console.log("[v0] Sponsor data:", {
+        candidateId,
+        expirationTimestamp,
+        proposer: candidateData.proposer,
+        slug: candidateData.slug,
+        encodedPropLength: encodedProp.length,
+      })
 
-      // Sign the typed data with the hash, not the raw bytes
-      const signature = await signTypedDataAsync({
-        domain: {
-          name: "Nouns DAO",
-          version: "1",
-          chainId: 1,
-          verifyingContract: "0xf790A5f59678dd733fb3De93493A91f472ca1365",
-        },
-        types: {
-          Proposal: [
+      // Create the message hash that will be signed
+      const proposalEncHash = keccak256(encodedProp)
+
+      const sigDigest = keccak256(
+        encodeAbiParameters(
+          [
+            { name: "expirationTimestamp", type: "uint256" },
             { name: "proposer", type: "address" },
             { name: "slug", type: "string" },
             { name: "proposalIdToUpdate", type: "uint256" },
             { name: "encodedPropHash", type: "bytes32" },
-            { name: "expirationTimestamp", type: "uint256" },
-            { name: "reason", type: "string" },
           ],
-        },
-        primaryType: "Proposal",
-        message: {
-          proposer: candidateData.proposer as `0x${string}`,
-          slug: candidateData.slug,
-          proposalIdToUpdate: BigInt(0),
-          encodedPropHash: encodedPropHash,
-          expirationTimestamp: BigInt(expirationTimestamp),
-          reason: sponsorReason,
-        },
+          [
+            BigInt(expirationTimestamp),
+            candidateData.proposer as `0x${string}`,
+            candidateData.slug || "",
+            BigInt(0),
+            proposalEncHash,
+          ],
+        ),
+      )
+
+      console.log("[v0] Requesting signature...")
+      setSponsorStatus("signing")
+
+      // Sign the digest
+      const signature = await signMessageAsync({
+        message: { raw: sigDigest },
       })
 
+      console.log("[v0] Signature obtained, submitting transaction...")
       setSponsorStatus("confirming")
 
+      // Submit the transaction with the signature
       const hash = await writeContractAsync({
         address: "0xf790A5f59678dd733fb3De93493A91f472ca1365",
         abi: [
@@ -256,22 +261,24 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
         ],
         functionName: "addSignature",
         args: [
-          signature as `0x${string}`,
+          signature,
           BigInt(expirationTimestamp),
           candidateData.proposer as `0x${string}`,
-          candidateData.slug,
+          candidateData.slug || "",
           BigInt(0),
-          encodedProp as `0x${string}`,
+          encodedProp,
           sponsorReason,
         ],
       })
 
+      console.log("[v0] Transaction submitted:", hash)
       setSponsorStatus("sponsored")
       setShowSponsorDialog(false)
-      alert(`Successfully sponsored candidate! Transaction: ${hash}`)
+      alert(`Successfully sponsored! Transaction: ${hash}`)
     } catch (error: any) {
+      console.error("[v0] Sponsor error:", error)
       setSponsorStatus("idle")
-      alert(`Error sponsoring candidate: ${error.message || error}`)
+      alert(`Error sponsoring candidate: ${error.message || "Unknown error"}`)
     }
   }
 
@@ -439,11 +446,11 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                         value={validityDays}
                         onChange={(e) => {
                           const value = Number.parseInt(e.target.value)
-                          if (!isNaN(value) && value >= 1 && value <= 365) {
+                          if (!isNaN(value) && value >= 1) {
                             setValidityDays(value)
                           }
                         }}
-                        className="bg-gray-800 border-gray-700 text-gray-100 col-span-3"
+                        className="bg-gray-700 border-gray-600 text-gray-100"
                       />
                       <span className="text-gray-400">{t("days")}</span>
                     </div>
@@ -468,10 +475,11 @@ export default function CandidateDetailPage({ params }: { params: { id: string }
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     disabled={sponsorStatus !== "idle"}
                   >
-                    {sponsorStatus === "preparing" && t("preparing")}
-                    {sponsorStatus === "confirming" && t("confirming")}
-                    {sponsorStatus === "sponsored" && t("sponsored")}
-                    {sponsorStatus === "idle" && t("sponsor")}
+                    {sponsorStatus === "preparing" && "Preparing..."}
+                    {sponsorStatus === "signing" && "Sign Message (No Gas)"}
+                    {sponsorStatus === "confirming" && "Confirm Transaction (Gas Required)"}
+                    {sponsorStatus === "sponsored" && "Sponsored!"}
+                    {sponsorStatus === "idle" && "Sponsor"}
                   </Button>
                 </div>
               </DialogContent>

@@ -436,14 +436,7 @@ export default function LiveGovernanceDashboard() {
             } else {
               query = `query { 
                 proposalCandidates(
-                  first: 10, 
-                  where: { 
-                    latestVersion_: { 
-                      content_: { 
-                        title_contains_nocase: "${debouncedSearch}" 
-                      } 
-                    } 
-                  }, 
+                  first: 1000, 
                   orderBy: createdTimestamp, 
                   orderDirection: desc
                 ) { 
@@ -474,7 +467,7 @@ export default function LiveGovernanceDashboard() {
             setSearchResults(results)
           } else {
             let candidates = data?.data?.proposalCandidates || []
-            if (isNumber && candidates.length > 0) {
+            if (isNumber) {
               const searchNumber = Number.parseInt(debouncedSearch)
               const index = totalCandidates - searchNumber
               if (index >= 0 && index < candidates.length) {
@@ -482,6 +475,15 @@ export default function LiveGovernanceDashboard() {
               } else {
                 candidates = []
               }
+            } else {
+              candidates = candidates
+                .filter((candidate: any) => {
+                  const slug = candidate.slug?.toLowerCase() || ""
+                  const title = candidate.latestVersion?.content?.title?.toLowerCase() || ""
+                  const searchLower = debouncedSearch.toLowerCase()
+                  return slug.includes(searchLower) || title.includes(searchLower)
+                })
+                .slice(0, 10) // Limit to 10 results
             }
             setSearchResults(candidates)
           }

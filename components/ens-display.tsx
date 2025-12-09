@@ -19,13 +19,19 @@ export function EnsDisplay({ address, className = "", showFull = false }: EnsDis
     return <span className={className}>Unknown</span>
   }
 
+  const displayClassName = `text-blue-500 ${className}`
+
   if (isLoading) {
-    return <span className={className}>{showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`}</span>
+    return (
+      <span className={displayClassName}>{showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`}</span>
+    )
   }
 
   if (ensName) {
-    return <span className={className}>{ensName}</span>
+    return <span className={displayClassName}>{ensName}</span>
   }
 
-  return <span className={className}>{showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`}</span>
+  return (
+    <span className={displayClassName}>{showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`}</span>
+  )
 }
