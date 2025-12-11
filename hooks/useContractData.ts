@@ -356,7 +356,7 @@ export function useBatchProposals(proposalIds: number[]) {
   return { proposals, isLoading }
 }
 
-export function useCandidateIds(limit = 15) {
+export function useCandidateIds(limit = 20) {
   const [candidates, setCandidates] = useState<any[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -364,6 +364,27 @@ export function useCandidateIds(limit = 15) {
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
+        const countResponse = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(first: 1000, orderBy: createdTimestamp) {
+                  id
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const countData = await countResponse.json()
+        const totalCandidates = countData?.data?.proposalCandidates?.length || 0
+        setTotalCount(totalCandidates)
+
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -402,53 +423,22 @@ export function useCandidateIds(limit = 15) {
 
         const data = await response.json()
 
-        const countResponse = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidates(first: 1000, orderBy: createdTimestamp) {
-                  id
-                }
-              }
-            `,
-            }),
-          },
-        )
-
-        const countData = await countResponse.json()
-        if (countData?.data?.proposalCandidates) {
-          setTotalCount(countData.data.proposalCandidates.length)
-        }
-
         if (data?.data?.proposalCandidates) {
           const candidatesList = data.data.proposalCandidates.map((c: any) => {
             const content = c.latestVersion?.content || {}
             const desc = content.description || `Candidate ${c.id}`
-            const title = content.title || c.slug || `Candidate ${c.id}`
 
             return {
               id: c.id,
-              slug: c.slug || "",
-              proposer: c.proposer || "0x0000000000000000000000000000000000000000",
-              description: title,
-              fullDescription: desc,
-              createdTimestamp: Number(c.createdTimestamp || 0),
-              transactionHash: c.createdTransactionHash || "",
-              targets: content.targets || [],
-              values: content.values || [],
-              signatures: content.signatures || [],
-              calldatas: content.calldatas || [],
-              canceled: !!c.canceledTimestamp,
+              slug: c.slug,
+              title: content.title || desc.split("\n")[0] || c.slug || c.id,
             }
           })
+
           setCandidates(candidatesList)
         }
       } catch (error) {
-        // Silently fail
+        console.error("Error fetching candidates:", error)
       } finally {
         setIsLoading(false)
       }
@@ -490,6 +480,36 @@ export function useCandidateData(candidateId: string) {
     const fetchCandidateFromAPI = async () => {
       console.log("[v0] Fetching candidate from API with id:", candidateId)
       try {
+        const countResponse = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: asc) {
+                  id
+                  createdTimestamp
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const countData = await countResponse.json()
+        const allCandidateIds = countData?.data?.proposalCandidates || []
+        const totalCandidates = allCandidateIds.length
+
+        const candidateIndex = Number.parseInt(candidateId) - 1
+        const targetCandidate = allCandidateIds[candidateIndex]
+
+        if (!targetCandidate) {
+          setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
+          return
+        }
+
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -498,7 +518,7 @@ export function useCandidateData(candidateId: string) {
             body: JSON.stringify({
               query: `
               query {
-                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
+                proposalCandidate(id: "${targetCandidate.id}") {
                   id
                   slug
                   proposer
@@ -523,29 +543,18 @@ export function useCandidateData(candidateId: string) {
         )
 
         const data = await response.json()
-        console.log("[v0] API response data:", JSON.stringify(data, null, 2))
-
-        const candidates = data?.data?.proposalCandidates || []
-
-        // The candidate list is in descending order, so we need to calculate the actual index
-        const candidateIndex = Number.parseInt(candidateId)
-        const candidate = candidates[candidates.length - candidateIndex]
-
-        console.log("[v0] Parsed candidate:", candidate ? "Found" : "Not found")
+        const candidate = data?.data?.proposalCandidate
 
         if (candidate) {
           const content = candidate.latestVersion?.content || {}
           const title = content.title || `Candidate ${candidateId}`
           const description = content.description || ""
 
-          console.log("[v0] Setting candidate data with title:", title)
-          console.log("[v0] fullDescription length:", description.length)
-
           setCandidateData({
             id: candidateId,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
-            sponsors: [], // Will be populated by separate query if needed
+            sponsors: [],
             description: title,
             fullDescription: description,
             createdTimestamp: Number.parseInt(candidate.createdTimestamp || "0"),

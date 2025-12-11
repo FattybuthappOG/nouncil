@@ -38,7 +38,7 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber }: Cand
       <Card className={`p-4 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
         <div className="text-center py-4">
           <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-            Loading candidate {candidateId}...
+            Loading candidate #{candidateNumber}...
           </span>
         </div>
       </Card>

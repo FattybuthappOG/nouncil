@@ -373,7 +373,7 @@ export default function LiveGovernanceDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [displayedProposals, setDisplayedProposals] = useState(20)
-  const [displayedCandidates, setDisplayedCandidates] = useState(15)
+  const [displayedCandidates, setDisplayedCandidates] = useState(20)
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated" | "canceled">("all")
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
@@ -927,7 +927,7 @@ export default function LiveGovernanceDashboard() {
                     {safeCandidates.map((candidate, index) => (
                       <CandidateCard
                         key={candidate.id}
-                        candidateId={candidate.id}
+                        candidateId={String(totalCandidates - index)}
                         candidateNumber={totalCandidates - index}
                         isDarkMode={isDarkMode}
                       />
