@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAccount, useDisconnect, useBalance } from "wagmi"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Moon, Sun, X, Search, Globe, Copy, Menu } from "lucide-react"
+import { Moon, Sun, X, Search, Globe, Copy, Menu, Gavel } from "lucide-react"
 import ProposalVotingCard from "./proposal-voting-card"
 import CandidateCard from "./candidate-card"
 import TreasuryDropdown from "./treasury-dropdown"
@@ -609,11 +609,26 @@ export default function LiveGovernanceDashboard() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-            <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+              <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
+            </Link>
+
+            <Link
+              href="/auction"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm ${
+                isDarkMode
+                  ? "bg-primary/10 hover:bg-primary/20 text-primary"
+                  : "bg-primary/10 hover:bg-primary/20 text-primary"
+              }`}
+            >
+              <Gavel className="w-4 h-4" />
+              <span className="hidden sm:inline">Art of the Day</span>
+            </Link>
+          </div>
 
           <div className="flex items-center gap-4">
+            {/* WalletConnectButton */}
             <WalletConnectButton />
 
             <button
