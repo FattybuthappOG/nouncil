@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, Users, ExternalLink, Clock } from "lucide-react"
-import { useProposalData } from "@/hooks/useContractData"
+import { useProposalData, useProposalVotes } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { useAccount } from "wagmi"
 import { useState, useEffect } from "react"
@@ -42,6 +42,9 @@ const translations = {
     description: "Description",
     transactionSimulator: "Transaction Simulator",
     connectToVote: "Connect wallet to vote",
+    votingHistory: "Voting History",
+    loadingVotes: "Loading votes...",
+    noVotesYet: "No votes yet",
   },
   zh: {
     back: "返回",
@@ -69,6 +72,9 @@ const translations = {
     description: "描述",
     transactionSimulator: "交易模拟器",
     connectToVote: "连接钱包以投票",
+    votingHistory: "投票历史",
+    loadingVotes: "加载投票...",
+    noVotesYet: "暂无投票",
   },
   es: {
     back: "Volver",
@@ -96,6 +102,9 @@ const translations = {
     description: "Descripción",
     transactionSimulator: "Simulador de Transacciones",
     connectToVote: "Conecta tu billetera para votar",
+    votingHistory: "Historial de Votación",
+    loadingVotes: "Cargando votos...",
+    noVotesYet: "No hay votos aún",
   },
 }
 
@@ -124,6 +133,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
   }
 
   const proposal = useProposalData(proposalId)
+  const { votes, isLoading: votesLoading } = useProposalVotes(Number(proposalId))
   const { title, content, media } = parseProposalDescription(
     proposal.fullDescription || proposal.description || `Proposal ${proposalId}`,
   )
@@ -305,7 +315,119 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         </div>
       )} */}
 
-      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="mb-6 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {t("back")}
+        </Button>
+
+        {/* Description */}
+        {translatedDescription && (
+          <Card className="bg-card border-border p-6 overflow-hidden">
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t("description")}</h2>
+            <div className="prose dark:prose-invert prose-neutral prose-lg max-w-none break-words overflow-hidden">
+              <ReactMarkdown
+                skipHtml={true}
+                components={{
+                  h1: ({ node, ...props }) => (
+                    <h1 className="text-3xl font-bold text-foreground mb-4 mt-8" {...props} />
+                  ),
+                  h2: ({ node, ...props }) => (
+                    <h2 className="text-2xl font-bold text-foreground mb-3 mt-6" {...props} />
+                  ),
+                  h3: ({ node, ...props }) => (
+                    <h3 className="text-xl font-semibold text-foreground mb-2 mt-4" {...props} />
+                  ),
+                  h4: ({ node, ...props }) => (
+                    <h4 className="text-lg font-semibold text-foreground mb-2 mt-3" {...props} />
+                  ),
+                  p: ({ node, ...props }) => <p className="text-muted-foreground mb-4 leading-relaxed" {...props} />,
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2" {...props} />
+                  ),
+                  li: ({ node, ...props }) => <li className="text-muted-foreground" {...props} />,
+                  a: ({ node, ...props }) => (
+                    <a
+                      className="text-primary hover:underline transition-colors"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    />
+                  ),
+                  blockquote: ({ node, ...props }) => (
+                    <blockquote
+                      className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
+                      {...props}
+                    />
+                  ),
+                  code: ({ node, inline, ...props }: any) =>
+                    inline ? (
+                      <code className="bg-border text-foreground px-1.5 py-0.5 rounded text-sm" {...props} />
+                    ) : (
+                      <code
+                        className="block bg-border text-foreground p-4 rounded-lg my-4 overflow-x-auto"
+                        {...props}
+                      />
+                    ),
+                  img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
+                }}
+              >
+                {translatedDescription}
+              </ReactMarkdown>
+            </div>
+          </Card>
+        )}
+
+        {/* Media */}
+        {media.length > 0 && (
+          <div className="space-y-4">
+            {media.map((item, idx) => (
+              <div key={idx} className="rounded-lg overflow-hidden bg-card">
+                {item.type === "image" && (
+                  <img
+                    src={item.url || "/placeholder.svg"}
+                    alt={`Proposal media ${idx + 1}`}
+                    className="w-full h-auto object-cover"
+                  />
+                )}
+                {item.type === "gif" && (
+                  <img
+                    src={item.url || "/placeholder.svg"}
+                    alt={`Proposal GIF ${idx + 1}`}
+                    className="w-full h-auto object-cover"
+                  />
+                )}
+                {item.type === "video" && (
+                  <video src={item.url} controls className="w-full h-auto" preload="metadata">
+                    Your browser does not support the video tag.
+                  </video>
+                )}
+                {item.type === "youtube" && item.embedUrl && (
+                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                    <iframe
+                      src={item.embedUrl}
+                      className="absolute top-0 left-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`YouTube video ${idx + 1}`}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Transaction Simulator */}
+        <TransactionSimulator proposalId={proposalId} />
+
         {/* Header Card */}
         <Card className="bg-card border-border">
           <CardContent className="p-6">
@@ -369,48 +491,59 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
           </CardContent>
         </Card>
 
-        {/* Media */}
-        {media.length > 0 && (
-          <div className="space-y-4">
-            {media.map((item, idx) => (
-              <div key={idx} className="rounded-lg overflow-hidden bg-card">
-                {item.type === "image" && (
-                  <img
-                    src={item.url || "/placeholder.svg"}
-                    alt={`Proposal media ${idx + 1}`}
-                    className="w-full h-auto object-cover"
-                  />
-                )}
-                {item.type === "gif" && (
-                  <img
-                    src={item.url || "/placeholder.svg"}
-                    alt={`Proposal GIF ${idx + 1}`}
-                    className="w-full h-auto object-cover"
-                  />
-                )}
-                {item.type === "video" && (
-                  <video src={item.url} controls className="w-full h-auto" preload="metadata">
-                    Your browser does not support the video tag.
-                  </video>
-                )}
-                {item.type === "youtube" && item.embedUrl && (
-                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                    <iframe
-                      src={item.embedUrl}
-                      className="absolute top-0 left-0 w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title={`YouTube video ${idx + 1}`}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Voting History Section */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t("votingHistory")}</h2>
 
-        {/* Transaction Simulator */}
-        <TransactionSimulator proposalId={proposalId} />
+            {votesLoading ? (
+              <div className="text-muted-foreground text-center py-8">{t("loadingVotes")}</div>
+            ) : votes.length === 0 ? (
+              <div className="text-muted-foreground text-center py-8">{t("noVotesYet")}</div>
+            ) : (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                {votes.map((vote, index) => (
+                  <div key={index} className="flex items-start gap-4 p-4 rounded-lg bg-muted border border-border">
+                    <div className="flex-shrink-0">
+                      {vote.support === 1 ? (
+                        <ThumbsUp className="w-5 h-5 text-green-500" />
+                      ) : vote.support === 0 ? (
+                        <ThumbsDown className="w-5 h-5 text-red-500" />
+                      ) : (
+                        <Minus className="w-5 h-5 text-yellow-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <EnsDisplay address={vote.voter as `0x${string}`} />
+                        <Badge
+                          variant="secondary"
+                          className={
+                            vote.support === 1
+                              ? "bg-green-600/20 text-green-400"
+                              : vote.support === 0
+                                ? "bg-red-600/20 text-red-400"
+                                : "bg-yellow-600/20 text-yellow-400"
+                          }
+                        >
+                          {vote.supportLabel}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {Number(vote.votes).toLocaleString()} votes
+                        </span>
+                      </div>
+                      {vote.reason && (
+                        <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap break-words">
+                          {vote.reason}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Voting Stats */}
         <Card className="bg-card border-border">
@@ -566,66 +699,6 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
             )}
           </CardContent>
         </Card>
-
-        {/* Description */}
-        {translatedDescription && (
-          <Card className="bg-card border-border p-6 overflow-hidden">
-            <h2 className="text-xl font-semibold text-foreground mb-4">{t("description")}</h2>
-            <div className="prose dark:prose-invert prose-neutral prose-lg max-w-none break-words overflow-hidden">
-              <ReactMarkdown
-                skipHtml={true}
-                components={{
-                  h1: ({ node, ...props }) => (
-                    <h1 className="text-3xl font-bold text-foreground mb-4 mt-8" {...props} />
-                  ),
-                  h2: ({ node, ...props }) => (
-                    <h2 className="text-2xl font-bold text-foreground mb-3 mt-6" {...props} />
-                  ),
-                  h3: ({ node, ...props }) => (
-                    <h3 className="text-xl font-semibold text-foreground mb-2 mt-4" {...props} />
-                  ),
-                  h4: ({ node, ...props }) => (
-                    <h4 className="text-lg font-semibold text-foreground mb-2 mt-3" {...props} />
-                  ),
-                  p: ({ node, ...props }) => <p className="text-muted-foreground mb-4 leading-relaxed" {...props} />,
-                  ul: ({ node, ...props }) => (
-                    <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2" {...props} />
-                  ),
-                  ol: ({ node, ...props }) => (
-                    <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2" {...props} />
-                  ),
-                  li: ({ node, ...props }) => <li className="text-muted-foreground" {...props} />,
-                  a: ({ node, ...props }) => (
-                    <a
-                      className="text-primary hover:underline transition-colors"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    />
-                  ),
-                  blockquote: ({ node, ...props }) => (
-                    <blockquote
-                      className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
-                      {...props}
-                    />
-                  ),
-                  code: ({ node, inline, ...props }: any) =>
-                    inline ? (
-                      <code className="bg-border text-foreground px-1.5 py-0.5 rounded text-sm" {...props} />
-                    ) : (
-                      <code
-                        className="block bg-border text-foreground p-4 rounded-lg my-4 overflow-x-auto"
-                        {...props}
-                      />
-                    ),
-                  img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
-                }}
-              >
-                {translatedDescription}
-              </ReactMarkdown>
-            </div>
-          </Card>
-        )}
       </div>
     </div>
   )

@@ -5,11 +5,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader } from "@/components/ui/dialog"
-import { useCandidateData, useProposalData } from "@/hooks/useContractData"
+import { useCandidateData, useCandidateSignatures, useProposalData } from "@/hooks/useContractData"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ExternalLink, Clock } from "lucide-react"
+import { ExternalLink, Clock, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAccount, useSignMessage, useWriteContract, useDisconnect } from "wagmi"
 import { keccak256, encodePacked } from "viem"
@@ -132,6 +132,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const { disconnect } = useDisconnect()
   const candidateData = useCandidateData(id)
   const proposalData = useProposalData(id)
+  const { signatures, isLoading: signaturesLoading } = useCandidateSignatures(id)
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
@@ -443,6 +444,50 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                 </DialogContent>
               </Dialog>
 
+              {/* Sponsor History Section */}
+              <Card className="bg-card border-border">
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-semibold text-foreground mb-4">Sponsor History</h3>
+
+                  {signaturesLoading ? (
+                    <div className="text-muted-foreground text-center py-8">Loading sponsors...</div>
+                  ) : signatures.length === 0 ? (
+                    <div className="text-muted-foreground text-center py-8">No sponsors yet</div>
+                  ) : (
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                      {signatures.map((sig, index) => (
+                        <div
+                          key={index}
+                          className="flex items-start gap-4 p-4 rounded-lg bg-muted border border-border"
+                        >
+                          <div className="flex-shrink-0">
+                            <Users className="w-5 h-5 text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <EnsDisplay address={sig.signer as `0x${string}`} />
+                              {sig.canceled && (
+                                <Badge variant="secondary" className="bg-red-600/20 text-red-400">
+                                  Canceled
+                                </Badge>
+                              )}
+                            </div>
+                            {sig.reason && (
+                              <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap break-words">
+                                {sig.reason}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Expires: {new Date(sig.expirationTimestamp * 1000).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Transaction */}
               {txHash && (
                 <div className="flex items-center gap-2 text-sm break-all flex-wrap">
@@ -499,78 +544,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             <CardTitle className="text-foreground">{t("description")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="prose dark:prose-invert prose-sm sm:prose-base max-w-none break-words overflow-hidden">
-              <ReactMarkdown
-                skipHtml={true}
-                components={{
-                  h1: ({ node, ...props }) => (
-                    <h1
-                      className="text-3xl font-bold text-foreground dark:text-foreground mt-6 mb-4 break-words"
-                      {...props}
-                    />
-                  ),
-                  h2: ({ node, ...props }) => (
-                    <h2
-                      className="text-2xl font-bold text-foreground dark:text-foreground mt-5 mb-3 break-words"
-                      {...props}
-                    />
-                  ),
-                  h3: ({ node, ...props }) => (
-                    <h3
-                      className="text-xl font-semibold text-foreground dark:text-foreground mt-4 mb-2 break-words"
-                      {...props}
-                    />
-                  ),
-                  p: ({ node, ...props }) => (
-                    <p className="text-foreground dark:text-foreground leading-relaxed mb-4 break-words" {...props} />
-                  ),
-                  a: ({ node, ...props }) => (
-                    <a
-                      className="text-primary hover:underline break-all"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    />
-                  ),
-                  ul: ({ node, ...props }) => (
-                    <ul
-                      className="list-disc list-inside text-foreground dark:text-foreground mb-4 space-y-2"
-                      {...props}
-                    />
-                  ),
-                  ol: ({ node, ...props }) => (
-                    <ol
-                      className="list-decimal list-inside text-foreground dark:text-foreground mb-4 space-y-2"
-                      {...props}
-                    />
-                  ),
-                  blockquote: ({ node, ...props }) => (
-                    <blockquote
-                      className="border-l-4 border-primary pl-4 italic text-muted-foreground dark:text-muted-foreground my-4 break-words"
-                      {...props}
-                    />
-                  ),
-                  code: ({ node, inline, ...props }: any) =>
-                    inline ? (
-                      <code
-                        className="bg-muted px-1.5 py-0.5 rounded text-sm text-foreground dark:text-foreground break-all"
-                        {...props}
-                      />
-                    ) : (
-                      <code
-                        className="block bg-muted p-4 rounded-lg text-sm text-foreground dark:text-foreground overflow-x-auto mb-4"
-                        {...props}
-                      />
-                    ),
-                  img: () => null,
-                }}
-              >
-                {(() => {
-                  const content = translatedDescription || candidateData.fullDescription || "No description available"
-                  console.log("[v0] Rendering markdown, length:", content.length, "preview:", content.substring(0, 100))
-                  return content
-                })()}
-              </ReactMarkdown>
+            <div
+              className={`prose dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground prose-a:text-primary prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-muted prose-pre:text-foreground`}
+            >
+              <ReactMarkdown>{translatedDescription || candidateData.fullDescription}</ReactMarkdown>
             </div>
           </CardContent>
         </Card>

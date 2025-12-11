@@ -580,3 +580,156 @@ export function useCandidateData(candidateId: string) {
 
   return candidateData
 }
+
+export function useProposalVotes(proposalId: number) {
+  const [votes, setVotes] = useState<
+    Array<{
+      voter: string
+      support: number
+      supportLabel: string
+      votes: string
+      reason: string
+      blockNumber: number
+    }>
+  >([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchVotes = async () => {
+      try {
+        const response = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                votes(
+                  where: { proposal: "${proposalId}" }
+                  orderBy: blockNumber
+                  orderDirection: desc
+                  first: 1000
+                ) {
+                  id
+                  voter {
+                    id
+                  }
+                  support
+                  supportDetailed
+                  votes
+                  reason
+                  blockNumber
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const data = await response.json()
+
+        if (data?.data?.votes) {
+          const votesList = data.data.votes.map((v: any) => {
+            const supportNum = Number(v.support)
+            let supportLabel = "Abstain"
+            if (supportNum === 0) supportLabel = "Against"
+            else if (supportNum === 1) supportLabel = "For"
+            else if (supportNum === 2) supportLabel = "Abstain"
+
+            return {
+              voter: v.voter?.id || "",
+              support: supportNum,
+              supportLabel,
+              votes: v.votes || "0",
+              reason: v.reason || "",
+              blockNumber: Number(v.blockNumber || 0),
+            }
+          })
+          setVotes(votesList)
+        }
+      } catch (error) {
+        console.error("Error fetching votes:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchVotes()
+  }, [proposalId])
+
+  return { votes, isLoading }
+}
+
+export function useCandidateSignatures(candidateId: string) {
+  const [signatures, setSignatures] = useState<
+    Array<{
+      signer: string
+      reason: string
+      expirationTimestamp: number
+      canceled: boolean
+    }>
+  >([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSignatures = async () => {
+      try {
+        const response = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidate(id: "${candidateId}") {
+                  versions {
+                    content {
+                      contentSignatures {
+                        signer {
+                          id
+                        }
+                        reason
+                        expirationTimestamp
+                        canceled
+                      }
+                    }
+                  }
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const data = await response.json()
+        const candidate = data?.data?.proposalCandidate
+
+        if (candidate?.versions) {
+          const sigsList: any[] = []
+          candidate.versions.forEach((version: any) => {
+            const sigs = version.content?.contentSignatures || []
+            sigs.forEach((sig: any) => {
+              sigsList.push({
+                signer: sig.signer?.id || "",
+                reason: sig.reason || "",
+                expirationTimestamp: Number(sig.expirationTimestamp || 0),
+                canceled: sig.canceled || false,
+              })
+            })
+          })
+          setSignatures(sigsList)
+        }
+      } catch (error) {
+        console.error("Error fetching signatures:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchSignatures()
+  }, [candidateId])
+
+  return { signatures, isLoading }
+}

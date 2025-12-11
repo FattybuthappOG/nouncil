@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { usePublicClient } from "wagmi"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { ExternalLink, FileCode } from "lucide-react"
 import { EnsDisplay } from "@/components/ens-display"
 
@@ -102,13 +103,15 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
 
   if (isLoading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <FileCode className="w-5 h-5" />
-          Transaction Simulator
-        </h2>
-        <div className="text-gray-400 text-sm">Loading transaction data...</div>
-      </div>
+      <Card className="bg-card border-border">
+        <CardContent className="p-6">
+          <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+            <FileCode className="w-5 h-5" />
+            Transaction Simulator
+          </h2>
+          <div className="text-muted-foreground text-sm">Loading transaction data...</div>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -117,69 +120,71 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 overflow-hidden max-w-full">
-      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-        <FileCode className="w-5 h-5" />
-        Transaction Simulator
-      </h2>
-      <div className="space-y-4">
-        {transactions.map((tx, index) => (
-          <div key={index} className="bg-gray-700 rounded-lg p-4 border border-gray-600 overflow-hidden">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  Transaction {index + 1}
-                </Badge>
-                {tx.value !== "0" && (
-                  <Badge variant="outline" className="text-green-400 border-green-400">
-                    {(Number(tx.value) / 1e18).toFixed(4)} ETH
+    <Card className="bg-card border-border">
+      <CardContent className="p-6">
+        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+          <FileCode className="w-5 h-5" />
+          Transaction Simulator
+        </h2>
+        <div className="space-y-4">
+          {transactions.map((tx, index) => (
+            <div key={index} className="bg-muted rounded-lg p-4 border border-border overflow-hidden">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-blue-600/20 text-blue-400">
+                    Transaction {index + 1}
                   </Badge>
+                  {tx.value !== "0" && (
+                    <Badge variant="outline" className="text-green-400 border-green-400">
+                      {(Number(tx.value) / 1e18).toFixed(4)} ETH
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">To: </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    {contractNames[tx.target] ? (
+                      <span className="text-foreground font-medium truncate">{contractNames[tx.target]}</span>
+                    ) : (
+                      <EnsDisplay address={tx.target as `0x${string}`} />
+                    )}
+                    <a
+                      href={`https://etherscan.io/address/${tx.target}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:opacity-70 flex items-center gap-1 shrink-0"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <code className="block mt-1 text-xs text-muted-foreground font-mono break-all">{tx.target}</code>
+                </div>
+
+                {tx.signature && (
+                  <div>
+                    <span className="text-muted-foreground">Function: </span>
+                    <code className="text-green-400 font-mono text-xs break-all overflow-wrap-anywhere block">
+                      {tx.signature}
+                    </code>
+                  </div>
+                )}
+
+                {tx.calldata && tx.calldata !== "0x" && (
+                  <div>
+                    <span className="text-muted-foreground">Calldata: </span>
+                    <code className="block mt-1 text-xs text-muted-foreground font-mono break-all bg-card p-2 rounded overflow-hidden border border-border">
+                      {tx.calldata.length > 200 ? `${tx.calldata.slice(0, 200)}...` : tx.calldata}
+                    </code>
+                  </div>
                 )}
               </div>
             </div>
-
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-gray-400">To: </span>
-                <div className="flex items-center gap-2 mt-1">
-                  {contractNames[tx.target] ? (
-                    <span className="text-white font-medium truncate">{contractNames[tx.target]}</span>
-                  ) : (
-                    <EnsDisplay address={tx.target as `0x${string}`} />
-                  )}
-                  <a
-                    href={`https://etherscan.io/address/${tx.target}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 flex items-center gap-1 shrink-0"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-                <code className="block mt-1 text-xs text-gray-500 font-mono break-all">{tx.target}</code>
-              </div>
-
-              {tx.signature && (
-                <div>
-                  <span className="text-gray-400">Function: </span>
-                  <code className="text-green-400 font-mono text-xs break-all overflow-wrap-anywhere block">
-                    {tx.signature}
-                  </code>
-                </div>
-              )}
-
-              {tx.calldata && tx.calldata !== "0x" && (
-                <div>
-                  <span className="text-gray-400">Calldata: </span>
-                  <code className="block mt-1 text-xs text-gray-500 font-mono break-all bg-gray-900 p-2 rounded overflow-hidden">
-                    {tx.calldata.length > 200 ? `${tx.calldata.slice(0, 200)}...` : tx.calldata}
-                  </code>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
