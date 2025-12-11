@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { useState } from "react"
 import { type State, WagmiProvider } from "wagmi"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { ThemeProvider } from "@/components/theme-provider"
 
 type Props = {
   children: ReactNode
@@ -16,9 +17,11 @@ function ContextProvider({ children, initialState }: Props) {
   const [queryClient] = useState(() => new QueryClient())
 
   return (
-    <WagmiProvider config={config} initialState={initialState}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </WagmiProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <WagmiProvider config={config} initialState={initialState}>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </WagmiProvider>
+    </ThemeProvider>
   )
 }
 

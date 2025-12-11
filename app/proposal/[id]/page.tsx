@@ -571,7 +571,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         {translatedDescription && (
           <Card className="bg-card border-border p-6 overflow-hidden">
             <h2 className="text-xl font-semibold text-foreground mb-4">{t("description")}</h2>
-            <div className="prose prose-invert dark:prose-invert prose-neutral prose-lg max-w-none break-words overflow-hidden">
+            <div className="prose dark:prose-invert prose-neutral prose-lg max-w-none break-words overflow-hidden">
               <ReactMarkdown
                 skipHtml={true}
                 components={{
