@@ -176,7 +176,13 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       setTranslatedContent(cached)
-      return
+      // Also update description translation when language changes
+      const descCacheKey = `proposal-desc-${proposalId}-${selectedLanguage}`
+      const cachedDesc = sessionStorage.getItem(descCacheKey)
+      if (cachedDesc) {
+        setTranslatedDescription(cachedDesc)
+        return
+      }
     }
 
     // Debounce translation API call
@@ -200,7 +206,9 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         )
         const descriptionData = await descriptionResponse.json()
         if (descriptionData.responseStatus === 200 && descriptionData.responseData.translatedText) {
-          setTranslatedDescription(descriptionData.responseData.translatedText)
+          const translatedDesc = descriptionData.responseData.translatedText
+          setTranslatedDescription(translatedDesc)
+          sessionStorage.setItem(`proposal-desc-${proposalId}-${selectedLanguage}`, translatedDesc)
         } else {
           setTranslatedDescription(proposal.fullDescription || "")
         }
@@ -210,7 +218,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [selectedLanguage, content, proposalId, proposal.fullDescription])
+  }, [selectedLanguage, content, proposalId, proposal.fullDescription]) // Added selectedLanguage to dependencies
 
   if (proposal.isLoading) {
     return (
@@ -325,111 +333,8 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
           {t("back")}
         </Button>
 
-        {/* Description */}
-        {translatedDescription && (
-          <Card className="bg-card border-border p-6 overflow-hidden">
-            <h2 className="text-xl font-semibold text-foreground mb-4">{t("description")}</h2>
-            <div className="prose dark:prose-invert prose-neutral prose-lg max-w-none break-words overflow-hidden">
-              <ReactMarkdown
-                skipHtml={true}
-                components={{
-                  h1: ({ node, ...props }) => (
-                    <h1 className="text-3xl font-bold text-foreground mb-4 mt-8" {...props} />
-                  ),
-                  h2: ({ node, ...props }) => (
-                    <h2 className="text-2xl font-bold text-foreground mb-3 mt-6" {...props} />
-                  ),
-                  h3: ({ node, ...props }) => (
-                    <h3 className="text-xl font-semibold text-foreground mb-2 mt-4" {...props} />
-                  ),
-                  h4: ({ node, ...props }) => (
-                    <h4 className="text-lg font-semibold text-foreground mb-2 mt-3" {...props} />
-                  ),
-                  p: ({ node, ...props }) => <p className="text-muted-foreground mb-4 leading-relaxed" {...props} />,
-                  ul: ({ node, ...props }) => (
-                    <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2" {...props} />
-                  ),
-                  ol: ({ node, ...props }) => (
-                    <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2" {...props} />
-                  ),
-                  li: ({ node, ...props }) => <li className="text-muted-foreground" {...props} />,
-                  a: ({ node, ...props }) => (
-                    <a
-                      className="text-primary hover:underline transition-colors"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    />
-                  ),
-                  blockquote: ({ node, ...props }) => (
-                    <blockquote
-                      className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
-                      {...props}
-                    />
-                  ),
-                  code: ({ node, inline, ...props }: any) =>
-                    inline ? (
-                      <code className="bg-border text-foreground px-1.5 py-0.5 rounded text-sm" {...props} />
-                    ) : (
-                      <code
-                        className="block bg-border text-foreground p-4 rounded-lg my-4 overflow-x-auto"
-                        {...props}
-                      />
-                    ),
-                  img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
-                }}
-              >
-                {translatedDescription}
-              </ReactMarkdown>
-            </div>
-          </Card>
-        )}
-
-        {/* Media */}
-        {media.length > 0 && (
-          <div className="space-y-4">
-            {media.map((item, idx) => (
-              <div key={idx} className="rounded-lg overflow-hidden bg-card">
-                {item.type === "image" && (
-                  <img
-                    src={item.url || "/placeholder.svg"}
-                    alt={`Proposal media ${idx + 1}`}
-                    className="w-full h-auto object-cover"
-                  />
-                )}
-                {item.type === "gif" && (
-                  <img
-                    src={item.url || "/placeholder.svg"}
-                    alt={`Proposal GIF ${idx + 1}`}
-                    className="w-full h-auto object-cover"
-                  />
-                )}
-                {item.type === "video" && (
-                  <video src={item.url} controls className="w-full h-auto" preload="metadata">
-                    Your browser does not support the video tag.
-                  </video>
-                )}
-                {item.type === "youtube" && item.embedUrl && (
-                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                    <iframe
-                      src={item.embedUrl}
-                      className="absolute top-0 left-0 w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title={`YouTube video ${idx + 1}`}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Transaction Simulator */}
-        <TransactionSimulator proposalId={proposalId} />
-
-        {/* Header Card */}
-        <Card className="bg-card border-border">
+        {/* Header Card with status, title, proposer, sponsors, time */}
+        <Card className="bg-card border-border mb-6">
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
               <Badge variant="outline" className={`text-${stateColor}-400 border-${stateColor}-400`}>
@@ -491,8 +396,111 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
           </CardContent>
         </Card>
 
+        {/* Description - Now appears AFTER the header card */}
+        {translatedDescription && (
+          <Card className="bg-card border-border p-6 overflow-hidden mb-6">
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t("description")}</h2>
+            <div className="prose dark:prose-invert prose-neutral prose-lg max-w-none break-words overflow-hidden">
+              <ReactMarkdown
+                skipHtml={true}
+                components={{
+                  h1: ({ node, ...props }) => (
+                    <h1 className="text-3xl font-bold text-foreground mb-4 mt-8" {...props} />
+                  ),
+                  h2: ({ node, ...props }) => (
+                    <h2 className="text-2xl font-bold text-foreground mb-3 mt-6" {...props} />
+                  ),
+                  h3: ({ node, ...props }) => (
+                    <h3 className="text-xl font-semibold text-foreground mb-2 mt-4" {...props} />
+                  ),
+                  h4: ({ node, ...props }) => (
+                    <h4 className="text-lg font-semibold text-foreground mb-2 mt-3" {...props} />
+                  ),
+                  p: ({ node, ...props }) => <p className="text-muted-foreground mb-4 leading-relaxed" {...props} />,
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2" {...props} />
+                  ),
+                  li: ({ node, ...props }) => <li className="text-muted-foreground" {...props} />,
+                  a: ({ node, ...props }) => (
+                    <a
+                      className="text-primary hover:underline transition-colors"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    />
+                  ),
+                  blockquote: ({ node, ...props }) => (
+                    <blockquote
+                      className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
+                      {...props}
+                    />
+                  ),
+                  code: ({ node, inline, ...props }: any) =>
+                    inline ? (
+                      <code className="bg-border text-foreground px-1.5 py-0.5 rounded text-sm" {...props} />
+                    ) : (
+                      <code
+                        className="block bg-border text-foreground p-4 rounded-lg my-4 overflow-x-auto"
+                        {...props}
+                      />
+                    ),
+                  img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
+                }}
+              >
+                {translatedDescription}
+              </ReactMarkdown>
+            </div>
+          </Card>
+        )}
+
+        {/* Media */}
+        {media.length > 0 && (
+          <div className="space-y-4 mb-6">
+            {media.map((item, idx) => (
+              <div key={idx} className="rounded-lg overflow-hidden bg-card">
+                {item.type === "image" && (
+                  <img
+                    src={item.url || "/placeholder.svg"}
+                    alt={`Proposal media ${idx + 1}`}
+                    className="w-full h-auto object-cover"
+                  />
+                )}
+                {item.type === "gif" && (
+                  <img
+                    src={item.url || "/placeholder.svg"}
+                    alt={`Proposal GIF ${idx + 1}`}
+                    className="w-full h-auto object-cover"
+                  />
+                )}
+                {item.type === "video" && (
+                  <video src={item.url} controls className="w-full h-auto" preload="metadata">
+                    Your browser does not support the video tag.
+                  </video>
+                )}
+                {item.type === "youtube" && item.embedUrl && (
+                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                    <iframe
+                      src={item.embedUrl}
+                      className="absolute top-0 left-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`YouTube video ${idx + 1}`}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Transaction Simulator */}
+        <TransactionSimulator proposalId={proposalId} />
+
         {/* Voting History Section */}
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border mb-6">
           <CardContent className="p-6">
             <h2 className="text-xl font-semibold text-foreground mb-4">{t("votingHistory")}</h2>
 
