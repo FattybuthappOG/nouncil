@@ -14,6 +14,8 @@ import ReactMarkdown from "react-markdown"
 import { EnsDisplay } from "@/components/ens-display"
 import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
+import { MediaContentRenderer } from "@/components/media-content-renderer"
+import { getYoutubeEmbedUrl } from "@/lib/content-parser"
 
 const translations = {
   en: {
@@ -424,14 +426,39 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                     <ol className="list-decimal list-inside text-muted-foreground mb-4 space-y-2" {...props} />
                   ),
                   li: ({ node, ...props }) => <li className="text-muted-foreground" {...props} />,
-                  a: ({ node, ...props }) => (
-                    <a
-                      className="text-primary hover:underline transition-colors"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    />
-                  ),
+                  a: ({ node, href, children, ...props }) => {
+                    // Check if link is a YouTube video
+                    const youtubeRegex =
+                      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+                    const match = href?.match(youtubeRegex)
+
+                    if (match) {
+                      const videoId = match[1]
+                      return (
+                        <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border my-4">
+                          <iframe
+                            src={getYoutubeEmbedUrl(videoId)}
+                            title="YouTube video"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="absolute inset-0 w-full h-full"
+                          />
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <a
+                        href={href}
+                        className="text-primary hover:underline transition-colors"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        {...props}
+                      >
+                        {children}
+                      </a>
+                    )
+                  },
                   blockquote: ({ node, ...props }) => (
                     <blockquote
                       className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
@@ -447,7 +474,16 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                         {...props}
                       />
                     ),
-                  img: ({ node, ...props }) => <img className="rounded-lg my-4 max-w-full h-auto" {...props} />,
+                  img: ({ node, src, alt, ...props }) => {
+                    return (
+                      <img
+                        src={src || "/placeholder.svg"}
+                        alt={alt}
+                        className="rounded-lg my-4 max-w-full h-auto border border-border"
+                        {...props}
+                      />
+                    )
+                  },
                 }}
               >
                 {translatedDescription}
@@ -540,11 +576,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                           {Number(vote.votes).toLocaleString()} votes
                         </span>
                       </div>
-                      {vote.reason && (
-                        <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap break-words">
-                          {vote.reason}
-                        </p>
-                      )}
+                      {vote.reason && <MediaContentRenderer content={vote.reason} className="mt-2" />}
                     </div>
                   </div>
                 ))}

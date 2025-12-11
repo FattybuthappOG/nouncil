@@ -465,7 +465,14 @@ export function useCandidateData(candidateId: string) {
     id: candidateId,
     slug: "",
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-    sponsors: [] as `0x${string}`[],
+    sponsors: [] as Array<{
+      sponsor: `0x${string}`
+      reason: string
+      createdBlock: bigint
+      createdTimestamp: bigint
+      expirationTimestamp: bigint
+      canceled: boolean
+    }>,
     description: `Candidate ${candidateId}`,
     fullDescription: "",
     createdTimestamp: 0,
@@ -481,6 +488,7 @@ export function useCandidateData(candidateId: string) {
 
   useEffect(() => {
     const fetchCandidateFromAPI = async () => {
+      console.log("[v0] Fetching candidate from API with id:", candidateId)
       try {
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
@@ -490,7 +498,7 @@ export function useCandidateData(candidateId: string) {
             body: JSON.stringify({
               query: `
               query {
-                proposalCandidate(id: "${candidateId}") {
+                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
                   id
                   slug
                   proposer
@@ -506,18 +514,6 @@ export function useCandidateData(candidateId: string) {
                       calldatas
                     }
                   }
-                  versions {
-                    content {
-                      proposalIdToUpdate
-                      contentSignatures {
-                        signer {
-                          id
-                        }
-                        expirationTimestamp
-                        reason
-                      }
-                    }
-                  }
                   canceledTimestamp
                 }
               }
@@ -527,37 +523,32 @@ export function useCandidateData(candidateId: string) {
         )
 
         const data = await response.json()
-        const candidate = data?.data?.proposalCandidate
+        console.log("[v0] API response data:", JSON.stringify(data, null, 2))
+
+        const candidates = data?.data?.proposalCandidates || []
+
+        // The candidate list is in descending order, so we need to calculate the actual index
+        const candidateIndex = Number.parseInt(candidateId)
+        const candidate = candidates[candidates.length - candidateIndex]
+
+        console.log("[v0] Parsed candidate:", candidate ? "Found" : "Not found")
 
         if (candidate) {
           const content = candidate.latestVersion?.content || {}
-          const desc = content.description || `Candidate ${candidateId}`
-          const title =
-            desc
-              .split("\n")[0]
-              .replace(/^#+\s*/, "")
-              .trim() || `Candidate ${candidateId}`
+          const title = content.title || `Candidate ${candidateId}`
+          const description = content.description || ""
 
-          const sponsorsList: `0x${string}`[] = []
-          if (candidate.versions) {
-            candidate.versions.forEach((version: any) => {
-              const sigs = version.content?.contentSignatures || []
-              sigs.forEach((sig: any) => {
-                if (sig.signer?.id && !sponsorsList.includes(sig.signer.id as `0x${string}`)) {
-                  sponsorsList.push(sig.signer.id as `0x${string}`)
-                }
-              })
-            })
-          }
+          console.log("[v0] Setting candidate data with title:", title)
+          console.log("[v0] fullDescription length:", description.length)
 
           setCandidateData({
             id: candidateId,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
-            sponsors: sponsorsList,
+            sponsors: [], // Will be populated by separate query if needed
             description: title,
-            fullDescription: desc,
-            createdTimestamp: Number(candidate.createdTimestamp || 0),
+            fullDescription: description,
+            createdTimestamp: Number.parseInt(candidate.createdTimestamp || "0"),
             transactionHash: candidate.createdTransactionHash || "",
             targets: content.targets || [],
             values: content.values || [],
@@ -568,9 +559,11 @@ export function useCandidateData(candidateId: string) {
             error: false,
           })
         } else {
+          console.log("[v0] No candidate found, setting error state")
           setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
+        console.error("[v0] Error fetching candidate:", error)
         setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }

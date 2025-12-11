@@ -15,9 +15,10 @@ import { useAccount, useSignMessage, useWriteContract, useDisconnect } from "wag
 import { keccak256, encodePacked } from "viem"
 import { NOUNS_PROPOSALS_ABI } from "@/constants/abi"
 import ReactMarkdown from "react-markdown" // Declare ReactMarkdown variable
-import { parseMarkdownMedia } from "@/utils/markdown" // Declare parseMarkdownMedia variable
+import { parseMarkdownMedia } from "@/lib/markdown-parser" // Declare parseMarkdownMedia variable
 import EnsDisplay from "@/components/ens-display" // Declare EnsDisplay variable
 import { useState, useEffect } from "react" // Import useState and useEffect
+import { getYoutubeEmbedUrl } from "@/lib/content-parser"
 
 type LanguageCode = keyof typeof translations
 
@@ -130,50 +131,16 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [txHash, setTxHash] = useState("")
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
+  const { signMessageAsync } = useSignMessage()
+  const { writeContractAsync } = useWriteContract()
   const candidateData = useCandidateData(id)
   const proposalData = useProposalData(id)
   const { signatures, isLoading: signaturesLoading } = useCandidateSignatures(id)
 
-  useEffect(() => {
-    const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
-    if (savedLanguage && translations[savedLanguage]) {
-      setSelectedLanguage(savedLanguage)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!candidateData.fullDescription) return
-
-    if (selectedLanguage === "en") {
-      setTranslatedDescription(candidateData.fullDescription)
-      return
-    }
-
-    const translateDescription = async () => {
-      try {
-        const response = await fetch(
-          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(candidateData.fullDescription.slice(0, 500))}&langpair=en|${selectedLanguage}`,
-        )
-        const data = await response.json()
-        if (data.responseStatus === 200 && data.responseData.translatedText) {
-          setTranslatedDescription(data.responseData.translatedText)
-        } else {
-          setTranslatedDescription(candidateData.fullDescription)
-        }
-      } catch (error) {
-        setTranslatedDescription(candidateData.fullDescription)
-      }
-    }
-
-    translateDescription()
-  }, [selectedLanguage, candidateData.fullDescription])
-
-  useEffect(() => {
-    if (candidateData?.fullDescription) {
-      console.log("[v0] Candidate fullDescription:", candidateData.fullDescription?.substring(0, 200))
-      setTranslatedDescription(candidateData.fullDescription)
-    }
-  }, [candidateData])
+  console.log("[v0] Candidate page loaded with id:", id)
+  console.log("[v0] candidateData:", candidateData)
+  console.log("[v0] candidateData.fullDescription:", candidateData.fullDescription)
+  console.log("[v0] candidateData.description:", candidateData.description)
 
   const t = (key: string) => {
     return translations[selectedLanguage]?.[key] || translations.en[key] || key
@@ -228,7 +195,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
       setSponsorStatus("signing")
 
-      const signature = await useSignMessage.signMessageAsync({
+      const signature = await signMessageAsync({
         message: { raw: sigDigest },
       })
 
@@ -238,7 +205,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
       setSponsorStatus("submitting")
 
-      const hash = await useWriteContract.writeContractAsync({
+      const hash = await writeContractAsync({
         address: "0xf790A5f59678dd733fb3De93493A91f472ca1365",
         abi: NOUNS_PROPOSALS_ABI,
         functionName: "addSignature",
@@ -258,7 +225,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       setTxHash(hash)
       alert("Successfully sponsored candidate!")
     } catch (error: any) {
-      console.error("[v0] Sponsor error:", error)
+      console.error("Sponsor error:", error)
 
       let errorMessage = "Unknown error"
 
@@ -304,7 +271,44 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     return t("recently")
   }
 
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
+    if (savedLanguage && translations[savedLanguage]) {
+      setSelectedLanguage(savedLanguage)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!candidateData.fullDescription) return
+
+    if (selectedLanguage === "en") {
+      setTranslatedDescription(candidateData.fullDescription)
+      console.log("[v0] Set English description:", candidateData.fullDescription)
+      return
+    }
+
+    const translateDescription = async () => {
+      try {
+        const response = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(candidateData.fullDescription.slice(0, 500))}&langpair=en|${selectedLanguage}`,
+        )
+        const data = await response.json()
+        if (data.responseStatus === 200 && data.responseData.translatedText) {
+          setTranslatedDescription(data.responseData.translatedText)
+          console.log("[v0] Translated description:", data.responseData.translatedText)
+        } else {
+          setTranslatedDescription(candidateData.fullDescription)
+        }
+      } catch (error) {
+        setTranslatedDescription(candidateData.fullDescription)
+      }
+    }
+
+    translateDescription()
+  }, [selectedLanguage, candidateData.fullDescription]) // Added dependency to properly trigger translation
+
   if (candidateData.isLoading || proposalData.isLoading) {
+    console.log("[v0] Loading candidate data...")
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-foreground">{t("loadingCandidate")}</div>
@@ -312,7 +316,23 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     )
   }
 
+  if (candidateData.error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-red-500 text-xl font-semibold">Error loading candidate</div>
+          <div className="text-muted-foreground">Candidate #{id} could not be loaded from the API</div>
+          <Button onClick={() => router.back()} variant="outline">
+            {t("back")}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   const { images, videos } = parseMarkdownMedia(candidateData.fullDescription)
+  console.log("[v0] Parsed media - images:", images, "videos:", videos)
+  console.log("[v0] translatedDescription:", translatedDescription)
 
   return (
     <div className="min-h-screen bg-background">
@@ -524,12 +544,16 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   />
                 ))}
                 {videos.map((videoId, idx) => (
-                  <div key={idx} className="relative w-full pt-[56.25%] overflow-hidden rounded-lg">
+                  <div
+                    key={idx}
+                    className="relative w-full aspect-video rounded-lg overflow-hidden border border-border my-4"
+                  >
                     <iframe
-                      src={`https://www.youtube.com/embed/${videoId}`}
-                      className="absolute top-0 left-0 w-full h-full rounded-lg"
+                      src={getYoutubeEmbedUrl(videoId)}
+                      title="YouTube video"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
+                      className="absolute inset-0 w-full h-full"
                     />
                   </div>
                 ))}
@@ -547,7 +571,52 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             <div
               className={`prose dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground prose-a:text-primary prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-muted prose-pre:text-foreground`}
             >
-              <ReactMarkdown>{translatedDescription || candidateData.fullDescription}</ReactMarkdown>
+              <ReactMarkdown
+                components={{
+                  img: ({ node, src, alt, ...props }) => (
+                    <img
+                      src={src || "/placeholder.svg"}
+                      alt={alt}
+                      className="rounded-lg my-4 max-w-full h-auto border border-border"
+                      {...props}
+                    />
+                  ),
+                  a: ({ node, href, children, ...props }) => {
+                    const youtubeRegex =
+                      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+                    const match = href?.match(youtubeRegex)
+
+                    if (match) {
+                      const videoId = match[1]
+                      return (
+                        <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border my-4">
+                          <iframe
+                            src={getYoutubeEmbedUrl(videoId)}
+                            title="YouTube video"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="absolute inset-0 w-full h-full"
+                          />
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <a
+                        href={href}
+                        className="text-primary hover:underline transition-colors"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        {...props}
+                      >
+                        {children}
+                      </a>
+                    )
+                  },
+                }}
+              >
+                {translatedDescription || candidateData.fullDescription}
+              </ReactMarkdown>
             </div>
           </CardContent>
         </Card>
