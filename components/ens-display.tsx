@@ -19,7 +19,7 @@ export function EnsDisplay({ address, className = "", showFull = false }: EnsDis
     return <span className={className}>Unknown</span>
   }
 
-  const displayClassName = `text-blue-500 ${className}`
+  const displayClassName = `text-primary hover:underline ${className}`
 
   if (isLoading) {
     return (

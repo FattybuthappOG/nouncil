@@ -21,7 +21,7 @@ export function getConfig() {
       injected(),
     ],
     transports: {
-      [mainnet.id]: http(),
+      [mainnet.id]: http("https://eth.llamarpc.com"),
     },
     ssr: true,
     storage: createStorage({
