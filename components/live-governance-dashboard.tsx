@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAccount, useDisconnect, useBalance } from "wagmi"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Moon, Sun, X, Search, Globe, Copy, Menu, Gavel } from "lucide-react"
+import { Moon, Sun, X, Search, Globe, Copy, Menu } from "lucide-react"
 import ProposalVotingCard from "./proposal-voting-card"
 import CandidateCard from "./candidate-card"
 import TreasuryDropdown from "./treasury-dropdown"
@@ -12,6 +12,7 @@ import { useProposalIds, useCandidateIds } from "@/hooks/useContractData"
 import WalletConnectButton from "./wallet-connect-button" // Import WalletConnect button instead of AppKit
 import { useConnect } from "wagmi" // Declare the useConnect variable
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import AuctionButton from "./auction-button" // Import AuctionButton component
 
 // Language configuration
 const LANGUAGES = [
@@ -614,17 +615,8 @@ export default function LiveGovernanceDashboard() {
               <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
             </Link>
 
-            <Link
-              href="/auction"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm ${
-                isDarkMode
-                  ? "bg-primary/10 hover:bg-primary/20 text-primary"
-                  : "bg-primary/10 hover:bg-primary/20 text-primary"
-              }`}
-            >
-              <Gavel className="w-4 h-4" />
-              <span className="hidden sm:inline">Art of the Day</span>
-            </Link>
+            {/* AuctionButton */}
+            <AuctionButton isDarkMode={isDarkMode} />
           </div>
 
           <div className="flex items-center gap-4">
