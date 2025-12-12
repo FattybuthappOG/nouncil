@@ -20,37 +20,47 @@ export async function fetchAuctionCurator(currentNounId: number) {
     const currentBlock = await client.getBlockNumber()
     console.log("[v0] Server: Current block:", currentBlock)
 
-    // Search last ~8000 blocks (approximately 24 hours)
-    const fromBlock = currentBlock - BigInt(8000)
+    const CHUNK_SIZE = 1000
+    const MAX_BLOCKS_TO_SEARCH = 8000 // ~24 hours
 
-    // Query for AuctionSettled event for the previous Noun
-    // Event signature: AuctionSettled(uint256 indexed nounId, address winner, uint256 amount)
-    const logs = await client.getLogs({
-      address: AUCTION_HOUSE_ADDRESS,
-      event: parseAbiItem("event AuctionSettled(uint256 indexed nounId, address winner, uint256 amount)"),
-      args: {
-        nounId: BigInt(previousNounId),
-      },
-      fromBlock,
-      toBlock: currentBlock,
-    })
+    // Search backwards in chunks
+    for (let i = 0; i < Math.ceil(MAX_BLOCKS_TO_SEARCH / CHUNK_SIZE); i++) {
+      const toBlock = currentBlock - BigInt(i * CHUNK_SIZE)
+      const fromBlock = toBlock - BigInt(CHUNK_SIZE)
 
-    console.log("[v0] Server: Found", logs.length, "settlement events")
+      console.log(`[v0] Server: Searching blocks ${fromBlock} to ${toBlock}`)
 
-    if (logs.length > 0) {
-      // Get the transaction hash from the event
-      const txHash = logs[0].transactionHash
-      console.log("[v0] Server: Settlement tx:", txHash)
+      try {
+        // Query for AuctionSettled event for the previous Noun
+        const logs = await client.getLogs({
+          address: AUCTION_HOUSE_ADDRESS,
+          event: parseAbiItem("event AuctionSettled(uint256 indexed nounId, address winner, uint256 amount)"),
+          args: {
+            nounId: BigInt(previousNounId),
+          },
+          fromBlock,
+          toBlock,
+        })
 
-      // Fetch the transaction to get the 'from' address (the curator)
-      const tx = await client.getTransaction({ hash: txHash })
-      const curator = tx.from
+        if (logs.length > 0) {
+          // Get the transaction hash from the event
+          const txHash = logs[0].transactionHash
+          console.log("[v0] Server: Settlement tx:", txHash)
 
-      console.log("[v0] Server: Found curator:", curator)
-      return { curator, error: null }
+          // Fetch the transaction to get the 'from' address (the curator)
+          const tx = await client.getTransaction({ hash: txHash })
+          const curator = tx.from
+
+          console.log("[v0] Server: Found curator:", curator)
+          return { curator, error: null }
+        }
+      } catch (chunkError) {
+        console.error(`[v0] Server: Error searching chunk ${i}:`, chunkError)
+        // Continue to next chunk
+      }
     }
 
-    console.log("[v0] Server: No settlement event found")
+    console.log("[v0] Server: No settlement event found in last", MAX_BLOCKS_TO_SEARCH, "blocks")
     return { curator: null, error: "No settlement event found" }
   } catch (error) {
     console.error("[v0] Server: Error fetching curator:", error)

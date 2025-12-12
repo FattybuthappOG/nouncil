@@ -6,6 +6,7 @@ import ContextProvider from "@/context"
 import { headers } from "next/headers"
 import { cookieToInitialState } from "wagmi"
 import { getConfig } from "@/config"
+import MiniappReady from "@/components/miniapp-ready"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,7 +26,8 @@ export const metadata: Metadata = {
   },
   other: {
     "fc:frame": "vNext",
-    "fc:frame:image": "https://nouncil.app/og-image.png",
+    "fc:frame:image": "https://nouncil.wtf/images/nouncil-logo.webp",
+    "fc:miniapp": "https://nouncil.wtf/.well-known/farcaster.json",
     "of:version": "vNext",
     "of:accepts:xmtp": "2024-02-01",
   },
@@ -51,8 +53,14 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <meta property="fc:miniapp" content="https://nouncil.wtf/.well-known/farcaster.json" />
+      </head>
       <body className={inter.className}>
-        <ContextProvider initialState={initialState}>{children}</ContextProvider>
+        <ContextProvider initialState={initialState}>
+          <MiniappReady />
+          {children}
+        </ContextProvider>
       </body>
     </html>
   )
