@@ -30,6 +30,7 @@ export const metadata: Metadata = {
     "fc:miniapp": "https://nouncil.wtf/.well-known/farcaster.json",
     "of:version": "vNext",
     "of:accepts:xmtp": "2024-02-01",
+    "miniapp:version": "1.0.0",
   },
     generator: 'v0.app'
 }
@@ -55,6 +56,7 @@ export default async function RootLayout({
     <html lang="en">
       <head>
         <meta property="fc:miniapp" content="https://nouncil.wtf/.well-known/farcaster.json" />
+        <meta property="miniapp:version" content="1.0.0" />
       </head>
       <body className={inter.className}>
         <ContextProvider initialState={initialState}>
