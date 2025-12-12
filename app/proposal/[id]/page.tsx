@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, Users, ExternalLink, Clock } from "lucide-react"
-import { useProposalData, useProposalVotes } from "@/hooks/useContractData"
+import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { useAccount } from "wagmi"
 import { useState, useEffect } from "react"
@@ -44,7 +44,7 @@ const translations = {
     description: "Description",
     transactionSimulator: "Transaction Simulator",
     connectToVote: "Connect wallet to vote",
-    votingHistory: "Voting History",
+    activity: "Activity",
     loadingVotes: "Loading votes...",
     noVotesYet: "No votes yet",
   },
@@ -74,7 +74,7 @@ const translations = {
     description: "描述",
     transactionSimulator: "交易模拟器",
     connectToVote: "连接钱包以投票",
-    votingHistory: "投票历史",
+    activity: "活动",
     loadingVotes: "加载投票...",
     noVotesYet: "暂无投票",
   },
@@ -104,7 +104,7 @@ const translations = {
     description: "Descripción",
     transactionSimulator: "Simulador de Transacciones",
     connectToVote: "Conecta tu billetera para votar",
-    votingHistory: "Historial de Votación",
+    activity: "Actividad",
     loadingVotes: "Cargando votos...",
     noVotesYet: "No hay votos aún",
   },
@@ -136,6 +136,7 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
 
   const proposal = useProposalData(proposalId)
   const { votes, isLoading: votesLoading } = useProposalVotes(Number(proposalId))
+  const { feedback, isLoading: feedbackLoading } = useProposalFeedback(Number(proposalId))
   const { title, content, media } = parseProposalDescription(
     proposal.fullDescription || proposal.description || `Proposal ${proposalId}`,
   )
@@ -535,15 +536,15 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
         {/* Transaction Simulator */}
         <TransactionSimulator proposalId={proposalId} />
 
-        {/* Voting History Section */}
+        {/* Activity Section */}
         <Card className="bg-card border-border mb-6">
           <CardContent className="p-6">
-            <h2 className="text-xl font-semibold text-foreground mb-4">{t("votingHistory")}</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t("activity")}</h2>
 
-            {votesLoading ? (
+            {votesLoading || feedbackLoading ? (
               <div className="text-muted-foreground text-center py-8">{t("loadingVotes")}</div>
-            ) : votes.length === 0 ? (
-              <div className="text-muted-foreground text-center py-8">{t("noVotesYet")}</div>
+            ) : votes.length === 0 && feedback.length === 0 ? (
+              <div className="text-muted-foreground text-center py-8">No activity yet</div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {votes.map((vote, index) => (
@@ -577,6 +578,40 @@ export default function ProposalDetailPage({ params }: { params: { id: string } 
                         </span>
                       </div>
                       {vote.reason && <MediaContentRenderer content={vote.reason} className="mt-2" />}
+                    </div>
+                  </div>
+                ))}
+                {feedback.map((signal, index) => (
+                  <div key={index} className="flex items-start gap-4 p-4 rounded-lg bg-muted border border-border">
+                    <div className="flex-shrink-0">
+                      {signal.support === 1 ? (
+                        <ThumbsUp className="w-5 h-5 text-green-500" />
+                      ) : signal.support === 0 ? (
+                        <ThumbsDown className="w-5 h-5 text-red-500" />
+                      ) : (
+                        <Minus className="w-5 h-5 text-yellow-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <EnsDisplay address={signal.voter as `0x${string}`} />
+                        <Badge
+                          variant="secondary"
+                          className={
+                            signal.support === 1
+                              ? "bg-green-600/20 text-green-400"
+                              : signal.support === 0
+                                ? "bg-red-600/20 text-red-400"
+                                : "bg-yellow-600/20 text-yellow-400"
+                          }
+                        >
+                          {signal.supportLabel}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Signal
+                        </Badge>
+                      </div>
+                      {signal.reason && <MediaContentRenderer content={signal.reason} className="mt-2" />}
                     </div>
                   </div>
                 ))}

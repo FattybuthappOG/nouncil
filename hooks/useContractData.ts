@@ -451,6 +451,7 @@ export function useCandidateIds(limit = 20) {
 }
 
 export function useCandidateData(candidateId: string) {
+  const [mounted, setMounted] = useState(false)
   const [candidateData, setCandidateData] = useState({
     id: candidateId,
     slug: "",
@@ -477,6 +478,12 @@ export function useCandidateData(candidateId: string) {
   })
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
     const fetchCandidateFromAPI = async () => {
       console.log("[v0] Fetching candidate from API with id:", candidateId)
       try {
@@ -578,9 +585,95 @@ export function useCandidateData(candidateId: string) {
     }
 
     fetchCandidateFromAPI()
-  }, [candidateId])
+  }, [candidateId, mounted])
 
   return candidateData
+}
+
+export function useProposalFeedback(proposalId: number) {
+  const [feedback, setFeedback] = useState<
+    Array<{
+      voter: string
+      support: number
+      supportLabel: string
+      reason: string
+      blockNumber: number
+      isSignal: boolean
+    }>
+  >([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const fetchFeedback = async () => {
+      try {
+        const response = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalFeedbacks(
+                  where: { proposal: "${proposalId}" }
+                  orderBy: createdTimestamp
+                  orderDirection: desc
+                  first: 1000
+                ) {
+                  id
+                  voter {
+                    id
+                  }
+                  support
+                  reason
+                  createdTimestamp
+                  createdBlock
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const data = await response.json()
+
+        if (data?.data?.proposalFeedbacks) {
+          const feedbackList = data.data.proposalFeedbacks.map((f: any) => {
+            const supportNum = Number(f.support)
+            let supportLabel = "Abstain"
+            if (supportNum === 0) supportLabel = "Against"
+            else if (supportNum === 1) supportLabel = "For"
+            else if (supportNum === 2) supportLabel = "Abstain"
+
+            return {
+              voter: f.voter?.id || "",
+              support: supportNum,
+              supportLabel,
+              reason: f.reason || "",
+              blockNumber: Number(f.createdBlock || 0),
+              isSignal: true,
+            }
+          })
+          setFeedback(feedbackList)
+        }
+      } catch (error) {
+        console.error("Error fetching feedback:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchFeedback()
+  }, [proposalId, mounted])
+
+  return { feedback, isLoading }
 }
 
 export function useProposalVotes(proposalId: number) {
@@ -592,6 +685,7 @@ export function useProposalVotes(proposalId: number) {
       votes: string
       reason: string
       blockNumber: number
+      isSignal: boolean
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
@@ -646,6 +740,7 @@ export function useProposalVotes(proposalId: number) {
               votes: v.votes || "0",
               reason: v.reason || "",
               blockNumber: Number(v.blockNumber || 0),
+              isSignal: false,
             }
           })
           setVotes(votesList)

@@ -4,7 +4,7 @@ import { useAccount, useConnect, useDisconnect, useEnsName } from "wagmi"
 import { Button } from "./ui/button"
 import { mainnet } from "wagmi/chains"
 
-export default function WalletConnectButton() {
+export function WalletConnectButton() {
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
   const { disconnect } = useDisconnect()
@@ -32,3 +32,5 @@ export default function WalletConnectButton() {
 
   return <Button onClick={() => connect({ connector: walletConnectConnector })}>Connect Wallet</Button>
 }
+
+export default WalletConnectButton

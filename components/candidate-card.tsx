@@ -1,11 +1,14 @@
 "use client"
 
+import { useEffect } from "react"
+
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { Clock } from "lucide-react"
 import { useCandidateData } from "@/hooks/useContractData"
 import { EnsDisplay } from "./ens-display"
+import { useState } from "react"
 
 interface CandidateCardProps {
   candidateId: string
@@ -14,6 +17,29 @@ interface CandidateCardProps {
 }
 
 export function CandidateCard({ candidateId, isDarkMode, candidateNumber }: CandidateCardProps) {
+  const router = useRouter()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Card className={`p-4 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <div className="text-center py-4">
+          <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+            Loading candidate #{candidateNumber}...
+          </span>
+        </div>
+      </Card>
+    )
+  }
+
+  return <CandidateCardContent candidateId={candidateId} isDarkMode={isDarkMode} candidateNumber={candidateNumber} />
+}
+
+function CandidateCardContent({ candidateId, isDarkMode, candidateNumber }: CandidateCardProps) {
   const router = useRouter()
   const candidate = useCandidateData(candidateId)
 

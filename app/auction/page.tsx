@@ -1,22 +1,26 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
+  useAccount,
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
-  useAccount,
   useWatchContractEvent,
+  usePublicClient,
 } from "wagmi"
 import { parseEther, formatEther } from "viem"
-import { NOUNS_AUCTION_ABI, NOUNS_AUCTION_ADDRESS, CLIENT_ID } from "@/lib/nouns-auction-abi"
-import { ArrowLeft, Gavel, Clock, TrendingUp } from "lucide-react"
-import Link from "next/link"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import WalletConnectButton from "@/components/wallet-connect-button"
-import { EnsDisplay } from "@/components/ens-display"
+import { ArrowLeft, Clock, TrendingUp, Gavel } from "lucide-react"
+import { WalletConnectButton } from "@/components/wallet-connect-button"
+import EnsDisplay from "@/components/ens-display"
+import { NOUNS_AUCTION_ABI } from "@/lib/nouns-auction-abi"
+import { NOUNS_AUCTION_ADDRESS } from "@/lib/nouns-auction-abi"
+import { fetchAuctionCurator } from "@/app/actions/fetch-curator"
 
 interface Bid {
   sender: string
@@ -24,11 +28,24 @@ interface Bid {
   timestamp: number
 }
 
+interface SettlementInfo {
+  winner: string
+  amount: bigint
+  settler: string
+  nounId: number
+}
+
 export default function AuctionPage() {
+  const router = useRouter()
   const { address, isConnected } = useAccount()
+  const publicClient = usePublicClient()
+
   const [bidAmount, setBidAmount] = useState("")
   const [timeRemaining, setTimeRemaining] = useState("")
-  const [bidHistory, setBidHistory] = useState<Bid[]>([])
+  const [bidHistory, setBidHistory] = useState<Array<{ sender: string; value: bigint; timestamp: number }>>([])
+  const [previousSettlement, setPreviousSettlement] = useState<SettlementInfo | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const [auctionCurator, setAuctionCurator] = useState<string | null>(null)
 
   const { data: auctionData, refetch: refetchAuction } = useReadContract({
     address: NOUNS_AUCTION_ADDRESS,
@@ -74,17 +91,81 @@ export default function AuctionPage() {
     },
   })
 
-  const currentBid = auctionData?.[1] ? BigInt(auctionData[1].toString()) : BigInt(0)
-  const minBidIncrementBps = minBidIncrement ? Number(minBidIncrement) : 5
-  const minNextBid =
-    currentBid > BigInt(0)
-      ? currentBid + (currentBid * BigInt(minBidIncrementBps)) / BigInt(100)
-      : reservePrice
-        ? BigInt(reservePrice.toString())
-        : parseEther("0.01")
+  useWatchContractEvent({
+    address: NOUNS_AUCTION_ADDRESS,
+    abi: NOUNS_AUCTION_ABI,
+    eventName: "AuctionSettled",
+    onLogs(logs) {
+      logs.forEach(async (log: any) => {
+        const currentNounId = auctionData?.[0] ? Number(auctionData[0]) : null
+
+        if (log.args.nounId && currentNounId && Number(log.args.nounId) === currentNounId - 1) {
+          console.log("[v0] Settlement event detected for Noun", Number(log.args.nounId))
+
+          if (publicClient && log.transactionHash) {
+            try {
+              const tx = await publicClient.getTransaction({
+                hash: log.transactionHash,
+              })
+
+              setPreviousSettlement({
+                winner: log.args.winner,
+                amount: log.args.amount,
+                settler: tx.from,
+                nounId: Number(log.args.nounId),
+              })
+
+              console.log("[v0] Settlement info updated:", {
+                nounId: Number(log.args.nounId),
+                winner: log.args.winner,
+                settler: tx.from,
+              })
+            } catch (error) {
+              console.error("[v0] Error fetching settler:", error)
+            }
+          }
+        }
+      })
+    },
+  })
 
   useEffect(() => {
-    if (auctionData?.[4] && auctionData?.[1] && currentBid > BigInt(0)) {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    const fetchLastCurator = async () => {
+      if (!mounted) return
+
+      try {
+        console.log("[v0] Fetching last auction curator...")
+
+        const currentNounId = auctionData?.[0] ? Number(auctionData[0]) : null
+        if (!currentNounId) {
+          console.log("[v0] No current noun ID available yet")
+          return
+        }
+
+        const result = await fetchAuctionCurator(currentNounId)
+
+        if (result.curator) {
+          console.log("[v0] Curator fetched:", result.curator)
+          setAuctionCurator(result.curator)
+        } else {
+          console.log("[v0] No curator found:", result.error)
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching curator:", error)
+      }
+    }
+
+    if (mounted && auctionData?.[0]) {
+      fetchLastCurator()
+    }
+  }, [mounted, auctionData])
+
+  useEffect(() => {
+    if (auctionData?.[4] && auctionData?.[1] && BigInt(auctionData[1].toString()) > BigInt(0)) {
       setBidHistory([
         {
           sender: auctionData[4] as string,
@@ -137,7 +218,7 @@ export default function AuctionPage() {
         address: NOUNS_AUCTION_ADDRESS,
         abi: NOUNS_AUCTION_ABI,
         functionName: "createBid",
-        args: [CLIENT_ID, nounId],
+        args: [nounId],
         value,
       })
     } catch (err) {
@@ -148,6 +229,22 @@ export default function AuctionPage() {
   const nounId = auctionData?.[0] ? Number(auctionData[0]) : null
   const currentBidder = auctionData?.[4] || null
   const isUserHighBidder = currentBidder?.toLowerCase() === address?.toLowerCase()
+  const currentBid = auctionData?.[1] ? BigInt(auctionData[1].toString()) : BigInt(0)
+  const minBidIncrementBps = minBidIncrement ? Number(minBidIncrement) : 5
+  const minNextBid =
+    currentBid > BigInt(0)
+      ? currentBid + (currentBid * BigInt(minBidIncrementBps)) / BigInt(100)
+      : reservePrice
+        ? BigInt(reservePrice.toString())
+        : parseEther("0.01")
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,6 +282,30 @@ export default function AuctionPage() {
             <div className="text-center mb-6">
               <h1 className="text-4xl font-bold">Noun {nounId !== null ? nounId : "..."}</h1>
             </div>
+
+            {previousSettlement && (
+              <div className="mt-6 pt-6 border-t">
+                <h3 className="text-lg font-bold mb-3">Previous Auction (Noun {previousSettlement.nounId})</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+                    <span className="text-muted-foreground">Winner</span>
+                    <EnsDisplay address={previousSettlement.winner} className="font-mono" />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+                    <span className="text-muted-foreground">Winning Bid</span>
+                    <span className="font-bold">{formatEther(previousSettlement.amount)} ETH</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+                    <span className="text-muted-foreground">Settled By</span>
+                    {previousSettlement.settler ? (
+                      <EnsDisplay address={previousSettlement.settler} className="font-mono" />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Loading...</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {bidHistory.length > 0 && (
               <div className="mt-6">
@@ -234,14 +355,12 @@ export default function AuctionPage() {
                   <span className="font-bold text-primary">{formatEther(minNextBid)} ETH</span>
                 </div>
 
-                {currentBidder && (
-                  <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
-                    <span className="text-muted-foreground">Leading Bidder</span>
-                    {isUserHighBidder ? (
-                      <span className="text-green-500 font-bold">You!</span>
-                    ) : (
-                      <EnsDisplay address={currentBidder as string} className="font-mono text-sm" />
-                    )}
+                {auctionCurator && (
+                  <div className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
+                    <span className="text-sm text-muted-foreground">Curator of auction:</span>
+                    <div className="text-sm font-medium">
+                      <EnsDisplay address={auctionCurator} />
+                    </div>
                   </div>
                 )}
               </div>

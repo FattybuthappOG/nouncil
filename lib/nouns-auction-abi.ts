@@ -49,6 +49,23 @@ export const NOUNS_AUCTION_ABI = [
     name: "AuctionBid",
     type: "event",
   },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "nounId", type: "uint256" },
+      { indexed: false, internalType: "address", name: "winner", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "AuctionSettled",
+    type: "event",
+  },
+  {
+    inputs: [],
+    name: "settleCurrentAndCreateNewAuction",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const
 
 export const NOUNS_AUCTION_ADDRESS = "0x830BD73E4184ceF73443C15111a1DF14e495C706" as const

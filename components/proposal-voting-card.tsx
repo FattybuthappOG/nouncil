@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,44 @@ interface ProposalVotingCardProps {
 }
 
 export function ProposalVotingCard({
+  proposalId,
+  isDarkMode,
+  proposalData,
+  statusFilter = "all",
+}: ProposalVotingCardProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Card
+        className={`transition-colors duration-200 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+      >
+        <CardHeader className="pb-3">
+          <div className="text-center py-4">
+            <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              Loading proposal #{proposalId}...
+            </span>
+          </div>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  return (
+    <ProposalVotingCardContent
+      proposalId={proposalId}
+      isDarkMode={isDarkMode}
+      proposalData={proposalData}
+      statusFilter={statusFilter}
+    />
+  )
+}
+
+function ProposalVotingCardContent({
   proposalId,
   isDarkMode,
   proposalData,
