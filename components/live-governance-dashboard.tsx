@@ -425,6 +425,14 @@ export default function LiveGovernanceDashboard() {
   }, [searchQuery])
 
   useEffect(() => {
+    const savedDarkMode = localStorage.getItem("nouncil-dark-mode")
+    if (savedDarkMode !== null) {
+      setIsDarkMode(savedDarkMode === "true")
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem("nouncil-dark-mode", String(isDarkMode))
     document.documentElement.classList.toggle("dark", isDarkMode)
   }, [isDarkMode])
 

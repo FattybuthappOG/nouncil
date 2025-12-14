@@ -15,12 +15,25 @@ import { parseEther, formatEther } from "viem"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Clock, TrendingUp, Gavel } from "lucide-react"
+import { Clock, TrendingUp, Gavel, Menu, X, Sun, Moon, Copy, Globe } from "lucide-react"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
 import EnsDisplay from "@/components/ens-display"
 import { NOUNS_AUCTION_ABI } from "@/lib/nouns-auction-abi"
 import { NOUNS_AUCTION_ADDRESS } from "@/lib/nouns-auction-abi"
 import { fetchAuctionCurator } from "@/app/actions/fetch-curator"
+import { TreasuryDropdown } from "@/components/treasury-dropdown"
+import { useBalance } from "wagmi"
+
+const LANGUAGES = [
+  { code: "en", name: "English", flag: "🇺🇸" },
+  { code: "es", name: "Español", flag: "🇪🇸" },
+  { code: "pt", name: "Português", flag: "🇧🇷" },
+  { code: "zh", name: "中文", flag: "🇨🇳" },
+  { code: "ja", name: "日本語", flag: "🇯🇵" },
+  { code: "fr", name: "Français", flag: "🇫🇷" },
+] as const
+
+type LanguageCode = (typeof LANGUAGES)[number]["code"]
 
 interface Bid {
   sender: string
@@ -46,6 +59,18 @@ export default function AuctionPage() {
   const [previousSettlement, setPreviousSettlement] = useState<SettlementInfo | null>(null)
   const [mounted, setMounted] = useState(false)
   const [auctionCurator, setAuctionCurator] = useState<string | null>(null)
+  const [showMenu, setShowMenu] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(true)
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false)
+  const [copyFeedback, setCopyFeedback] = useState(false)
+
+  const { data: balanceData } = useBalance({
+    address: "0x0BC3807Ec262cB779b38D65b38158acC3bfedE10",
+  })
+  const balance = balanceData
+    ? `${Number.parseFloat(balanceData.formatted).toLocaleString(undefined, { maximumFractionDigits: 0 })} ETH`
+    : "Loading..."
 
   const { data: auctionData, refetch: refetchAuction } = useReadContract({
     address: NOUNS_AUCTION_ADDRESS,
@@ -131,7 +156,18 @@ export default function AuctionPage() {
 
   useEffect(() => {
     setMounted(true)
+    const savedDarkMode = localStorage.getItem("nouncil-dark-mode")
+    if (savedDarkMode !== null) {
+      setIsDarkMode(savedDarkMode === "true")
+    }
   }, [])
+
+  useEffect(() => {
+    if (mounted) {
+      localStorage.setItem("nouncil-dark-mode", String(isDarkMode))
+      document.documentElement.classList.toggle("dark", isDarkMode)
+    }
+  }, [isDarkMode, mounted])
 
   useEffect(() => {
     const fetchLastCurator = async () => {
@@ -238,6 +274,12 @@ export default function AuctionPage() {
         ? BigInt(reservePrice.toString())
         : parseEther("0.01")
 
+  const copyNounsSymbol = () => {
+    navigator.clipboard.writeText("⌐◨-◨")
+    setCopyFeedback(true)
+    setTimeout(() => setCopyFeedback(false), 2000)
+  }
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -247,25 +289,162 @@ export default function AuctionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-50">
+    <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+      <header
+        className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-b sticky top-0 z-50 backdrop-blur`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Back to Nouncil</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Gavel className="w-5 h-5 text-primary" />
-            <span className="font-bold text-lg">Nouns Auction</span>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+              <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <Gavel className="w-5 h-5 text-primary" />
+              <span className="font-bold text-lg">Nouns Auction</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <WalletConnectButton />
+            <button
+              onClick={() => setShowMenu(true)}
+              className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
+              aria-label="Open menu"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
           </div>
         </div>
+
+        {showMenu && (
+          <div className="fixed inset-0 z-[100]" onClick={() => setShowMenu(false)}>
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className={`absolute right-0 top-0 min-h-full w-full sm:w-96 ${isDarkMode ? "bg-gray-900" : "bg-white"} shadow-2xl overflow-y-auto`}
+            >
+              <div className="p-6 min-h-screen">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold"></h2>
+                  <button
+                    onClick={() => setShowMenu(false)}
+                    className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                    aria-label="Close menu"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
+
+                  <a
+                    href="https://nouns.world/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode
+                        ? "bg-gray-800 hover:bg-gray-700 text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+                    }`}
+                  >
+                    <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
+                    <span className="font-medium">Learn about Nouns</span>
+                  </a>
+
+                  <a
+                    href="https://togatime.cloudnouns.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                  >
+                    <span className="font-medium">Generate Toga PFP</span>
+                  </a>
+
+                  <button
+                    onClick={copyNounsSymbol}
+                    className={`flex items-center justify-between w-full px-4 py-3 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Copy className="w-5 h-5" />
+                      <span className="font-medium">Copy Nouns Symbol</span>
+                    </div>
+                    {copyFeedback && <span className="text-sm text-green-500 font-medium">Copied!</span>}
+                  </button>
+
+                  <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                    <button
+                      onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Globe className="w-5 h-5" />
+                        <span className="font-medium">Language</span>
+                      </div>
+                      <span className="text-xl">{LANGUAGES.find((l) => l.code === selectedLanguage)?.flag}</span>
+                    </button>
+
+                    {showLanguageMenu && (
+                      <div className={`border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                        {LANGUAGES.map((lang) => (
+                          <button
+                            key={lang.code}
+                            onClick={() => {
+                              setSelectedLanguage(lang.code)
+                              setShowLanguageMenu(false)
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                              selectedLanguage === lang.code
+                                ? isDarkMode
+                                  ? "bg-gray-800"
+                                  : "bg-gray-100"
+                                : isDarkMode
+                                  ? "hover:bg-gray-800"
+                                  : "hover:bg-gray-100"
+                            }`}
+                          >
+                            <span className="text-xl">{lang.flag}</span>
+                            <span className="font-medium">{lang.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <a
+                    href="https://discord.gg/tnyXJZsGnq"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                  >
+                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
+                    <span className="font-medium">Join Calls Thursday</span>
+                  </a>
+
+                  <button
+                    onClick={() => {
+                      setIsDarkMode(!isDarkMode)
+                      setShowMenu(false)
+                    }}
+                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                  >
+                    {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    <span className="font-medium">{isDarkMode ? "Light Theme" : "Dark Theme"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid md:grid-cols-2 gap-8">
           {/* Noun Display */}
-          <Card className="p-8">
+          <Card className={`p-8 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
             <div className="aspect-square relative rounded-lg overflow-hidden bg-muted mb-6">
               {nounId !== null ? (
                 <img
@@ -331,7 +510,7 @@ export default function AuctionPage() {
           {/* Auction Info & Bidding */}
           <div className="space-y-6">
             {/* Current Status */}
-            <Card className="p-6">
+            <Card className={`p-6 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
               <div className="flex items-center gap-2 mb-4">
                 <Clock className="w-5 h-5 text-primary" />
                 <h2 className="text-xl font-bold">Auction Status</h2>
@@ -367,7 +546,7 @@ export default function AuctionPage() {
             </Card>
 
             {/* Bidding Form */}
-            <Card className="p-6">
+            <Card className={`p-6 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-primary" />
                 <h2 className="text-xl font-bold">Place Your Bid</h2>
