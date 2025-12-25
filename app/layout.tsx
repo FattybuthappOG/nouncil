@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import ContextProvider from "@/context"
 import { headers } from "next/headers"
@@ -63,6 +64,7 @@ export default async function RootLayout({
           <MiniappReady />
           {children}
         </ContextProvider>
+        <Analytics />
       </body>
     </html>
   )
