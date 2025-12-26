@@ -16,7 +16,7 @@ export function SnowEffect() {
   if (!mounted || !isDecember) return null
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
       {/* Generate 50 snowflakes */}
       {Array.from({ length: 50 }).map((_, i) => (
         <div
@@ -24,6 +24,7 @@ export function SnowEffect() {
           className="absolute rounded-full bg-white/60 animate-snowfall"
           style={{
             left: `${Math.random() * 100}%`,
+            top: "-20px",
             width: `${Math.random() * 4 + 2}px`,
             height: `${Math.random() * 4 + 2}px`,
             animationDuration: `${Math.random() * 8 + 6}s`,
@@ -35,10 +36,10 @@ export function SnowEffect() {
       <style jsx>{`
         @keyframes snowfall {
           0% {
-            transform: translateY(-10px) rotate(0deg);
+            transform: translateY(0) rotate(0deg);
           }
           100% {
-            transform: translateY(100vh) rotate(360deg);
+            transform: translateY(calc(100vh + 40px)) rotate(360deg);
           }
         }
         .animate-snowfall {
