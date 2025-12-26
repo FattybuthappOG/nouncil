@@ -3,8 +3,9 @@
 import { useAccount, useConnect, useDisconnect, useEnsName } from "wagmi"
 import { Button } from "./ui/button"
 import { mainnet } from "wagmi/chains"
+import { useState, useEffect } from "react"
 
-export function WalletConnectButton() {
+function WalletConnectButtonInner() {
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
   const { disconnect } = useDisconnect()
@@ -12,6 +13,9 @@ export function WalletConnectButton() {
   const { data: ensName } = useEnsName({
     address,
     chainId: mainnet.id,
+    query: {
+      enabled: !!address,
+    },
   })
 
   if (isConnected && address) {
@@ -31,6 +35,24 @@ export function WalletConnectButton() {
   }
 
   return <Button onClick={() => connect({ connector: walletConnectConnector })}>Connect Wallet</Button>
+}
+
+export function WalletConnectButton() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Button variant="outline" disabled>
+        Connect Wallet
+      </Button>
+    )
+  }
+
+  return <WalletConnectButtonInner />
 }
 
 export default WalletConnectButton

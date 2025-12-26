@@ -4,7 +4,14 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
+// Governor contract hooks
 export function useGovernorData() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const {
     data: proposalCount,
     isLoading: proposalCountLoading,
@@ -13,18 +20,21 @@ export function useGovernorData() {
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
     functionName: "proposalCount",
+    query: { enabled: mounted },
   })
 
   const { data: votingPeriod, isLoading: votingPeriodLoading } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
     functionName: "votingPeriod",
+    query: { enabled: mounted },
   })
 
   const { data: quorumBPS, isLoading: quorumLoading } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
     functionName: "quorumVotesBPS",
+    query: { enabled: mounted },
   })
 
   const safeProposalCount = proposalCountError ? 0 : Number(proposalCount || 0)
@@ -33,39 +43,52 @@ export function useGovernorData() {
     proposalCount: safeProposalCount,
     votingPeriod: Number(votingPeriod || 0),
     quorumBPS: Number(quorumBPS || 0),
-    isLoading: proposalCountLoading || votingPeriodLoading || quorumLoading,
+    isLoading: !mounted || proposalCountLoading || votingPeriodLoading || quorumLoading,
   }
 }
 
 // Treasury contract hooks
 export function useTreasuryData() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const { data: balance, isLoading: balanceLoading } = useReadContract({
     address: TREASURY_CONTRACT.address,
     abi: TREASURY_CONTRACT.abi,
     functionName: "balance",
+    query: { enabled: mounted },
   })
 
   const { data: owner, isLoading: ownerLoading } = useReadContract({
     address: TREASURY_CONTRACT.address,
     abi: TREASURY_CONTRACT.abi,
     functionName: "owner",
+    query: { enabled: mounted },
   })
 
   return {
     balance: balance?.toString() || "1247.5",
     owner: owner?.toString() || "0x742d35Cc6634C0532925a3b8D4C9db96590c6C87",
-    isLoading: balanceLoading || ownerLoading,
+    isLoading: !mounted || balanceLoading || ownerLoading,
   }
 }
 
 export function useRealtimeEvents() {
+  const [mounted, setMounted] = useState(false)
   const [recentVotes, setRecentVotes] = useState<any[]>([])
 
-  // Watch for new vote events
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   useWatchContractEvent({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
     eventName: "VoteCast",
+    enabled: mounted,
     onLogs(logs) {
       logs.forEach((log) => {
         const newVote = {
@@ -83,7 +106,7 @@ export function useRealtimeEvents() {
 
   return {
     recentVotes,
-    isLoading: false,
+    isLoading: !mounted,
   }
 }
 
@@ -169,6 +192,7 @@ export function useProposalIds(
 }
 
 export function useProposalData(proposalId: number) {
+  const [mounted, setMounted] = useState(false)
   const [currentBlock, setCurrentBlock] = useState<number>(0)
 
   const [proposalData, setProposalData] = useState({
@@ -180,7 +204,7 @@ export function useProposalData(proposalId: number) {
     abstainVotes: BigInt(0),
     state: 1,
     stateName: "Active",
-    quorum: BigInt(200),
+    quorum: BigInt(72),
     description: `Proposal ${proposalId}`,
     fullDescription: "",
     startBlock: BigInt(0),
@@ -194,14 +218,23 @@ export function useProposalData(proposalId: number) {
     error: false,
   })
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const { data: stateData } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
     functionName: "state",
     args: [BigInt(proposalId)],
+    query: {
+      enabled: mounted && proposalId > 0,
+    },
   })
 
   useEffect(() => {
+    if (!mounted) return
+
     const fetchCurrentBlock = async () => {
       try {
         const response = await fetch("https://eth.merkle.io", {
@@ -229,6 +262,8 @@ export function useProposalData(proposalId: number) {
   }, [])
 
   useEffect(() => {
+    if (!mounted) return
+
     const fetchProposalFromAPI = async () => {
       try {
         const response = await fetch(
@@ -290,7 +325,18 @@ export function useProposalData(proposalId: number) {
           const safeForVotes = proposal.forVotes ? BigInt(proposal.forVotes) : BigInt(0)
           const safeAgainstVotes = proposal.againstVotes ? BigInt(proposal.againstVotes) : BigInt(0)
           const safeAbstainVotes = proposal.abstainVotes ? BigInt(proposal.abstainVotes) : BigInt(0)
-          const safeQuorum = proposal.quorumVotes ? BigInt(proposal.quorumVotes) : BigInt(200)
+          // Dynamic quorum in Nouns ranges from ~72 (min) to ~180 (max) depending on against votes
+          const safeQuorum =
+            proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? BigInt(proposal.quorumVotes) : BigInt(72) // Use min quorum as fallback instead of arbitrary 200
+
+          console.log("[v0] Proposal quorum data:", {
+            proposalId,
+            quorumVotes: proposal.quorumVotes,
+            safeQuorum: safeQuorum.toString(),
+            forVotes: safeForVotes.toString(),
+            againstVotes: safeAgainstVotes.toString(),
+            abstainVotes: safeAbstainVotes.toString(),
+          })
 
           setProposalData({
             id: proposalId,
@@ -360,41 +406,40 @@ export function useCandidateIds(limit = 20) {
   const [candidates, setCandidates] = useState<any[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchCandidates = async () => {
-      try {
-        const countResponse = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidates(first: 1000, orderBy: createdTimestamp) {
-                  id
-                }
-              }
-            `,
-            }),
-          },
-        )
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
 
-        const countData = await countResponse.json()
-        const totalCandidates = countData?.data?.proposalCandidates?.length || 0
-        setTotalCount(totalCandidates)
+  useEffect(() => {
+    if (!mounted) return
+
+    const abortController = new AbortController()
+    const timeoutId = setTimeout(() => abortController.abort(), 15000) // 15s timeout
+
+    const fetchCandidates = async (retryCount = 0) => {
+      try {
+        setError(null)
 
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
             body: JSON.stringify({
               query: `
-              query {
-                proposalCandidates(
-                  first: ${limit}
+              query GetCandidates($limit: Int!) {
+                all: proposalCandidates(first: 1000, orderBy: createdTimestamp) {
+                  id
+                }
+                candidates: proposalCandidates(
+                  first: $limit
                   orderBy: createdTimestamp
                   orderDirection: desc
                 ) {
@@ -417,14 +462,29 @@ export function useCandidateIds(limit = 20) {
                 }
               }
             `,
+              variables: { limit },
             }),
+            signal: abortController.signal,
           },
         )
 
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`)
+        }
+
         const data = await response.json()
 
-        if (data?.data?.proposalCandidates) {
-          const candidatesList = data.data.proposalCandidates.map((c: any) => {
+        if (data?.errors) {
+          throw new Error(data.errors[0]?.message || "GraphQL error")
+        }
+
+        if (!mounted) return
+
+        const totalCandidates = data?.data?.all?.length || 0
+        setTotalCount(totalCandidates)
+
+        if (data?.data?.candidates) {
+          const candidatesList = data.data.candidates.map((c: any) => {
             const content = c.latestVersion?.content || {}
             const desc = content.description || `Candidate ${c.id}`
 
@@ -437,17 +497,43 @@ export function useCandidateIds(limit = 20) {
 
           setCandidates(candidatesList)
         }
-      } catch (error) {
-        console.error("Error fetching candidates:", error)
-      } finally {
+
+        setIsLoading(false)
+      } catch (err) {
+        if (!mounted) return
+
+        if (err instanceof Error && err.name === "AbortError") {
+          console.error("[v0] Candidate fetch aborted/timeout")
+          setError("Request timed out. Please refresh.")
+          setIsLoading(false)
+          return
+        }
+
+        console.error("[v0] Error fetching candidates:", err)
+
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000
+          console.log(`[v0] Retrying candidate fetch in ${delay}ms (attempt ${retryCount + 1}/3)`)
+          setTimeout(() => {
+            if (mounted) fetchCandidates(retryCount + 1)
+          }, delay)
+          return
+        }
+
+        setError(err instanceof Error ? err.message : "Failed to load candidates")
         setIsLoading(false)
       }
     }
 
     fetchCandidates()
-  }, [limit])
 
-  return { candidates, totalCount, isLoading }
+    return () => {
+      clearTimeout(timeoutId)
+      abortController.abort()
+    }
+  }, [limit, mounted])
+
+  return { candidates, totalCount, isLoading, error }
 }
 
 export function useCandidateData(candidateId: string) {
@@ -689,8 +775,15 @@ export function useProposalVotes(proposalId: number) {
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
     const fetchVotes = async () => {
       try {
         const response = await fetch(
@@ -753,7 +846,7 @@ export function useProposalVotes(proposalId: number) {
     }
 
     fetchVotes()
-  }, [proposalId])
+  }, [proposalId, mounted])
 
   return { votes, isLoading }
 }
@@ -768,8 +861,15 @@ export function useCandidateSignatures(candidateId: string) {
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
     const fetchSignatures = async () => {
       try {
         const response = await fetch(
@@ -826,7 +926,7 @@ export function useCandidateSignatures(candidateId: string) {
     }
 
     fetchSignatures()
-  }, [candidateId])
+  }, [candidateId, mounted])
 
   return { signatures, isLoading }
 }

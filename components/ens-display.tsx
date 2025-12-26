@@ -1,27 +1,40 @@
 "use client"
 
-import { useEnsName } from "wagmi"
+import { useEnsName, useEnsAvatar } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 
 interface EnsDisplayProps {
   address: string | undefined
   className?: string
   showFull?: boolean
+  showAvatar?: boolean
+  avatarSize?: number
+  disableLink?: boolean
 }
 
-export function EnsDisplay({ address, className = "", showFull = false }: EnsDisplayProps) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  const { data: ensName, isLoading } = useEnsName({
+function EnsDisplayInner({
+  address,
+  className = "",
+  showFull = false,
+  showAvatar = false,
+  avatarSize = 20,
+  disableLink = false,
+}: EnsDisplayProps) {
+  const { data: ensName, isLoading: ensLoading } = useEnsName({
     address: address as `0x${string}`,
     chainId: mainnet.id,
     query: {
-      enabled: mounted && !!address, // Only fetch when mounted and address exists
+      enabled: !!address,
+    },
+  })
+
+  const { data: ensAvatar } = useEnsAvatar({
+    name: ensName || undefined,
+    chainId: mainnet.id,
+    query: {
+      enabled: !!ensName && showAvatar,
     },
   })
 
@@ -29,21 +42,98 @@ export function EnsDisplay({ address, className = "", showFull = false }: EnsDis
     return <span className={className}>Unknown</span>
   }
 
-  const displayClassName = `text-primary hover:underline ${className}`
+  const truncatedAddress = showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`
+  const displayName = ensName || truncatedAddress
+  const etherscanUrl = `https://etherscan.io/address/${address}`
 
-  if (!mounted || isLoading) {
+  const content = (
+    <span className={`flex items-center gap-2`}>
+      {showAvatar &&
+        (ensAvatar ? (
+          <img
+            src={ensAvatar || "/placeholder.svg"}
+            alt={displayName}
+            className="rounded-full"
+            style={{ width: avatarSize, height: avatarSize }}
+          />
+        ) : (
+          <span
+            className="rounded-full bg-gradient-to-br from-blue-500 to-purple-500"
+            style={{ width: avatarSize, height: avatarSize }}
+          />
+        ))}
+      {displayName}
+    </span>
+  )
+
+  if (ensLoading) {
     return (
-      <span className={displayClassName}>{showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`}</span>
+      <span className={`flex items-center gap-2 text-primary ${className}`}>
+        {showAvatar && (
+          <span className="rounded-full bg-muted animate-pulse" style={{ width: avatarSize, height: avatarSize }} />
+        )}
+        {truncatedAddress}
+      </span>
     )
   }
 
-  if (ensName) {
-    return <span className={displayClassName}>{ensName}</span>
+  if (disableLink) {
+    return <span className={`text-primary ${className}`}>{content}</span>
   }
 
   return (
-    <span className={displayClassName}>{showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`}</span>
+    <Link
+      href={etherscanUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`text-primary hover:underline transition-colors ${className}`}
+    >
+      {content}
+    </Link>
   )
+}
+
+export function EnsDisplay(props: EnsDisplayProps) {
+  const [mounted, setMounted] = useState(false)
+  const { address, className = "", showFull = false, showAvatar = false, avatarSize = 20, disableLink = false } = props
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    if (!address) {
+      return <span className={className}>Unknown</span>
+    }
+    const truncatedAddress = showFull ? address : `${address.slice(0, 6)}...${address.slice(-4)}`
+    const etherscanUrl = `https://etherscan.io/address/${address}`
+
+    const content = (
+      <span className={`flex items-center gap-2`}>
+        {showAvatar && (
+          <span className="rounded-full bg-muted animate-pulse" style={{ width: avatarSize, height: avatarSize }} />
+        )}
+        {truncatedAddress}
+      </span>
+    )
+
+    if (disableLink) {
+      return <span className={`text-primary ${className}`}>{content}</span>
+    }
+
+    return (
+      <Link
+        href={etherscanUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`text-primary hover:underline transition-colors ${className}`}
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return <EnsDisplayInner {...props} />
 }
 
 export default EnsDisplay

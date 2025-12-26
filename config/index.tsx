@@ -30,4 +30,4 @@ export function getConfig() {
   })
 }
 
-export const config = getConfig()
+// The config should only be created inside components via getConfig()

@@ -4,8 +4,6 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import ContextProvider from "@/context"
 import { headers } from "next/headers"
-import { cookieToInitialState } from "wagmi"
-import { getConfig } from "@/config"
 import MiniappReady from "@/components/miniapp-ready"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -43,23 +41,14 @@ export default async function RootLayout({
   const headersObj = await headers()
   const cookies = headersObj.get("cookie")
 
-  let initialState
-  try {
-    initialState = cookieToInitialState(getConfig(), cookies)
-  } catch (error) {
-    // If cookie is malformed, start fresh with undefined state
-    console.warn("Failed to parse wagmi cookie state, starting fresh:", error)
-    initialState = undefined
-  }
-
   return (
-    <html lang="en">
+    <html lang="en" className="bg-background">
       <head>
         <meta property="fc:miniapp" content="https://nouncil.wtf/.well-known/farcaster.json" />
         <meta property="miniapp:version" content="1.0.0" />
       </head>
       <body className={inter.className}>
-        <ContextProvider initialState={initialState}>
+        <ContextProvider cookies={cookies}>
           <MiniappReady />
           {children}
         </ContextProvider>

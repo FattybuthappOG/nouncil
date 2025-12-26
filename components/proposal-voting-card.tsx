@@ -145,9 +145,18 @@ function ProposalVotingCardContent({
   const forNouns = Number(proposal.forVotes)
   const againstNouns = Number(proposal.againstVotes)
   const abstainNouns = Number(proposal.abstainVotes)
-  const quorumNeeded = Number(proposal.quorum)
+  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 72
   const totalVotes = forNouns + againstNouns + abstainNouns
   const quorumMet = totalVotes >= quorumNeeded
+
+  // Debug log for quorum issues
+  console.log("[v0] ProposalVotingCard quorum:", {
+    proposalId,
+    quorum: proposal.quorum,
+    quorumNeeded,
+    totalVotes,
+    quorumMet,
+  })
 
   return (
     <Card

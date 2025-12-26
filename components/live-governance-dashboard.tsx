@@ -116,7 +116,7 @@ const translations = {
     joinCallsThursday: "Únete a las llamadas todos los jueves en Discord",
     toggleTheme: "Cambiar Tema",
     proposer: "Proponente",
-    viewOnEtherscan: "Ver en Etherscan",
+    viewOnEtherscan: "Voir en Etherscan",
     transactionSimulator: "Simulateur de Transacciones",
     votes: "Votos",
     for: "A Favor",
@@ -366,6 +366,34 @@ type LanguageCode = keyof typeof translations
 type SearchResult = { id: string; description?: string; slug?: string; latestVersion?: { content: { title: string } } }
 
 export default function LiveGovernanceDashboard() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] p-6">
+        <div className="max-w-4xl mx-auto animate-pulse space-y-4">
+          <div className="h-8 bg-[#252540] rounded w-3/4" />
+          <div className="h-4 bg-[#252540] rounded w-1/2" />
+          <div className="h-64 bg-[#252540] rounded" />
+        </div>
+      </div>
+    )
+  }
+
+  return <LiveGovernanceDashboardContent />
+}
+
+function LiveGovernanceDashboardContent() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const router = useRouter()
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [showMenu, setShowMenu] = useState(false)
@@ -385,6 +413,7 @@ export default function LiveGovernanceDashboard() {
 
   const { data: balanceData } = useBalance({
     address: "0x0BC3807Ec262cB779b38D65b38158acC3bfedE10",
+    query: { enabled: mounted },
   })
 
   const balance = balanceData
