@@ -149,15 +149,6 @@ function ProposalVotingCardContent({
   const totalVotes = forNouns + againstNouns + abstainNouns
   const quorumMet = totalVotes >= quorumNeeded
 
-  // Debug log for quorum issues
-  console.log("[v0] ProposalVotingCard quorum:", {
-    proposalId,
-    quorum: proposal.quorum,
-    quorumNeeded,
-    totalVotes,
-    quorumMet,
-  })
-
   return (
     <Card
       onClick={() => !showVoteForm && (window.location.href = `/proposal/${proposalId}`)}

@@ -395,27 +395,15 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
         )
 
         const data = await response.json()
-        console.log("[v0] Transaction API response:", JSON.stringify(data, null, 2))
         const proposal = data?.data?.proposal
 
         if (proposal && proposal.targets && proposal.targets.length > 0) {
-          console.log("[v0] Raw proposal data:", {
-            targets: proposal.targets,
-            values: proposal.values,
-            signatures: proposal.signatures,
-            calldatas: proposal.calldatas,
-          })
-
           const txs: TransactionData[] = proposal.targets.map((target: string, index: number) => {
             const sig = proposal.signatures?.[index] || ""
             const calldata = proposal.calldatas?.[index] || "0x"
             const value = proposal.values?.[index] || "0"
 
-            console.log(`[v0] Decoding tx ${index}:`, { target, sig, calldata: calldata.slice(0, 50) + "...", value })
-
             const decoded = decodeTransaction(target, sig, calldata, value)
-
-            console.log(`[v0] Decoded tx ${index}:`, decoded)
 
             return {
               target,
@@ -428,11 +416,9 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
 
           setTransactions(txs)
         } else {
-          console.log("[v0] No transaction data in proposal:", proposal)
           setError("No transaction data found")
         }
       } catch (err) {
-        console.error("[v0] Error fetching transaction data:", err)
         setError("Failed to load transaction data")
       } finally {
         setIsLoading(false)

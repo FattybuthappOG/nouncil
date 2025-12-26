@@ -5,6 +5,7 @@ import "./globals.css"
 import ContextProvider from "@/context"
 import { headers } from "next/headers"
 import MiniappReady from "@/components/miniapp-ready"
+import { SnowEffect } from "@/components/snow-effect"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -50,6 +51,7 @@ export default async function RootLayout({
       <body className={inter.className}>
         <ContextProvider cookies={cookies}>
           <MiniappReady />
+          <SnowEffect />
           {children}
         </ContextProvider>
       </body>
