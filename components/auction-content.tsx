@@ -143,7 +143,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     auctionStatus: "Estado de la subasta",
     timeRemaining: "Tiempo restante",
     currentBid: "Oferta actual",
-    minimumNextBid: "Próxima oferta mínima",
+    minimumNextBid: "Próximo lance mínimo",
     placeYourBid: "Haz tu oferta",
     enterBidAmount: "Ingresa el monto en ETH",
     placeBid: "Dar lance",
@@ -532,9 +532,9 @@ function AuctionContentInner() {
         </div>
 
         {/* Main Content - Desktop: side by side, Mobile: stacked */}
-        <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-8 landscape:flex-row landscape:items-stretch landscape:gap-6 min-h-[calc(100vh-100px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 landscape:grid-cols-2 gap-4 lg:gap-8 landscape:gap-6 min-h-[calc(100vh-100px)]">
           {/* Left side - Auction info */}
-          <div className="order-2 landscape:order-1 lg:order-1 flex-1 flex flex-col gap-4 lg:max-w-lg">
+          <div className="order-2 landscape:order-1 lg:order-1 flex flex-col gap-3 lg:gap-4 justify-center">
             {/* Time Remaining */}
             <div
               className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
@@ -568,13 +568,35 @@ function AuctionContentInner() {
                   <div className={`p-2 rounded-lg ${isDarkMode ? "bg-green-500/20" : "bg-green-100"}`}>
                     <TrendingUp className={`h-5 w-5 ${isDarkMode ? "text-green-400" : "text-green-600"}`} />
                   </div>
-                  <div className="flex items-center gap-1 flex-wrap">
+                  {/* Desktop: all inline */}
+                  <div className="hidden lg:flex landscape:flex items-center gap-1.5">
                     <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                       {t("currentBid")}
                     </span>
                     {currentBidder !== "0x0000000000000000000000000000000000000000" && (
-                      <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                        by <EnsDisplay address={currentBidder as `0x${string}`} />
+                      <>
+                        <span className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>by</span>
+                        <EnsDisplay
+                          address={currentBidder as `0x${string}`}
+                          className={`text-sm ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}
+                        />
+                      </>
+                    )}
+                  </div>
+                  {/* Mobile: stacked */}
+                  <div className="flex flex-col lg:hidden landscape:hidden">
+                    <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {t("currentBid")}
+                    </span>
+                    {currentBidder !== "0x0000000000000000000000000000000000000000" && (
+                      <span
+                        className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"} flex items-center gap-1`}
+                      >
+                        by{" "}
+                        <EnsDisplay
+                          address={currentBidder as `0x${string}`}
+                          className={`${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}
+                        />
                       </span>
                     )}
                   </div>
@@ -681,9 +703,9 @@ function AuctionContentInner() {
           </div>
 
           {/* Right side - Noun artwork */}
-          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center justify-center mb-4 landscape:mb-0 lg:mb-0 lg:flex-1 lg:self-stretch">
+          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center justify-center mb-4 landscape:mb-0 lg:mb-0">
             <div
-              className={`w-full max-w-[280px] landscape:max-w-[450px] lg:max-w-none lg:w-full lg:h-full lg:max-h-[calc(100vh-200px)] aspect-square lg:aspect-auto rounded-2xl overflow-hidden ${isDarkMode ? darkCard : "bg-gray-100"} flex items-center justify-center`}
+              className={`w-full max-w-[280px] landscape:max-w-full lg:max-w-full aspect-square landscape:aspect-auto lg:aspect-auto landscape:h-[60vh] lg:h-[calc(100vh-180px)] rounded-2xl overflow-hidden ${isDarkMode ? darkCard : "bg-gray-100"} flex items-center justify-center`}
             >
               <Image
                 src={`https://noun.pics/${nounId}`}
