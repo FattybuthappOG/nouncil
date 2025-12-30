@@ -7,7 +7,6 @@ import {
   useWaitForTransactionReceipt,
   useWatchContractEvent,
   useBalance,
-  usePublicClient,
   useConnect,
 } from "wagmi"
 import { useAccount } from "wagmi"
@@ -278,8 +277,6 @@ function AuctionContentInner() {
     query: { enabled: mounted && !!hash },
   })
 
-  const publicClient = usePublicClient()
-
   useWatchContractEvent({
     address: NOUNS_AUCTION_ADDRESS,
     abi: NOUNS_AUCTION_ABI,
@@ -303,14 +300,7 @@ function AuctionContentInner() {
       logs.forEach(async (log: any) => {
         const currentNounId = auctionData?.[0] ? Number(auctionData[0]) : null
         if (log.args.nounId && currentNounId && Number(log.args.nounId) === currentNounId - 1) {
-          if (publicClient && log.transactionHash) {
-            try {
-              const tx = await publicClient.getTransaction({ hash: log.transactionHash })
-              setAuctionCurator(tx.from)
-            } catch (e) {
-              console.error(e)
-            }
-          }
+          refetchAuction()
         }
       })
     },
