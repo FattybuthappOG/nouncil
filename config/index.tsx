@@ -21,7 +21,7 @@ export function getConfig() {
       injected(),
     ],
     transports: {
-      [mainnet.id]: http("https://eth.merkle.io"),
+      [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
     },
     ssr: true,
     storage: createStorage({
