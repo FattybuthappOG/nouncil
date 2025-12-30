@@ -568,14 +568,14 @@ function AuctionContentInner() {
                   <div className={`p-2 rounded-lg ${isDarkMode ? "bg-green-500/20" : "bg-green-100"}`}>
                     <TrendingUp className={`h-5 w-5 ${isDarkMode ? "text-green-400" : "text-green-600"}`} />
                   </div>
-                  <div>
+                  <div className="flex items-center gap-1 flex-wrap">
                     <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                       {t("currentBid")}
                     </span>
                     {currentBidder !== "0x0000000000000000000000000000000000000000" && (
-                      <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                      <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                         by <EnsDisplay address={currentBidder as `0x${string}`} />
-                      </div>
+                      </span>
                     )}
                   </div>
                 </div>
@@ -681,15 +681,15 @@ function AuctionContentInner() {
           </div>
 
           {/* Right side - Noun artwork */}
-          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center justify-center mb-4 landscape:mb-0 lg:mb-0 lg:flex-1">
+          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center justify-center mb-4 landscape:mb-0 lg:mb-0 lg:flex-1 lg:self-stretch">
             <div
-              className={`w-full max-w-[250px] landscape:max-w-[400px] lg:max-w-[500px] xl:max-w-[600px] aspect-square rounded-2xl overflow-hidden ${isDarkMode ? darkCard : "bg-gray-100"}`}
+              className={`w-full max-w-[280px] landscape:max-w-[450px] lg:max-w-none lg:w-full lg:h-full lg:max-h-[calc(100vh-200px)] aspect-square lg:aspect-auto rounded-2xl overflow-hidden ${isDarkMode ? darkCard : "bg-gray-100"} flex items-center justify-center`}
             >
               <Image
                 src={`https://noun.pics/${nounId}`}
                 alt={`Noun ${nounId}`}
-                width={600}
-                height={600}
+                width={800}
+                height={800}
                 className="w-full h-full object-contain"
                 priority
               />
