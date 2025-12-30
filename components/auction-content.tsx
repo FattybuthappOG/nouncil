@@ -383,16 +383,24 @@ function AuctionContentInner() {
     setCopyFeedback(true)
     setTimeout(() => setCopyFeedback(false), 2000)
   }
+
   const handleLanguageChange = (lang: LanguageCode) => {
     setSelectedLanguage(lang)
     localStorage.setItem("nouns-language", lang)
     setShowLanguageMenu(false)
   }
 
+  const darkBg = "bg-[#1a1a2e]"
+  const darkCard = "bg-[#252540]"
+  const darkBorder = "border-[#3a3a5a]"
+  const lightBg = "bg-gray-50"
+  const lightCard = "bg-white"
+
   return (
-    <div className={`min-h-screen ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"}`}>
-      <div className="w-full max-w-7xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
+    <div className={`min-h-screen ${isDarkMode ? `${darkBg} text-white` : `${lightBg} text-gray-900`}`}>
+      <div className="w-full max-w-7xl mx-auto px-4 py-4 lg:px-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
           <Link href="/" className="flex items-center gap-2 text-sm hover:opacity-80">
             <ArrowLeft className="h-4 w-4" />
             {t("backToNouncil")}
@@ -414,7 +422,7 @@ function AuctionContentInner() {
               </button>
               {showMenu && (
                 <div
-                  className={`absolute right-0 top-12 w-56 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+                  className={`absolute right-0 top-12 w-56 rounded-lg shadow-lg border z-50 ${isDarkMode ? `${darkCard} ${darkBorder}` : `${lightCard} border-gray-200`}`}
                 >
                   <div className="p-2 space-y-1">
                     <TreasuryDropdown isDarkMode={isDarkMode} balance={balance} />
@@ -450,20 +458,20 @@ function AuctionContentInner() {
                       >
                         <span>
                           {selectedLanguage === "en"
-                            ? "🇬🇧 English"
+                            ? "English"
                             : selectedLanguage === "zh"
-                              ? "🇨🇳 中文"
+                              ? "中文"
                               : selectedLanguage === "es"
-                                ? "🇪🇸 Español"
+                                ? "Español"
                                 : selectedLanguage === "pt"
-                                  ? "🇧🇷 Português"
-                                  : "🇯🇵 日本語"}
+                                  ? "Português"
+                                  : "日本語"}
                         </span>
                         <ChevronDown className="h-4 w-4" />
                       </button>
                       {showLanguageMenu && (
                         <div
-                          className={`absolute left-full top-0 ml-2 w-36 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+                          className={`absolute left-full top-0 ml-2 w-36 rounded-lg shadow-lg border z-50 ${isDarkMode ? `${darkCard} ${darkBorder}` : `${lightCard} border-gray-200`}`}
                         >
                           <div className="p-1">
                             {(["en", "zh", "es", "pt", "ja"] as LanguageCode[]).map((lang) => (
@@ -473,14 +481,14 @@ function AuctionContentInner() {
                                 className={`w-full text-left px-3 py-2 rounded text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"} ${selectedLanguage === lang ? (isDarkMode ? "bg-[#3a3a5a]" : "bg-gray-100") : ""}`}
                               >
                                 {lang === "en"
-                                  ? "🇬🇧 English"
+                                  ? "English"
                                   : lang === "zh"
-                                    ? "🇨🇳 中文"
+                                    ? "中文"
                                     : lang === "es"
-                                      ? "🇪🇸 Español"
+                                      ? "Español"
                                       : lang === "pt"
-                                        ? "🇧🇷 Português"
-                                        : "🇯🇵 日本語"}
+                                        ? "Português"
+                                        : "日本語"}
                               </button>
                             ))}
                           </div>
@@ -510,68 +518,70 @@ function AuctionContentInner() {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row lg:items-start lg:gap-12 landscape:flex-row landscape:items-start landscape:gap-8 lg:min-h-[calc(100vh-120px)]">
-          <div className="order-2 landscape:order-1 lg:order-1 flex-1 max-w-xl space-y-4 lg:space-y-6">
-            <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-4">
+        {/* Main Content - Desktop: side by side, Mobile: stacked */}
+        <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-8 landscape:flex-row landscape:items-stretch landscape:gap-6 min-h-[calc(100vh-100px)]">
+          {/* Left side - Auction info */}
+          <div className="order-2 landscape:order-1 lg:order-1 flex-1 flex flex-col gap-4 lg:max-w-lg">
+            {/* Auction Status Card */}
+            <Card className={isDarkMode ? `${darkCard} ${darkBorder}` : ""}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
                   <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
                   <h2 className="font-semibold">{t("auctionStatus")}</h2>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <div
-                    className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-                  >
-                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("timeRemaining")}</span>
-                    <span className="font-mono font-bold text-lg">
-                      {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
+                    <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {t("timeRemaining")}
                     </span>
-                  </div>
-                  <div
-                    className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-                  >
-                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("currentBid")}</span>
-                    <div className="text-right">
-                      <span className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-                        {Number.parseFloat(currentBid).toFixed(2)} ETH
-                      </span>
-                      {currentBidder !== "0x0000000000000000000000000000000000000000" && (
-                        <div className="text-xs text-gray-500">
-                          <EnsDisplay address={currentBidder as `0x${string}`} />
-                        </div>
-                      )}
+                    <div className="font-mono font-bold text-lg">
+                      {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
                     </div>
                   </div>
-                  <div
-                    className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-                  >
-                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("minimumNextBid")}</span>
-                    <span className={`font-bold ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
-                      {Number.parseFloat(minNextBid).toFixed(4)} ETH
+                  <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
+                    <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {t("currentBid")}
                     </span>
+                    <div className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
+                      {Number.parseFloat(currentBid).toFixed(2)} ETH
+                    </div>
+                    {currentBidder !== "0x0000000000000000000000000000000000000000" && (
+                      <div className="text-xs text-gray-500">
+                        <EnsDisplay address={currentBidder as `0x${string}`} />
+                      </div>
+                    )}
+                  </div>
+                  <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
+                    <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {t("minimumNextBid")}
+                    </span>
+                    <div className={`font-bold ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
+                      {Number.parseFloat(minNextBid).toFixed(4)} ETH
+                    </div>
                   </div>
                   {auctionCurator && (
-                    <div
-                      className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-                    >
-                      <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("curatorOfAuction")}</span>
-                      <span className={`font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
-                        <EnsDisplay address={auctionCurator as `0x${string}`} />
+                    <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
+                      <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                        {t("curatorOfAuction")}
                       </span>
+                      <div className={`font-medium text-sm ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
+                        <EnsDisplay address={auctionCurator as `0x${string}`} />
+                      </div>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-4">
+            {/* Place Bid Card */}
+            <Card className={isDarkMode ? `${darkCard} ${darkBorder}` : ""}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
                   <Gavel className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
                   <h2 className="font-semibold">{t("placeYourBid")}</h2>
                 </div>
                 {isConnected ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <Input
                       type="number"
                       placeholder={t("enterBidAmount")}
@@ -579,7 +589,7 @@ function AuctionContentInner() {
                       onChange={(e) => setBidAmount(e.target.value)}
                       step="0.01"
                       min={minNextBid}
-                      className={isDarkMode ? "bg-[#1a1a2e] border-[#3a3a5a]" : ""}
+                      className={isDarkMode ? `${darkBg} ${darkBorder}` : ""}
                     />
                     <Button
                       onClick={handleBid}
@@ -591,8 +601,8 @@ function AuctionContentInner() {
                     {error && <p className="text-red-500 text-sm">{error.message}</p>}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-4 py-4">
-                    <p className={`text-center ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  <div className="flex flex-col items-center gap-3 py-2">
+                    <p className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                       {t("connectWallet")}
                     </p>
                     <WalletConnectButton />
@@ -601,15 +611,16 @@ function AuctionContentInner() {
               </CardContent>
             </Card>
 
+            {/* Bid History */}
             {bidHistory.length > 0 && (
-              <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
-                <CardContent className="pt-6">
-                  <h2 className="font-semibold mb-4">{t("bidHistory")}</h2>
+              <Card className={isDarkMode ? `${darkCard} ${darkBorder}` : ""}>
+                <CardContent className="p-4">
+                  <h2 className="font-semibold mb-3">{t("bidHistory")}</h2>
                   <div className="space-y-2">
                     {bidHistory.slice(0, 5).map((bid, index) => (
                       <div
                         key={index}
-                        className={`flex justify-between items-center p-2 rounded ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+                        className={`flex justify-between items-center p-2 rounded text-sm ${isDarkMode ? darkBg : "bg-gray-100"}`}
                       >
                         <EnsDisplay address={bid.sender as `0x${string}`} />
                         <span className="font-mono">{formatEther(bid.value)} ETH</span>
@@ -621,9 +632,10 @@ function AuctionContentInner() {
             )}
           </div>
 
-          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center mb-6 landscape:mb-0 lg:mb-0 lg:sticky lg:top-6 lg:self-start landscape:sticky landscape:top-6 landscape:self-start lg:flex-1">
+          {/* Right side - Noun artwork */}
+          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center justify-center mb-4 landscape:mb-0 lg:mb-0 lg:flex-1">
             <div
-              className={`w-full aspect-square max-w-[280px] landscape:max-w-[350px] lg:max-w-none lg:w-full lg:max-h-[70vh] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
+              className={`w-full max-w-[250px] landscape:max-w-[400px] lg:max-w-[500px] xl:max-w-[600px] aspect-square rounded-2xl overflow-hidden ${isDarkMode ? darkCard : "bg-gray-100"}`}
             >
               <Image
                 src={`https://noun.pics/${nounId}`}
