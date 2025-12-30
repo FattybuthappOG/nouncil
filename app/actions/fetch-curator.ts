@@ -13,10 +13,9 @@ export async function fetchAuctionCurator(currentNounId: number) {
     // Create a public client using the public RPC
     const client = createPublicClient({
       chain: mainnet,
-      transport: http("https://eth.llamarpc.com"),
+      transport: http("https://eth.publicnode.com"), // Use publicnode.com instead of llamarpc to avoid rate limiting
     })
 
-    // Get current block
     const currentBlock = await client.getBlockNumber()
     console.log("[v0] Server: Current block:", currentBlock)
 

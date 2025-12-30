@@ -349,12 +349,15 @@ function AuctionContentInner() {
 
   useEffect(() => {
     if (!auctionData?.[0]) return
-    try {
-      const result = fetchAuctionCurator(Number(auctionData[0]) - 1)
-      if (result.curator) setAuctionCurator(result.curator)
-    } catch (e) {
-      console.error(e)
+    const fetchCurator = async () => {
+      try {
+        const result = await fetchAuctionCurator(Number(auctionData[0]) - 1)
+        if (result.curator) setAuctionCurator(result.curator)
+      } catch (e) {
+        console.error(e)
+      }
     }
+    fetchCurator()
   }, [auctionData])
 
   const handleBid = async () => {
