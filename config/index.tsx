@@ -5,11 +5,8 @@ import { mainnet } from "wagmi/chains"
 import { walletConnect, injected } from "wagmi/connectors"
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || ""
-const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || ""
 
 export function getConfig() {
-  const rpcUrl = alchemyApiKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}` : "https://eth.publicnode.com"
-
   return createConfig({
     chains: [mainnet],
     connectors: [
@@ -24,7 +21,7 @@ export function getConfig() {
       injected(),
     ],
     transports: {
-      [mainnet.id]: http(rpcUrl),
+      [mainnet.id]: http("https://eth.publicnode.com"),
     },
     ssr: true,
     storage: createStorage({
