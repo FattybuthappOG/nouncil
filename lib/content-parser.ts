@@ -5,12 +5,38 @@ export function parseContentForMedia(content: string): {
 } {
   const images: string[] = []
   const youtubeVideos: string[] = []
+  let cleanedText = content
 
-  // Extract image URLs (jpg, jpeg, png, gif, webp)
-  const imageRegex = /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s]*)?)/gi
+  const markdownImageRegex = /!\[([^\]]*)\]$$([^)]+)$$/gi
+  const markdownMatches = content.matchAll(markdownImageRegex)
+  for (const match of markdownMatches) {
+    const imageUrl = match[2]
+    if (imageUrl && /\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?$/i.test(imageUrl)) {
+      images.push(imageUrl)
+    }
+    cleanedText = cleanedText.replace(match[0], "")
+  }
+
+  const imageRegex = /(?<!$$)(?<!\])(https?:\/\/[^\s<>"$$]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"]*)?)/gi
   const imageMatches = content.match(imageRegex)
   if (imageMatches) {
-    images.push(...imageMatches)
+    for (const url of imageMatches) {
+      if (!images.includes(url)) {
+        images.push(url)
+        cleanedText = cleanedText.replace(url, "")
+      }
+    }
+  }
+
+  const ipfsRegex = /(https?:\/\/[^\s]*ipfs[^\s]*)/gi
+  const ipfsMatches = content.match(ipfsRegex)
+  if (ipfsMatches) {
+    for (const url of ipfsMatches) {
+      if (!images.includes(url)) {
+        images.push(url)
+        cleanedText = cleanedText.replace(url, "")
+      }
+    }
   }
 
   // Extract YouTube URLs and convert to embed format
@@ -19,9 +45,12 @@ export function parseContentForMedia(content: string): {
   const youtubeMatches = content.matchAll(youtubeRegex)
   for (const match of youtubeMatches) {
     youtubeVideos.push(match[1])
+    cleanedText = cleanedText.replace(match[0], "")
   }
 
-  return { text: content, images, youtubeVideos }
+  cleanedText = cleanedText.replace(/\n{3,}/g, "\n\n").trim()
+
+  return { text: cleanedText, images, youtubeVideos }
 }
 
 export function getYoutubeEmbedUrl(videoId: string): string {

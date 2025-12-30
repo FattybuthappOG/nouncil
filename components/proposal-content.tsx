@@ -11,8 +11,8 @@ import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-
 import { EnsDisplay } from "@/components/ens-display"
 import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
-import { MediaContentRenderer } from "@/components/media-content-renderer"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 type LanguageCode = "en" | "zh"
 
@@ -79,6 +79,62 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     noVotesYet: "暂无投票",
     showAllVotes: "显示全部",
   },
+}
+
+function MarkdownContent({ content, isDarkMode }: { content: string; isDarkMode: boolean }) {
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+
+  const handleImageError = (url: string) => {
+    setFailedImages((prev) => new Set(prev).add(url))
+  }
+
+  return (
+    <div
+      className={`prose max-w-none ${isDarkMode ? "prose-invert" : ""} prose-headings:font-bold prose-a:text-blue-400 prose-img:rounded-lg prose-img:border prose-img:border-border`}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: () => null,
+          img: ({ src, alt }) => {
+            if (!src || failedImages.has(src)) return null
+            return (
+              <img
+                src={src || "/placeholder.svg"}
+                alt={alt || "Image"}
+                className="rounded-lg max-w-full h-auto border border-border my-4"
+                loading="lazy"
+                onError={() => handleImageError(src)}
+              />
+            )
+          },
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 underline break-all"
+            >
+              {children}
+            </a>
+          ),
+          p: ({ children, node }) => {
+            // Check if paragraph only contains an image
+            const hasOnlyImage =
+              node?.children?.length === 1 &&
+              node.children[0].type === "element" &&
+              (node.children[0] as any).tagName === "img"
+            if (hasOnlyImage) {
+              return <>{children}</>
+            }
+            return <p className="mb-4 break-words">{children}</p>
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 function ProposalContentInner({
@@ -258,16 +314,7 @@ function ProposalContentInner({
         <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
           <CardContent className="pt-6">
             <h2 className="text-lg font-semibold mb-4">{t.description}</h2>
-            <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-400">
-              <ReactMarkdown
-                components={{
-                  h1: () => null,
-                  img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
-                }}
-              >
-                {body || proposal.fullDescription || ""}
-              </ReactMarkdown>
-            </div>
+            <MarkdownContent content={body || proposal.fullDescription || ""} isDarkMode={isDarkMode} />
           </CardContent>
         </Card>
 
