@@ -150,7 +150,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     confirmingBid: "Confirmando...",
     placingBid: "Ofertando...",
     connectWallet: "Conecta tu wallet para dar lance",
-    bidHistory: "Historial de ofertas",
+    bidHistory: "Histórico de lances",
     curatorOfAuction: "Curador de la subasta",
     learnNouns: "Aprende sobre Nouns",
     togaPfp: "Generador Toga PFP",
@@ -681,8 +681,7 @@ function AuctionContentInner() {
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{t("connectWallet")}</p>
+                <div className="flex items-center justify-center">
                   <WalletConnectButton />
                 </div>
               )}
