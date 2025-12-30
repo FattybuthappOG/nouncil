@@ -129,22 +129,10 @@ export function useProposalIds(
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-
     const fetchProposalIds = async () => {
       try {
-        setError(null)
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000)
-
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -161,21 +149,10 @@ export function useProposalIds(
               }
             `,
             }),
-            signal: controller.signal,
           },
         )
 
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`)
-        }
-
         const data = await response.json()
-
-        if (data?.errors) {
-          throw new Error(data.errors[0]?.message || "GraphQL error")
-        }
 
         if (data?.data?.proposals) {
           const allProposals = data.data.proposals
@@ -201,22 +178,17 @@ export function useProposalIds(
           const ids = filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
         }
-      } catch (err: any) {
-        if (err.name === "AbortError") {
-          setError("Request timed out. Please try again.")
-        } else {
-          setError(err.message || "Failed to fetch proposals")
-        }
-        console.error("Error fetching proposals:", err)
+      } catch (error) {
+        console.error("Error fetching proposals:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchProposalIds()
-  }, [mounted, limit, statusFilter])
+  }, [limit, statusFilter])
 
-  return { proposalIds, totalCount, isLoading: !mounted || isLoading, error }
+  return { proposalIds, totalCount, isLoading }
 }
 
 export function useProposalData(proposalId: number) {
@@ -287,7 +259,7 @@ export function useProposalData(proposalId: number) {
     fetchCurrentBlock()
     const interval = setInterval(fetchCurrentBlock, 30000) // Update every 30 seconds (reduced frequency)
     return () => clearInterval(interval)
-  }, [mounted])
+  }, [])
 
   useEffect(() => {
     if (!mounted) return
@@ -353,8 +325,18 @@ export function useProposalData(proposalId: number) {
           const safeForVotes = proposal.forVotes ? BigInt(proposal.forVotes) : BigInt(0)
           const safeAgainstVotes = proposal.againstVotes ? BigInt(proposal.againstVotes) : BigInt(0)
           const safeAbstainVotes = proposal.abstainVotes ? BigInt(proposal.abstainVotes) : BigInt(0)
+          // Dynamic quorum in Nouns ranges from ~72 (min) to ~180 (max) depending on against votes
           const safeQuorum =
-            proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? BigInt(proposal.quorumVotes) : BigInt(72)
+            proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? BigInt(proposal.quorumVotes) : BigInt(72) // Use min quorum as fallback instead of arbitrary 200
+
+          console.log("[v0] Proposal quorum data:", {
+            proposalId,
+            quorumVotes: proposal.quorumVotes,
+            safeQuorum: safeQuorum.toString(),
+            forVotes: safeForVotes.toString(),
+            againstVotes: safeAgainstVotes.toString(),
+            abstainVotes: safeAbstainVotes.toString(),
+          })
 
           setProposalData({
             id: proposalId,
@@ -387,7 +369,7 @@ export function useProposalData(proposalId: number) {
     }
 
     fetchProposalFromAPI()
-  }, [proposalId, stateData, mounted])
+  }, [proposalId, stateData])
 
   return { ...proposalData, currentBlock }
 }
@@ -551,7 +533,7 @@ export function useCandidateIds(limit = 20) {
     }
   }, [limit, mounted])
 
-  return { candidates, totalCount, isLoading: !mounted || isLoading, error }
+  return { candidates, totalCount, isLoading, error }
 }
 
 export function useCandidateData(candidateId: string) {

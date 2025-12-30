@@ -21,7 +21,7 @@ export function getConfig() {
       injected(),
     ],
     transports: {
-      [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
+      [mainnet.id]: http("https://eth.llamarpc.com"),
     },
     ssr: true,
     storage: createStorage({
@@ -29,3 +29,5 @@ export function getConfig() {
     }),
   })
 }
+
+// The config should only be created inside components via getConfig()
