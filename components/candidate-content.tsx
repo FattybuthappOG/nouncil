@@ -9,14 +9,21 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Users, Clock, ExternalLink } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
-import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
+import remarkGfm from "remark-gfm"
+import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData" // Import useCandidateData and useCandidateSignatures
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
-  const candidate = useCandidateData(candidateId)
-  const signatures = useCandidateSignatures(candidateId)
 
-  if (candidate.isLoading) {
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const candidate = useCandidateData(mounted ? candidateId : "")
+  const signatures = useCandidateSignatures(mounted ? candidateId : "")
+
+  if (!mounted || candidate.isLoading) {
     return (
       <div className={`min-h-screen ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-6`}>
         <div className="max-w-4xl mx-auto">
@@ -118,11 +125,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
 
             <div>
               <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Description</h2>
-              <div
-                className={`prose max-w-none ${isDarkMode ? "prose-invert" : ""} prose-headings:font-bold prose-a:text-blue-400`}
-              >
-                <ReactMarkdown>{data.description}</ReactMarkdown>
-              </div>
+              <MarkdownContent content={data.description} isDarkMode={isDarkMode} />
             </div>
 
             {signatures.data && signatures.data.length > 0 && (
@@ -146,6 +149,61 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
           </CardContent>
         </Card>
       </div>
+    </div>
+  )
+}
+
+function MarkdownContent({ content, isDarkMode }: { content: string; isDarkMode: boolean }) {
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+
+  const handleImageError = (url: string) => {
+    setFailedImages((prev) => new Set(prev).add(url))
+  }
+
+  return (
+    <div
+      className={`prose max-w-none ${isDarkMode ? "prose-invert" : ""} prose-headings:font-bold prose-a:text-blue-400 prose-img:rounded-lg prose-img:border prose-img:border-border`}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          img: ({ src, alt }) => {
+            if (!src || failedImages.has(src)) return null
+            return (
+              <img
+                src={src || "/placeholder.svg"}
+                alt={alt || "Image"}
+                className="rounded-lg max-w-full h-auto border border-border my-4"
+                loading="lazy"
+                onError={() => handleImageError(src)}
+              />
+            )
+          },
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 underline break-all"
+            >
+              {children}
+            </a>
+          ),
+          p: ({ children, node }) => {
+            // Check if paragraph only contains an image
+            const hasOnlyImage =
+              node?.children?.length === 1 &&
+              node.children[0].type === "element" &&
+              (node.children[0] as any).tagName === "img"
+            if (hasOnlyImage) {
+              return <>{children}</>
+            }
+            return <p className="mb-4 break-words">{children}</p>
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   )
 }

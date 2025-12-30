@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { EnsDisplay } from "@/components/ens-display"
 import { fetchAuctionCurator } from "@/app/actions/fetch-curator"
 import { TreasuryDropdown } from "@/components/treasury-dropdown"
+import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { parseEther, formatEther } from "ethers"
 
 const NOUNS_AUCTION_ADDRESS = "0x830BD73E4184ceF73443C15111a1DF14e495C706" as const
@@ -236,6 +237,12 @@ export default function AuctionContent() {
 }
 
 function AuctionContentInner() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const { address, isConnected } = useAccount()
   const [bidAmount, setBidAmount] = useState("")
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
@@ -255,7 +262,7 @@ function AuctionContentInner() {
 
   const { data: balanceData } = useBalance({
     address: "0x0BC3807Ec262cB779b38D65b38158acC3bfedE10",
-    query: { enabled: true },
+    query: { enabled: mounted },
   })
   const balance = balanceData
     ? `${Number.parseFloat(balanceData.formatted).toLocaleString(undefined, { maximumFractionDigits: 0 })} ETH`
@@ -265,28 +272,28 @@ function AuctionContentInner() {
     address: NOUNS_AUCTION_ADDRESS,
     abi: NOUNS_AUCTION_ABI,
     functionName: "auction",
-    query: { enabled: true },
+    query: { enabled: mounted },
   })
 
   const { data: minBidIncrement } = useReadContract({
     address: NOUNS_AUCTION_ADDRESS,
     abi: NOUNS_AUCTION_ABI,
     functionName: "minBidIncrementPercentage",
-    query: { enabled: true },
+    query: { enabled: mounted },
   })
 
   const { data: reservePrice } = useReadContract({
     address: NOUNS_AUCTION_ADDRESS,
     abi: NOUNS_AUCTION_ABI,
     functionName: "reservePrice",
-    query: { enabled: true },
+    query: { enabled: mounted },
   })
 
   const { data: hash, writeContract, isPending, error } = useWriteContract()
 
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
-    query: { enabled: !!hash },
+    query: { enabled: mounted && !!hash },
   })
 
   const publicClient = usePublicClient()
@@ -295,7 +302,7 @@ function AuctionContentInner() {
     address: NOUNS_AUCTION_ADDRESS,
     abi: NOUNS_AUCTION_ABI,
     eventName: "AuctionBid",
-    enabled: true,
+    enabled: mounted,
     onLogs(logs) {
       logs.forEach((log: any) => {
         if (log.args.nounId === auctionData?.[0]) {
@@ -316,7 +323,7 @@ function AuctionContentInner() {
     address: NOUNS_AUCTION_ADDRESS,
     abi: NOUNS_AUCTION_ABI,
     eventName: "AuctionSettled",
-    enabled: true,
+    enabled: mounted,
     onLogs(logs) {
       logs.forEach(async (log: any) => {
         const currentNounId = auctionData?.[0] ? Number(auctionData[0]) : null
@@ -582,131 +589,138 @@ function AuctionContentInner() {
           </div>
         </div>
 
-        <div className="flex flex-col items-center mb-6">
-          <div
-            className={`w-full aspect-square max-w-[280px] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
-          >
-            <Image
-              src={`https://noun.pics/${nounId}`}
-              alt={`Noun ${nounId}`}
-              width={280}
-              height={280}
-              className="w-full h-full object-cover"
-              priority
-            />
-          </div>
-          <h1 className="text-2xl font-bold mt-4">Noun {nounId}</h1>
-        </div>
+        <div className="flex flex-col landscape:flex-row landscape:gap-8 lg:flex-row lg:gap-8">
+          <div className="order-2 landscape:order-1 lg:order-1 flex-1 space-y-6">
+            <Card className={`${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
+                  <h2 className="font-semibold">{t("auctionStatus")}</h2>
+                </div>
 
-        <Card className={`mb-6 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
-              <h2 className="font-semibold">{t("auctionStatus")}</h2>
-            </div>
+                <div className="space-y-4">
+                  <div
+                    className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+                  >
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("timeRemaining")}</span>
+                    <span className="font-mono font-bold text-lg">
+                      {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
+                    </span>
+                  </div>
 
-            <div className="space-y-4">
-              <div
-                className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-              >
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("timeRemaining")}</span>
-                <span className="font-mono font-bold text-lg">
-                  {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
-                </span>
-              </div>
+                  <div
+                    className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+                  >
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("currentBid")}</span>
+                    <div className="text-right">
+                      <span className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
+                        {Number.parseFloat(currentBid).toFixed(2)} ETH
+                      </span>
+                      {currentBidder !== "0x0000000000000000000000000000000000000000" && (
+                        <div className="text-xs text-gray-500">
+                          <EnsDisplay address={currentBidder as `0x${string}`} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-              <div
-                className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-              >
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("currentBid")}</span>
-                <div className="text-right">
-                  <span className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-                    {Number.parseFloat(currentBid).toFixed(2)} ETH
-                  </span>
-                  {currentBidder !== "0x0000000000000000000000000000000000000000" && (
-                    <div className="text-xs text-gray-500">
-                      <EnsDisplay address={currentBidder as `0x${string}`} />
+                  <div
+                    className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+                  >
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("minimumNextBid")}</span>
+                    <span className={`font-bold ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
+                      {Number.parseFloat(minNextBid).toFixed(4)} ETH
+                    </span>
+                  </div>
+
+                  {auctionCurator && (
+                    <div
+                      className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+                    >
+                      <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("curatorOfAuction")}</span>
+                      <span className={`font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
+                        <EnsDisplay address={auctionCurator as `0x${string}`} />
+                      </span>
                     </div>
                   )}
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              <div
-                className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-              >
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("minimumNextBid")}</span>
-                <span className={`font-bold ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
-                  {Number.parseFloat(minNextBid).toFixed(4)} ETH
-                </span>
-              </div>
-
-              {auctionCurator && (
-                <div
-                  className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-                >
-                  <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("curatorOfAuction")}</span>
-                  <span className={`font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
-                    <EnsDisplay address={auctionCurator as `0x${string}`} />
-                  </span>
+            <Card className={`${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Gavel className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
+                  <h2 className="font-semibold">{t("placeYourBid")}</h2>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className={`mb-6 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Gavel className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
-              <h2 className="font-semibold">{t("placeYourBid")}</h2>
-            </div>
-
-            {isConnected ? (
-              <div className="space-y-4">
-                <Input
-                  type="number"
-                  placeholder={t("enterBidAmount")}
-                  value={bidAmount}
-                  onChange={(e) => setBidAmount(e.target.value)}
-                  step="0.01"
-                  min={minNextBid}
-                  className={isDarkMode ? "bg-[#1a1a2e] border-[#3a3a5a]" : ""}
-                />
-                <Button
-                  onClick={handleBid}
-                  disabled={isPending || isConfirming || !bidAmount}
-                  className="w-full bg-purple-600 hover:bg-purple-700"
-                >
-                  {isConfirming ? t("confirmingBid") : isPending ? t("placingBid") : t("placeBid")}
-                </Button>
-                {error && <p className="text-red-500 text-sm">{error.message}</p>}
-              </div>
-            ) : (
-              <p className={`text-center py-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                {t("connectWallet")}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {bidHistory.length > 0 && (
-          <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
-            <CardContent className="pt-6">
-              <h2 className="font-semibold mb-4">{t("bidHistory")}</h2>
-              <div className="space-y-2">
-                {bidHistory.slice(0, 5).map((bid, index) => (
-                  <div
-                    key={index}
-                    className={`flex justify-between items-center p-2 rounded ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
-                  >
-                    <EnsDisplay address={bid.sender as `0x${string}`} />
-                    <span className="font-mono">{formatEther(bid.value)} ETH</span>
+                {isConnected ? (
+                  <div className="space-y-4">
+                    <Input
+                      type="number"
+                      placeholder={t("enterBidAmount")}
+                      value={bidAmount}
+                      onChange={(e) => setBidAmount(e.target.value)}
+                      step="0.01"
+                      min={minNextBid}
+                      className={isDarkMode ? "bg-[#1a1a2e] border-[#3a3a5a]" : ""}
+                    />
+                    <Button
+                      onClick={handleBid}
+                      disabled={isPending || isConfirming || !bidAmount}
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isConfirming ? t("confirmingBid") : isPending ? t("placingBid") : t("placeBid")}
+                    </Button>
+                    {error && <p className="text-red-500 text-sm">{error.message}</p>}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                ) : (
+                  <div className="flex flex-col items-center gap-4 py-4">
+                    <p className={`text-center ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {t("connectWallet")}
+                    </p>
+                    <WalletConnectButton />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {bidHistory.length > 0 && (
+              <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+                <CardContent className="pt-6">
+                  <h2 className="font-semibold mb-4">{t("bidHistory")}</h2>
+                  <div className="space-y-2">
+                    {bidHistory.slice(0, 5).map((bid, index) => (
+                      <div
+                        key={index}
+                        className={`flex justify-between items-center p-2 rounded ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+                      >
+                        <EnsDisplay address={bid.sender as `0x${string}`} />
+                        <span className="font-mono">{formatEther(bid.value)} ETH</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center mb-6 landscape:mb-0 lg:mb-0 landscape:sticky landscape:top-24 lg:sticky lg:top-24 landscape:self-start lg:self-start">
+            <div
+              className={`w-full aspect-square max-w-[280px] landscape:max-w-[400px] lg:max-w-[400px] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
+            >
+              <Image
+                src={`https://noun.pics/${nounId}`}
+                alt={`Noun ${nounId}`}
+                width={400}
+                height={400}
+                className="w-full h-full object-cover"
+                priority
+              />
+            </div>
+            <h1 className="text-2xl lg:text-3xl font-bold mt-4">Noun {nounId}</h1>
+          </div>
+        </div>
       </div>
     </div>
   )

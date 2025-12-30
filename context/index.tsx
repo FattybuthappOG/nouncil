@@ -20,7 +20,6 @@ function ContextProvider({ children, cookies }: Props) {
   try {
     initialState = cookies ? cookieToInitialState(config, cookies) : undefined
   } catch (e) {
-    console.log("[v0] Error parsing cookie state, using undefined:", e)
     initialState = undefined
   }
 
