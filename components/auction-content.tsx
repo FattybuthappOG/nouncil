@@ -8,6 +8,7 @@ import {
   useWatchContractEvent,
   useBalance,
   usePublicClient,
+  useConnect,
 } from "wagmi"
 import { useAccount } from "wagmi"
 import Image from "next/image"
@@ -32,7 +33,6 @@ import { Button } from "@/components/ui/button"
 import { EnsDisplay } from "@/components/ens-display"
 import { fetchAuctionCurator } from "@/app/actions/fetch-curator"
 import { TreasuryDropdown } from "@/components/treasury-dropdown"
-import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { parseEther, formatEther } from "ethers"
 
 const NOUNS_AUCTION_ADDRESS = "0x830BD73E4184ceF73443C15111a1DF14e495C706" as const
@@ -149,10 +149,10 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     placeBid: "Dar lance",
     confirmingBid: "Confirmando...",
     placingBid: "Ofertando...",
-    connectWallet: "Conecta tu wallet para dar lance",
+    connectWallet: "Conecte su wallet para dar lance",
     bidHistory: "Histórico de lances",
     curatorOfAuction: "Curador de la subasta",
-    learnNouns: "Aprende sobre Nouns",
+    learnNouns: "Aprenda sobre Nouns",
     togaPfp: "Generador Toga PFP",
     discord: "Únete a nuestro Discord",
   },
@@ -231,6 +231,7 @@ function AuctionContentInner() {
   }, [])
 
   const { isConnected } = useAccount()
+  const { connectors, connect } = useConnect()
   const [bidAmount, setBidAmount] = useState("")
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [bidHistory, setBidHistory] = useState<Array<{ sender: string; value: bigint; timestamp: number }>>([])
@@ -681,9 +682,17 @@ function AuctionContentInner() {
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center justify-center">
-                  <WalletConnectButton />
-                </div>
+                <Button
+                  onClick={() => {
+                    const walletConnectConnector = connectors.find((c) => c.id === "walletConnect")
+                    if (walletConnectConnector) {
+                      connect({ connector: walletConnectConnector })
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 w-full py-3 text-base font-medium"
+                >
+                  {t("connectWallet")}
+                </Button>
               )}
               {error && <p className="text-red-500 text-sm mt-2">{error.message}</p>}
             </div>
