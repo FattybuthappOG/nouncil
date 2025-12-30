@@ -12,8 +12,21 @@ import {
 import { useAccount } from "wagmi"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Clock, ExternalLink, Menu, X, Sun, Moon, Copy, Check, Gavel, ChevronDown } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
+import {
+  ArrowLeft,
+  Clock,
+  ExternalLink,
+  Menu,
+  X,
+  Sun,
+  Moon,
+  Copy,
+  Check,
+  Gavel,
+  ChevronDown,
+  TrendingUp,
+  User,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { EnsDisplay } from "@/components/ens-display"
@@ -522,113 +535,148 @@ function AuctionContentInner() {
         <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-8 landscape:flex-row landscape:items-stretch landscape:gap-6 min-h-[calc(100vh-100px)]">
           {/* Left side - Auction info */}
           <div className="order-2 landscape:order-1 lg:order-1 flex-1 flex flex-col gap-4 lg:max-w-lg">
-            {/* Auction Status Card */}
-            <Card className={isDarkMode ? `${darkCard} ${darkBorder}` : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
-                  <h2 className="font-semibold">{t("auctionStatus")}</h2>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
-                    <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                      {t("timeRemaining")}
-                    </span>
-                    <div className="font-mono font-bold text-lg">
-                      {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
-                    </div>
+            {/* Time Remaining */}
+            <div
+              className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${isDarkMode ? "bg-purple-500/20" : "bg-purple-100"}`}>
+                    <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
                   </div>
-                  <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
-                    <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    {t("timeRemaining")}
+                  </span>
+                </div>
+                <div className="font-mono font-bold text-xl">
+                  <span className={isDarkMode ? "text-white" : "text-gray-900"}>{timeLeft.hours}</span>
+                  <span className={isDarkMode ? "text-gray-500" : "text-gray-400"}>h </span>
+                  <span className={isDarkMode ? "text-white" : "text-gray-900"}>{timeLeft.minutes}</span>
+                  <span className={isDarkMode ? "text-gray-500" : "text-gray-400"}>m </span>
+                  <span className={isDarkMode ? "text-white" : "text-gray-900"}>{timeLeft.seconds}</span>
+                  <span className={isDarkMode ? "text-gray-500" : "text-gray-400"}>s</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Current Bid */}
+            <div
+              className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${isDarkMode ? "bg-green-500/20" : "bg-green-100"}`}>
+                    <TrendingUp className={`h-5 w-5 ${isDarkMode ? "text-green-400" : "text-green-600"}`} />
+                  </div>
+                  <div>
+                    <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                       {t("currentBid")}
                     </span>
-                    <div className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-                      {Number.parseFloat(currentBid).toFixed(2)} ETH
-                    </div>
                     {currentBidder !== "0x0000000000000000000000000000000000000000" && (
-                      <div className="text-xs text-gray-500">
-                        <EnsDisplay address={currentBidder as `0x${string}`} />
+                      <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                        by <EnsDisplay address={currentBidder as `0x${string}`} />
                       </div>
                     )}
                   </div>
-                  <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
-                    <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                      {t("minimumNextBid")}
-                    </span>
-                    <div className={`font-bold ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
-                      {Number.parseFloat(minNextBid).toFixed(4)} ETH
-                    </div>
-                  </div>
-                  {auctionCurator && (
-                    <div className={`p-3 rounded-lg ${isDarkMode ? darkBg : "bg-gray-100"}`}>
-                      <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                        {t("curatorOfAuction")}
-                      </span>
-                      <div className={`font-medium text-sm ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
-                        <EnsDisplay address={auctionCurator as `0x${string}`} />
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
+                <div className={`font-bold text-xl ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
+                  {Number.parseFloat(currentBid).toFixed(2)} ETH
+                </div>
+              </div>
+            </div>
 
-            {/* Place Bid Card */}
-            <Card className={isDarkMode ? `${darkCard} ${darkBorder}` : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Gavel className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
-                  <h2 className="font-semibold">{t("placeYourBid")}</h2>
+            {/* Minimum Next Bid */}
+            <div
+              className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${isDarkMode ? "bg-yellow-500/20" : "bg-yellow-100"}`}>
+                    <Gavel className={`h-5 w-5 ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`} />
+                  </div>
+                  <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    {t("minimumNextBid")}
+                  </span>
                 </div>
-                {isConnected ? (
-                  <div className="space-y-3">
-                    <Input
-                      type="number"
-                      placeholder={t("enterBidAmount")}
-                      value={bidAmount}
-                      onChange={(e) => setBidAmount(e.target.value)}
-                      step="0.01"
-                      min={minNextBid}
-                      className={isDarkMode ? `${darkBg} ${darkBorder}` : ""}
-                    />
-                    <Button
-                      onClick={handleBid}
-                      disabled={isPending || isConfirming || !bidAmount}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                    >
-                      {isConfirming ? t("confirmingBid") : isPending ? t("placingBid") : t("placeBid")}
-                    </Button>
-                    {error && <p className="text-red-500 text-sm">{error.message}</p>}
+                <div className={`font-bold text-xl ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
+                  {Number.parseFloat(minNextBid).toFixed(4)} ETH
+                </div>
+              </div>
+            </div>
+
+            {/* Curator (optional) */}
+            {auctionCurator && (
+              <div
+                className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${isDarkMode ? "bg-purple-500/20" : "bg-purple-100"}`}>
+                      <User className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
+                    </div>
+                    <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      {t("curatorOfAuction")}
+                    </span>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3 py-2">
-                    <p className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                      {t("connectWallet")}
-                    </p>
-                    <WalletConnectButton />
+                  <div className={`font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
+                    <EnsDisplay address={auctionCurator as `0x${string}`} />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Bid Input */}
+            <div
+              className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
+            >
+              {isConnected ? (
+                <div className="flex gap-3">
+                  <Input
+                    type="number"
+                    placeholder={t("enterBidAmount")}
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(e.target.value)}
+                    step="0.01"
+                    min={minNextBid}
+                    className={`flex-1 ${isDarkMode ? `${darkBg} ${darkBorder}` : ""}`}
+                  />
+                  <Button
+                    onClick={handleBid}
+                    disabled={isPending || isConfirming || !bidAmount}
+                    className="bg-purple-600 hover:bg-purple-700 px-6"
+                  >
+                    {isConfirming ? t("confirmingBid") : isPending ? t("placingBid") : t("placeBid")}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{t("connectWallet")}</p>
+                  <WalletConnectButton />
+                </div>
+              )}
+              {error && <p className="text-red-500 text-sm mt-2">{error.message}</p>}
+            </div>
 
             {/* Bid History */}
             {bidHistory.length > 0 && (
-              <Card className={isDarkMode ? `${darkCard} ${darkBorder}` : ""}>
-                <CardContent className="p-4">
-                  <h2 className="font-semibold mb-3">{t("bidHistory")}</h2>
-                  <div className="space-y-2">
-                    {bidHistory.slice(0, 5).map((bid, index) => (
-                      <div
-                        key={index}
-                        className={`flex justify-between items-center p-2 rounded text-sm ${isDarkMode ? darkBg : "bg-gray-100"}`}
-                      >
-                        <EnsDisplay address={bid.sender as `0x${string}`} />
-                        <span className="font-mono">{formatEther(bid.value)} ETH</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div
+                className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
+              >
+                <h3 className={`text-sm font-medium mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  {t("bidHistory")}
+                </h3>
+                <div className="space-y-2">
+                  {bidHistory.slice(0, 5).map((bid, index) => (
+                    <div
+                      key={index}
+                      className={`flex justify-between items-center p-2 rounded-lg text-sm ${isDarkMode ? darkBg : "bg-gray-50"}`}
+                    >
+                      <EnsDisplay address={bid.sender as `0x${string}`} />
+                      <span className="font-mono">{formatEther(bid.value)} ETH</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
