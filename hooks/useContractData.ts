@@ -129,10 +129,22 @@ export function useProposalIds(
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
     const fetchProposalIds = async () => {
       try {
+        setError(null)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -149,10 +161,21 @@ export function useProposalIds(
               }
             `,
             }),
+            signal: controller.signal,
           },
         )
 
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`)
+        }
+
         const data = await response.json()
+
+        if (data?.errors) {
+          throw new Error(data.errors[0]?.message || "GraphQL error")
+        }
 
         if (data?.data?.proposals) {
           const allProposals = data.data.proposals
@@ -178,17 +201,22 @@ export function useProposalIds(
           const ids = filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
         }
-      } catch (error) {
-        console.error("Error fetching proposals:", error)
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          setError("Request timed out. Please try again.")
+        } else {
+          setError(err.message || "Failed to fetch proposals")
+        }
+        console.error("Error fetching proposals:", err)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchProposalIds()
-  }, [limit, statusFilter])
+  }, [mounted, limit, statusFilter])
 
-  return { proposalIds, totalCount, isLoading }
+  return { proposalIds, totalCount, isLoading: !mounted || isLoading, error }
 }
 
 export function useProposalData(proposalId: number) {
@@ -533,7 +561,7 @@ export function useCandidateIds(limit = 20) {
     }
   }, [limit, mounted])
 
-  return { candidates, totalCount, isLoading, error }
+  return { candidates, totalCount, isLoading: !mounted || isLoading, error }
 }
 
 export function useCandidateData(candidateId: string) {
