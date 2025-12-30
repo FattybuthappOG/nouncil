@@ -13,7 +13,7 @@ import { useAccount } from "wagmi"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, Clock, ExternalLink, Menu, X, Sun, Moon, Copy, Check, Gavel, ChevronDown } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { EnsDisplay } from "@/components/ens-display"
@@ -23,7 +23,6 @@ import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { parseEther, formatEther } from "ethers"
 
 const NOUNS_AUCTION_ADDRESS = "0x830BD73E4184ceF73443C15111a1DF14e495C706" as const
-const NOUNS_TOKEN_ADDRESS = "0x9C8fF314C9Bc7F6e59A9d9225Fb22946427eDC03" as const
 
 const NOUNS_AUCTION_ABI = [
   {
@@ -101,11 +100,9 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     placingBid: "Placing Bid...",
     connectWallet: "Connect Wallet to Bid",
     bidHistory: "Bid History",
-    noBidsYet: "No bids yet. Be the first!",
     curatorOfAuction: "Curator of auction",
     learnNouns: "Learn about Nouns",
     togaPfp: "Toga PFP generator",
-    treasury: "Treasury",
     discord: "Join our Discord",
   },
   zh: {
@@ -122,11 +119,9 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     placingBid: "出价中...",
     connectWallet: "连接钱包出价",
     bidHistory: "出价历史",
-    noBidsYet: "暂无出价。成为第一个！",
     curatorOfAuction: "拍卖策展人",
     learnNouns: "了解 Nouns",
     togaPfp: "Toga PFP 生成器",
-    treasury: "国库",
     discord: "加入我们的 Discord",
   },
   es: {
@@ -143,11 +138,9 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     placingBid: "Ofertando...",
     connectWallet: "Conecta tu wallet para dar lance",
     bidHistory: "Historial de ofertas",
-    noBidsYet: "Sin ofertas aún. ¡Sé el primero!",
     curatorOfAuction: "Curador de la subasta",
     learnNouns: "Aprende sobre Nouns",
     togaPfp: "Generador Toga PFP",
-    treasury: "Tesorería",
     discord: "Únete a nuestro Discord",
   },
   pt: {
@@ -164,11 +157,9 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     placingBid: "Dando lance...",
     connectWallet: "Conecte sua carteira para dar lance",
     bidHistory: "Histórico de lances",
-    noBidsYet: "Sem lances ainda. Seja o primeiro!",
     curatorOfAuction: "Curador do leilão",
     learnNouns: "Aprenda sobre Nouns",
     togaPfp: "Gerador Toga PFP",
-    treasury: "Tesouro",
     discord: "Junte-se ao nosso Discord",
   },
   ja: {
@@ -185,11 +176,9 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     placingBid: "入札中...",
     connectWallet: "入札するにはウォレットを接続",
     bidHistory: "入札履歴",
-    noBidsYet: "まだ入札がありません。最初になりましょう！",
     curatorOfAuction: "オークションキュレーター",
     learnNouns: "Nounsについて学ぶ",
     togaPfp: "Toga PFPジェネレーター",
-    treasury: "財務",
     discord: "Discordに参加",
   },
 }
@@ -204,30 +193,16 @@ export default function AuctionContent() {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-[#1a1a2e] text-white">
-        <div className="sticky top-0 z-50 backdrop-blur-md bg-[#1a1a2e]/90 border-b border-gray-800">
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3 text-gray-300 hover:text-white transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Back to Nouncil</span>
-            </Link>
-          </div>
+        <div className="max-w-4xl mx-auto px-4 py-3">
+          <Link href="/" className="flex items-center gap-3 text-gray-300">
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Nouncil</span>
+          </Link>
         </div>
-        <main className="max-w-4xl mx-auto p-4 pb-24">
+        <main className="max-w-4xl mx-auto p-4">
           <div className="flex flex-col items-center mb-8">
             <div className="w-full max-w-md aspect-square rounded-2xl bg-gray-800 animate-pulse mb-4" />
-            <div className="h-10 w-48 bg-gray-800 rounded animate-pulse" />
           </div>
-          <Card className="bg-[#252540] border-gray-700 mb-6">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Loading Auction...
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-6 w-32 bg-gray-700 rounded animate-pulse" />
-            </CardContent>
-          </Card>
         </main>
       </div>
     )
@@ -238,21 +213,14 @@ export default function AuctionContent() {
 
 function AuctionContentInner() {
   const [mounted, setMounted] = useState(false)
-
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const { address, isConnected } = useAccount()
+  const { isConnected } = useAccount()
   const [bidAmount, setBidAmount] = useState("")
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [bidHistory, setBidHistory] = useState<Array<{ sender: string; value: bigint; timestamp: number }>>([])
-  const [previousSettlement, setPreviousSettlement] = useState<{
-    winner: string
-    amount: bigint
-    settler: string
-    nounId: number
-  } | null>(null)
   const [auctionCurator, setAuctionCurator] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
@@ -306,14 +274,7 @@ function AuctionContentInner() {
     onLogs(logs) {
       logs.forEach((log: any) => {
         if (log.args.nounId === auctionData?.[0]) {
-          setBidHistory((prev) => [
-            {
-              sender: log.args.sender,
-              value: log.args.value,
-              timestamp: Date.now(),
-            },
-            ...prev,
-          ])
+          setBidHistory((prev) => [{ sender: log.args.sender, value: log.args.value, timestamp: Date.now() }, ...prev])
         }
       })
     },
@@ -327,24 +288,13 @@ function AuctionContentInner() {
     onLogs(logs) {
       logs.forEach(async (log: any) => {
         const currentNounId = auctionData?.[0] ? Number(auctionData[0]) : null
-
         if (log.args.nounId && currentNounId && Number(log.args.nounId) === currentNounId - 1) {
           if (publicClient && log.transactionHash) {
             try {
-              const tx = await publicClient.getTransaction({
-                hash: log.transactionHash,
-              })
-
-              setPreviousSettlement({
-                winner: log.args.winner,
-                amount: log.args.amount,
-                settler: tx.from,
-                nounId: Number(log.args.nounId),
-              })
-
+              const tx = await publicClient.getTransaction({ hash: log.transactionHash })
               setAuctionCurator(tx.from)
-            } catch (error) {
-              console.error("Error fetching settlement transaction:", error)
+            } catch (e) {
+              console.error(e)
             }
           }
         }
@@ -356,43 +306,31 @@ function AuctionContentInner() {
 
   useEffect(() => {
     const savedDarkMode = localStorage.getItem("nouncil-dark-mode")
-    if (savedDarkMode !== null) {
-      setIsDarkMode(savedDarkMode === "true")
-    }
+    if (savedDarkMode !== null) setIsDarkMode(savedDarkMode === "true")
     const savedLanguage = localStorage.getItem("nouns-language") as LanguageCode
-    if (savedLanguage && translations[savedLanguage]) {
-      setSelectedLanguage(savedLanguage)
-    }
+    if (savedLanguage && translations[savedLanguage]) setSelectedLanguage(savedLanguage)
   }, [])
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-    }
+    if (isDarkMode) document.documentElement.classList.add("dark")
+    else document.documentElement.classList.remove("dark")
   }, [isDarkMode])
 
   useEffect(() => {
     if (!auctionData) return
     const endTime = Number(auctionData[3]) * 1000
-
     const updateTimer = () => {
-      const now = Date.now()
-      const diff = endTime - now
-
+      const diff = endTime - Date.now()
       if (diff <= 0) {
         setTimeLeft({ hours: 0, minutes: 0, seconds: 0 })
         return
       }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-
-      setTimeLeft({ hours, minutes, seconds })
+      setTimeLeft({
+        hours: Math.floor(diff / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      })
     }
-
     updateTimer()
     const interval = setInterval(updateTimer, 1000)
     return () => clearInterval(interval)
@@ -407,21 +345,16 @@ function AuctionContentInner() {
 
   useEffect(() => {
     if (!auctionData?.[0]) return
-
     try {
-      const previousNounId = Number(auctionData[0]) - 1
-      const result = fetchAuctionCurator(previousNounId)
-      if (result.curator) {
-        setAuctionCurator(result.curator)
-      }
-    } catch (error) {
-      console.error("Error fetching curator:", error)
+      const result = fetchAuctionCurator(Number(auctionData[0]) - 1)
+      if (result.curator) setAuctionCurator(result.curator)
+    } catch (e) {
+      console.error(e)
     }
   }, [auctionData])
 
   const handleBid = async () => {
     if (!bidAmount || !auctionData) return
-
     try {
       writeContract({
         address: NOUNS_AUCTION_ADDRESS,
@@ -431,14 +364,13 @@ function AuctionContentInner() {
         value: parseEther(bidAmount),
       })
     } catch (err) {
-      console.error("Bid error:", err)
+      console.error(err)
     }
   }
 
   const nounId = auctionData?.[0] ? Number(auctionData[0]) : 0
   const currentBid = auctionData?.[1] ? formatEther(auctionData[1]) : "0"
   const currentBidder = auctionData?.[4] || "0x0000000000000000000000000000000000000000"
-
   const minNextBid =
     auctionData?.[1] && minBidIncrement
       ? formatEther(auctionData[1] + (auctionData[1] * BigInt(minBidIncrement)) / BigInt(100))
@@ -451,7 +383,6 @@ function AuctionContentInner() {
     setCopyFeedback(true)
     setTimeout(() => setCopyFeedback(false), 2000)
   }
-
   const handleLanguageChange = (lang: LanguageCode) => {
     setSelectedLanguage(lang)
     localStorage.setItem("nouns-language", lang)
@@ -460,23 +391,20 @@ function AuctionContentInner() {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"}`}>
-      <div className="max-w-md mx-auto px-4 py-6">
+      <div className="w-full max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <Link href="/" className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-2 text-sm hover:opacity-80">
             <ArrowLeft className="h-4 w-4" />
             {t("backToNouncil")}
           </Link>
-
-          <Link href="/" className="flex items-center">
+          <Link href="/">
             <Image src="/images/nouncil-logo.webp" alt="Nouncil" width={40} height={40} className="rounded-full" />
           </Link>
-
           <div className="flex items-center gap-2">
             <span className={`text-sm font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
               {t("nounsAuction")}
             </span>
             <Gavel className={`h-4 w-4 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
-
             <div className="relative ml-2">
               <button
                 onClick={() => setShowMenu(!showMenu)}
@@ -484,14 +412,12 @@ function AuctionContentInner() {
               >
                 {showMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
-
               {showMenu && (
                 <div
                   className={`absolute right-0 top-12 w-56 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
                 >
                   <div className="p-2 space-y-1">
                     <TreasuryDropdown isDarkMode={isDarkMode} balance={balance} />
-
                     <a
                       href="https://nouns.wtf"
                       target="_blank"
@@ -501,7 +427,6 @@ function AuctionContentInner() {
                       <ExternalLink className="h-4 w-4" />
                       {t("learnNouns")}
                     </a>
-
                     <a
                       href="https://toga.nounswap.wtf"
                       target="_blank"
@@ -511,7 +436,6 @@ function AuctionContentInner() {
                       <ExternalLink className="h-4 w-4" />
                       {t("togaPfp")}
                     </a>
-
                     <button
                       onClick={copyNoggle}
                       className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
@@ -519,11 +443,10 @@ function AuctionContentInner() {
                       {copyFeedback ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                       {copyFeedback ? "Copied!" : "⌐◨-◨"}
                     </button>
-
                     <div className="relative">
                       <button
                         onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                        className={`flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                        className={`flex items-center justify-between px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
                       >
                         <span>
                           {selectedLanguage === "en"
@@ -564,7 +487,6 @@ function AuctionContentInner() {
                         </div>
                       )}
                     </div>
-
                     <a
                       href="https://discord.gg/nouncil"
                       target="_blank"
@@ -574,7 +496,6 @@ function AuctionContentInner() {
                       <ExternalLink className="h-4 w-4" />
                       {t("discord")}
                     </a>
-
                     <button
                       onClick={() => setIsDarkMode(!isDarkMode)}
                       className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
@@ -589,16 +510,15 @@ function AuctionContentInner() {
           </div>
         </div>
 
-        <div className="flex flex-col landscape:flex-row landscape:gap-8 lg:flex-row lg:gap-8">
-          <div className="order-2 landscape:order-1 lg:order-1 flex-1 space-y-6">
-            <Card className={`${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
+        <div className="flex flex-col lg:flex-row lg:items-start lg:gap-12 landscape:flex-row landscape:items-start landscape:gap-8 lg:min-h-[calc(100vh-120px)]">
+          <div className="order-2 landscape:order-1 lg:order-1 flex-1 max-w-xl space-y-4 lg:space-y-6">
+            <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
                   <h2 className="font-semibold">{t("auctionStatus")}</h2>
                 </div>
-
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   <div
                     className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
                   >
@@ -607,7 +527,6 @@ function AuctionContentInner() {
                       {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
                     </span>
                   </div>
-
                   <div
                     className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
                   >
@@ -623,7 +542,6 @@ function AuctionContentInner() {
                       )}
                     </div>
                   </div>
-
                   <div
                     className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
                   >
@@ -632,7 +550,6 @@ function AuctionContentInner() {
                       {Number.parseFloat(minNextBid).toFixed(4)} ETH
                     </span>
                   </div>
-
                   {auctionCurator && (
                     <div
                       className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
@@ -647,13 +564,12 @@ function AuctionContentInner() {
               </CardContent>
             </Card>
 
-            <Card className={`${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
+            <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Gavel className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
                   <h2 className="font-semibold">{t("placeYourBid")}</h2>
                 </div>
-
                 {isConnected ? (
                   <div className="space-y-4">
                     <Input
@@ -705,20 +621,20 @@ function AuctionContentInner() {
             )}
           </div>
 
-          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center mb-6 landscape:mb-0 lg:mb-0 landscape:sticky landscape:top-24 lg:sticky lg:top-24 landscape:self-start lg:self-start">
+          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center mb-6 landscape:mb-0 lg:mb-0 lg:sticky lg:top-6 lg:self-start landscape:sticky landscape:top-6 landscape:self-start lg:flex-1">
             <div
-              className={`w-full aspect-square max-w-[280px] landscape:max-w-[400px] lg:max-w-[400px] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
+              className={`w-full aspect-square max-w-[280px] landscape:max-w-[350px] lg:max-w-none lg:w-full lg:max-h-[70vh] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
             >
               <Image
                 src={`https://noun.pics/${nounId}`}
                 alt={`Noun ${nounId}`}
-                width={400}
-                height={400}
-                className="w-full h-full object-cover"
+                width={600}
+                height={600}
+                className="w-full h-full object-contain"
                 priority
               />
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold mt-4">Noun {nounId}</h1>
+            <h1 className="text-2xl lg:text-4xl font-bold mt-4">Noun {nounId}</h1>
           </div>
         </div>
       </div>
