@@ -532,9 +532,9 @@ function AuctionContentInner() {
         </div>
 
         {/* Main Content - Desktop: side by side, Mobile: stacked */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 landscape:grid-cols-2 gap-4 lg:gap-8 landscape:gap-6 min-h-[calc(100vh-100px)]">
+        <div className="flex flex-col lg:flex-row landscape:flex-row gap-4 lg:gap-8 landscape:gap-6 lg:items-stretch landscape:items-stretch">
           {/* Left side - Auction info */}
-          <div className="order-2 landscape:order-1 lg:order-1 flex flex-col gap-3 lg:gap-4 justify-center">
+          <div className="order-2 landscape:order-1 lg:order-1 flex flex-col gap-3 lg:gap-4 justify-center lg:w-1/2 landscape:w-1/2 flex-shrink-0">
             {/* Time Remaining */}
             <div
               className={`p-4 rounded-xl ${isDarkMode ? darkCard + " " + darkBorder : "bg-white border border-gray-200"}`}
@@ -568,7 +568,6 @@ function AuctionContentInner() {
                   <div className={`p-2 rounded-lg ${isDarkMode ? "bg-green-500/20" : "bg-green-100"}`}>
                     <TrendingUp className={`h-5 w-5 ${isDarkMode ? "text-green-400" : "text-green-600"}`} />
                   </div>
-                  {/* Desktop: all inline */}
                   <div className="hidden lg:flex landscape:flex items-center gap-1.5">
                     <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                       {t("currentBid")}
@@ -576,28 +575,39 @@ function AuctionContentInner() {
                     {currentBidder !== "0x0000000000000000000000000000000000000000" && (
                       <>
                         <span className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>by</span>
-                        <EnsDisplay
-                          address={currentBidder as `0x${string}`}
-                          className={`text-sm ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}
-                        />
+                        <a
+                          href={`https://etherscan.io/address/${currentBidder}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`text-sm hover:underline ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}
+                        >
+                          <EnsDisplay
+                            address={currentBidder as `0x${string}`}
+                            disableLink
+                            className={`${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}
+                          />
+                        </a>
                       </>
                     )}
                   </div>
-                  {/* Mobile: stacked */}
                   <div className="flex flex-col lg:hidden landscape:hidden">
                     <span className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                       {t("currentBid")}
                     </span>
                     {currentBidder !== "0x0000000000000000000000000000000000000000" && (
-                      <span
-                        className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"} flex items-center gap-1`}
+                      <a
+                        href={`https://etherscan.io/address/${currentBidder}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`text-xs flex items-center gap-1 hover:underline ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
                       >
                         by{" "}
                         <EnsDisplay
                           address={currentBidder as `0x${string}`}
+                          disableLink
                           className={`${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}
                         />
-                      </span>
+                      </a>
                     )}
                   </div>
                 </div>
@@ -703,9 +713,9 @@ function AuctionContentInner() {
           </div>
 
           {/* Right side - Noun artwork */}
-          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center justify-center mb-4 landscape:mb-0 lg:mb-0">
+          <div className="order-1 landscape:order-2 lg:order-2 flex flex-col items-center justify-center mb-4 landscape:mb-0 lg:mb-0 lg:w-1/2 landscape:w-1/2 lg:flex-1">
             <div
-              className={`w-full max-w-[280px] landscape:max-w-full lg:max-w-full aspect-square landscape:aspect-auto lg:aspect-auto landscape:h-[60vh] lg:h-[calc(100vh-180px)] rounded-2xl overflow-hidden ${isDarkMode ? darkCard : "bg-gray-100"} flex items-center justify-center`}
+              className={`w-full max-w-[280px] lg:max-w-none landscape:max-w-none lg:w-full landscape:w-full aspect-square lg:aspect-auto landscape:aspect-auto lg:flex-1 landscape:flex-1 rounded-2xl overflow-hidden ${isDarkMode ? darkCard : "bg-gray-100"} flex items-center justify-center`}
             >
               <Image
                 src={`https://noun.pics/${nounId}`}
