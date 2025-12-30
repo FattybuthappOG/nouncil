@@ -287,7 +287,7 @@ export function useProposalData(proposalId: number) {
     fetchCurrentBlock()
     const interval = setInterval(fetchCurrentBlock, 30000) // Update every 30 seconds (reduced frequency)
     return () => clearInterval(interval)
-  }, [])
+  }, [mounted])
 
   useEffect(() => {
     if (!mounted) return
@@ -353,18 +353,8 @@ export function useProposalData(proposalId: number) {
           const safeForVotes = proposal.forVotes ? BigInt(proposal.forVotes) : BigInt(0)
           const safeAgainstVotes = proposal.againstVotes ? BigInt(proposal.againstVotes) : BigInt(0)
           const safeAbstainVotes = proposal.abstainVotes ? BigInt(proposal.abstainVotes) : BigInt(0)
-          // Dynamic quorum in Nouns ranges from ~72 (min) to ~180 (max) depending on against votes
           const safeQuorum =
-            proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? BigInt(proposal.quorumVotes) : BigInt(72) // Use min quorum as fallback instead of arbitrary 200
-
-          console.log("[v0] Proposal quorum data:", {
-            proposalId,
-            quorumVotes: proposal.quorumVotes,
-            safeQuorum: safeQuorum.toString(),
-            forVotes: safeForVotes.toString(),
-            againstVotes: safeAgainstVotes.toString(),
-            abstainVotes: safeAbstainVotes.toString(),
-          })
+            proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? BigInt(proposal.quorumVotes) : BigInt(72)
 
           setProposalData({
             id: proposalId,
@@ -397,7 +387,7 @@ export function useProposalData(proposalId: number) {
     }
 
     fetchProposalFromAPI()
-  }, [proposalId, stateData])
+  }, [proposalId, stateData, mounted])
 
   return { ...proposalData, currentBlock }
 }

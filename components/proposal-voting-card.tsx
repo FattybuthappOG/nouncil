@@ -65,9 +65,14 @@ function ProposalVotingCardContent({
   proposalData,
   statusFilter = "all",
 }: ProposalVotingCardProps) {
+  const [mounted, setMounted] = useState(false)
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const { isConnected } = useAccount()
   const proposal = useProposalData(proposalId)
@@ -77,8 +82,9 @@ function ProposalVotingCardContent({
 
   const { data: currentBlockData, isError: blockError } = useBlockNumber({
     watch: true,
-    cacheTime: 10_000,
     query: {
+      enabled: mounted,
+      staleTime: 10_000,
       retry: false,
       refetchOnWindowFocus: false,
     },
@@ -142,12 +148,11 @@ function ProposalVotingCardContent({
     })
   }
 
-  const forNouns = Number(proposal.forVotes)
-  const againstNouns = Number(proposal.againstVotes)
-  const abstainNouns = Number(proposal.abstainVotes)
-  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 72
-  const totalVotes = forNouns + againstNouns + abstainNouns
-  const quorumMet = totalVotes >= quorumNeeded
+  const forNouns = Number(proposal.forVotes || 0)
+  const againstNouns = Number(proposal.againstVotes || 0)
+  const abstainNouns = Number(proposal.abstainVotes || 0)
+  const quorumNeeded = Number(proposal.quorum || 0) > 0 ? Number(proposal.quorum) : 72
+  const quorumMet = forNouns >= quorumNeeded
 
   return (
     <Card
@@ -229,7 +234,7 @@ function ProposalVotingCardContent({
         </div>
 
         <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
+          Quorum: {forNouns} / {quorumNeeded} FOR votes {quorumMet ? "✓" : ""}
         </div>
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>
