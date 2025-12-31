@@ -607,9 +607,9 @@ function AuctionContentInner() {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-stretch md:gap-8">
+        <div className="flex flex-col md:flex-row md:items-stretch md:gap-8 md:h-[calc(100vh-120px)]">
           {/* Left column - Auction stats */}
-          <div className="flex flex-col gap-3 md:w-1/2 order-2 md:order-1">
+          <div className="flex flex-col gap-3 md:w-1/2 order-2 md:order-1 md:justify-center">
             {/* Time Remaining */}
             <div
               className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
@@ -728,9 +728,9 @@ function AuctionContentInner() {
           </div>
 
           {/* Right column - Noun artwork */}
-          <div className="flex flex-col items-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0">
+          <div className="flex flex-col items-center justify-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0">
             <div
-              className={`w-full aspect-square max-w-[320px] md:max-w-none md:h-full rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
+              className={`w-full aspect-square max-w-[320px] md:max-w-[500px] md:max-h-[calc(100vh-200px)] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
             >
               {nounId !== null ? (
                 <Image
