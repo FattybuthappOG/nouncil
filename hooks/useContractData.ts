@@ -151,7 +151,6 @@ export function useProposalIds(
                 proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
                   id
                   status
-                  objectionPeriodEndBlock
                 }
               }
             `,
@@ -168,22 +167,31 @@ export function useProposalIds(
         if (data?.data?.proposals) {
           const allProposals = data.data.proposals
 
+          const uniqueStatuses = [...new Set(allProposals.map((p: any) => p.status))]
+          console.log("[v0] Unique proposal statuses from subgraph:", uniqueStatuses)
+          console.log(
+            "[v0] Sample proposals:",
+            allProposals.slice(0, 5).map((p: any) => ({ id: p.id, status: p.status })),
+          )
+
           let filtered = allProposals
           if (statusFilter === "active") {
-            filtered = allProposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING")
+            // Active proposals are those currently in voting period
+            filtered = allProposals.filter(
+              (p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "OBJECTION_PERIOD",
+            )
           } else if (statusFilter === "executed") {
             filtered = allProposals.filter((p: any) => p.status === "EXECUTED")
           } else if (statusFilter === "defeated") {
+            // Defeated proposals failed to pass
             filtered = allProposals.filter(
-              (p: any) =>
-                p.status === "CANCELLED" && p.objectionPeriodEndBlock && Number(p.objectionPeriodEndBlock) > 0,
+              (p: any) => p.status === "DEFEATED" || p.status === "VETOED" || p.status === "EXPIRED",
             )
           } else if (statusFilter === "canceled") {
-            filtered = allProposals.filter(
-              (p: any) =>
-                p.status === "CANCELLED" && (!p.objectionPeriodEndBlock || Number(p.objectionPeriodEndBlock) === 0),
-            )
+            filtered = allProposals.filter((p: any) => p.status === "CANCELLED")
           }
+
+          console.log("[v0] Filter:", statusFilter, "Found:", filtered.length, "proposals")
 
           setTotalCount(filtered.length)
           const ids = filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id))
