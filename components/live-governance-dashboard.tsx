@@ -367,7 +367,6 @@ type SearchResult = { id: string; description?: string; slug?: string; latestVer
 
 export default function LiveGovernanceDashboard() {
   const [mounted, setMounted] = useState(false)
-  const router = useRouter()
 
   useEffect(() => {
     setMounted(true)
@@ -390,9 +389,14 @@ export default function LiveGovernanceDashboard() {
 
 function LiveGovernanceDashboardContent() {
   const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const router = useRouter()
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [showMenu, setShowMenu] = useState(false)
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<"proposals" | "candidates">("proposals")
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
@@ -403,16 +407,9 @@ function LiveGovernanceDashboardContent() {
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState(false)
 
-  const accountData = useAccount()
-  const address = mounted ? accountData.address : undefined
-  const isConnected = mounted ? accountData.isConnected : false
-
-  const disconnectHook = useDisconnect()
-  const disconnect = mounted ? disconnectHook.disconnect : () => {}
-
-  const connectHook = useConnect()
-  const connectors = mounted ? connectHook.connectors : []
-  const connect = mounted ? connectHook.connect : () => {}
+  const { address, isConnected } = useAccount()
+  const { disconnect } = useDisconnect()
+  const { connectors, connect } = useConnect()
 
   const { data: balanceData } = useBalance({
     address: "0x0BC3807Ec262cB779b38D65b38158acC3bfedE10",
@@ -964,12 +961,13 @@ function LiveGovernanceDashboardContent() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {safeCandidates.map((candidate, index) => (
+                    {safeCandidates.map((candidate) => (
                       <CandidateCard
                         key={candidate.id}
-                        candidateId={String(totalCandidates - index)}
-                        candidateNumber={totalCandidates - index}
+                        candidateId={candidate.id}
+                        candidateNumber={candidate.candidateNumber}
                         isDarkMode={isDarkMode}
+                        candidateData={candidate}
                       />
                     ))}
                   </div>
@@ -983,7 +981,7 @@ function LiveGovernanceDashboardContent() {
                             : "bg-blue-500 hover:bg-blue-600 text-white"
                         }`}
                       >
-                        {t("loadMore")}
+                        {t("loadMore")} (20 more)
                       </button>
                     </div>
                   )}

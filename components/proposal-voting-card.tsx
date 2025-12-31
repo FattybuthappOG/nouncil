@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ThumbsUp, ThumbsDown, Minus, Clock, Check } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
 import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
@@ -65,14 +65,9 @@ function ProposalVotingCardContent({
   proposalData,
   statusFilter = "all",
 }: ProposalVotingCardProps) {
-  const [mounted, setMounted] = useState(false)
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const { isConnected } = useAccount()
   const proposal = useProposalData(proposalId)
@@ -82,9 +77,8 @@ function ProposalVotingCardContent({
 
   const { data: currentBlockData, isError: blockError } = useBlockNumber({
     watch: true,
+    cacheTime: 10_000,
     query: {
-      enabled: mounted,
-      staleTime: 10_000,
       retry: false,
       refetchOnWindowFocus: false,
     },
@@ -148,12 +142,12 @@ function ProposalVotingCardContent({
     })
   }
 
-  const forNouns = Number(proposal.forVotes || 0)
-  const againstNouns = Number(proposal.againstVotes || 0)
-  const abstainNouns = Number(proposal.abstainVotes || 0)
-  const baseQuorum = Number(proposal.quorum || 0) > 0 ? Number(proposal.quorum) : 72
-  const quorumNeeded = baseQuorum
-  const quorumMet = forNouns >= quorumNeeded
+  const forNouns = Number(proposal.forVotes)
+  const againstNouns = Number(proposal.againstVotes)
+  const abstainNouns = Number(proposal.abstainVotes)
+  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 72
+  const totalVotes = forNouns + againstNouns + abstainNouns
+  const quorumMet = totalVotes >= quorumNeeded
 
   return (
     <Card
@@ -234,11 +228,8 @@ function ProposalVotingCardContent({
           </div>
         </div>
 
-        <div
-          className={`flex items-center justify-center gap-2 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-        >
-          <span>Quorum: {quorumNeeded}</span>
-          {quorumMet && <Check className="w-4 h-4 text-green-500" />}
+        <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+          Quorum: {quorumNeeded} {quorumMet ? "✓" : ""}
         </div>
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>
