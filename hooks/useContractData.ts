@@ -167,6 +167,10 @@ export function useProposalIds(
         if (data?.data?.proposals) {
           const allProposals = data.data.proposals
 
+          const uniqueStatuses = [...new Set(allProposals.map((p: any) => p.status))]
+          console.log("[v0] All unique proposal statuses from subgraph:", uniqueStatuses)
+          console.log("[v0] Current filter:", statusFilter)
+
           let filtered = allProposals
           if (statusFilter === "active") {
             filtered = allProposals.filter(
@@ -175,13 +179,16 @@ export function useProposalIds(
           } else if (statusFilter === "executed") {
             filtered = allProposals.filter((p: any) => p.status === "EXECUTED")
           } else if (statusFilter === "defeated") {
-            filtered = allProposals.filter((p: any) => p.status === "DEFEATED" || p.status === "EXPIRED")
+            const defeatedProposals = allProposals.filter((p: any) => p.status === "DEFEATED" || p.status === "EXPIRED")
+            console.log("[v0] Defeated proposals found:", defeatedProposals.length, defeatedProposals.slice(0, 5))
+            filtered = defeatedProposals
           } else if (statusFilter === "vetoed") {
             filtered = allProposals.filter((p: any) => p.status === "VETOED")
           } else if (statusFilter === "canceled") {
             filtered = allProposals.filter((p: any) => p.status === "CANCELLED")
           }
 
+          console.log("[v0] Filtered proposals count:", filtered.length)
           setTotalCount(filtered.length)
           const ids = filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
