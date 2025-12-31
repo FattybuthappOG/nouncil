@@ -229,7 +229,7 @@ function ProposalVotingCardContent({
         </div>
 
         <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Quorum: {quorumNeeded} {quorumMet ? "✓" : ""}
+          Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
         </div>
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>

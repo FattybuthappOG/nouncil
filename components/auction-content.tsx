@@ -8,26 +8,11 @@ import {
   useWatchContractEvent,
   useBalance,
   usePublicClient,
-  useConnect,
 } from "wagmi"
 import { useAccount } from "wagmi"
 import Image from "next/image"
 import Link from "next/link"
-import {
-  ArrowLeft,
-  Clock,
-  ExternalLink,
-  Menu,
-  X,
-  Sun,
-  Moon,
-  Copy,
-  Check,
-  Gavel,
-  ChevronDown,
-  TrendingUp,
-  User,
-} from "lucide-react"
+import { ArrowLeft, Clock, ExternalLink, Menu, X, Sun, Moon, Copy, Check, Gavel, ChevronDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -103,6 +88,7 @@ type LanguageCode = "en" | "zh" | "es" | "pt" | "ja"
 const translations: Record<LanguageCode, Record<string, string>> = {
   en: {
     backToNouncil: "Back to Nouncil",
+    nounsAuction: "Nouns Auction",
     auctionStatus: "Auction Status",
     timeRemaining: "Time Remaining",
     currentBid: "Current Bid",
@@ -115,16 +101,15 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     connectWallet: "Connect Wallet to Bid",
     bidHistory: "Bid History",
     noBidsYet: "No bids yet. Be the first!",
-    curatorOfAuction: "Curator of Auction",
+    curatorOfAuction: "Curator of auction",
     learnNouns: "Learn about Nouns",
     togaPfp: "Toga PFP generator",
     treasury: "Treasury",
     discord: "Join our Discord",
-    bidSuccessful: "Your bid was successful!",
-    connectWalletToBid: "Connect Wallet to Bid",
   },
   zh: {
     backToNouncil: "返回 Nouncil",
+    nounsAuction: "Nouns 拍卖",
     auctionStatus: "拍卖状态",
     timeRemaining: "剩余时间",
     currentBid: "当前出价",
@@ -142,33 +127,31 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     togaPfp: "Toga PFP 生成器",
     treasury: "国库",
     discord: "加入我们的 Discord",
-    bidSuccessful: "您的出价成功！",
-    connectWalletToBid: "连接钱包出价",
   },
   es: {
     backToNouncil: "Volver a Nouncil",
+    nounsAuction: "Subasta de Nouns",
     auctionStatus: "Estado de la subasta",
     timeRemaining: "Tiempo restante",
     currentBid: "Oferta actual",
-    minimumNextBid: "Próximo lance mínimo",
+    minimumNextBid: "Próxima oferta mínima",
     placeYourBid: "Haz tu oferta",
-    enterBidAmount: "Ingresa el valor en ETH",
+    enterBidAmount: "Ingresa el monto en ETH",
     placeBid: "Dar lance",
     confirmingBid: "Confirmando...",
-    placingBid: "Dando lance...",
+    placingBid: "Ofertando...",
     connectWallet: "Conecta tu wallet para dar lance",
-    bidHistory: "Histórico de lances",
-    noBidsYet: "Sin lances aún. ¡Sé el primero!",
-    curatorOfAuction: "Curador del leilão",
+    bidHistory: "Historial de ofertas",
+    noBidsYet: "Sin ofertas aún. ¡Sé el primero!",
+    curatorOfAuction: "Curador de la subasta",
     learnNouns: "Aprende sobre Nouns",
     togaPfp: "Generador Toga PFP",
     treasury: "Tesorería",
     discord: "Únete a nuestro Discord",
-    bidSuccessful: "Tu oferta fue exitosa!",
-    connectWalletToBid: "Conecta tu wallet para dar lance",
   },
   pt: {
     backToNouncil: "Voltar para Nouncil",
+    nounsAuction: "Leilão Nouns",
     auctionStatus: "Status do leilão",
     timeRemaining: "Tempo restante",
     currentBid: "Lance atual",
@@ -186,11 +169,10 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     togaPfp: "Gerador Toga PFP",
     treasury: "Tesouro",
     discord: "Junte-se ao nosso Discord",
-    bidSuccessful: "Seu lance foi bem-sucedido!",
-    connectWalletToBid: "Conecte sua carteira para dar lance",
   },
   ja: {
     backToNouncil: "Nouncilに戻る",
+    nounsAuction: "Nounsオークション",
     auctionStatus: "オークション状況",
     timeRemaining: "残り時間",
     currentBid: "現在の入札",
@@ -208,8 +190,6 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     togaPfp: "Toga PFPジェネレーター",
     treasury: "財務",
     discord: "Discordに参加",
-    bidSuccessful: "あなたの入札が成功しました！",
-    connectWalletToBid: "ウォレットを接続して入札",
   },
 }
 
@@ -257,7 +237,6 @@ export default function AuctionContent() {
 
 function AuctionContentInner() {
   const { address, isConnected } = useAccount()
-  const { connectors, connect } = useConnect()
   const [bidAmount, setBidAmount] = useState("")
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [bidHistory, setBidHistory] = useState<Array<{ sender: string; value: bigint; timestamp: number }>>([])
@@ -268,13 +247,11 @@ function AuctionContentInner() {
     nounId: number
   } | null>(null)
   const [auctionCurator, setAuctionCurator] = useState<string | null>(null)
-  const [curatorLoading, setCuratorLoading] = useState(true)
   const [showMenu, setShowMenu] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState(false)
-  const [isConfirmed, setIsConfirmed] = useState(false)
 
   const { data: balanceData } = useBalance({
     address: "0x0BC3807Ec262cB779b38D65b38158acC3bfedE10",
@@ -418,30 +395,21 @@ function AuctionContentInner() {
     if (isSuccess) {
       refetchAuction()
       setBidAmount("")
-      setIsConfirmed(true)
-      setTimeout(() => setIsConfirmed(false), 3000)
     }
   }, [isSuccess, refetchAuction])
 
   useEffect(() => {
     if (!auctionData?.[0]) return
 
-    const fetchCurator = async () => {
-      setCuratorLoading(true)
-      try {
-        const settledNounId = Number(auctionData[0]) - 1
-        const result = await fetchAuctionCurator(settledNounId)
-        if (result.curator) {
-          setAuctionCurator(result.curator)
-        }
-      } catch (error) {
-        console.error("Error fetching curator:", error)
-      } finally {
-        setCuratorLoading(false)
+    try {
+      const previousNounId = Number(auctionData[0]) - 1
+      const result = fetchAuctionCurator(previousNounId)
+      if (result.curator) {
+        setAuctionCurator(result.curator)
       }
+    } catch (error) {
+      console.error("Error fetching curator:", error)
     }
-
-    fetchCurator()
   }, [auctionData])
 
   const handleBid = async () => {
@@ -460,9 +428,9 @@ function AuctionContentInner() {
     }
   }
 
-  const nounId = auctionData?.[0] !== undefined ? Number(auctionData[0]) : null
-  const currentBid = auctionData ? formatEther(auctionData[1]) : "0"
-  const currentBidder = auctionData ? auctionData[4] : "0x0000000000000000000000000000000000000000"
+  const nounId = auctionData?.[0] ? Number(auctionData[0]) : 0
+  const currentBid = auctionData?.[1] ? formatEther(auctionData[1]) : "0"
+  const currentBidder = auctionData?.[4] || "0x0000000000000000000000000000000000000000"
 
   const minNextBid =
     auctionData?.[1] && minBidIncrement
@@ -485,7 +453,7 @@ function AuctionContentInner() {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"}`}>
-      <div className="w-full max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-md mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
           <Link href="/" className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity">
             <ArrowLeft className="h-4 w-4" />
@@ -496,265 +464,249 @@ function AuctionContentInner() {
             <Image src="/images/nouncil-logo.webp" alt="Nouncil" width={40} height={40} className="rounded-full" />
           </Link>
 
-          <div className="relative ml-2">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-[#252540]" : "hover:bg-gray-100"}`}
-            >
-              {showMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
+              {t("nounsAuction")}
+            </span>
+            <Gavel className={`h-4 w-4 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
 
-            {showMenu && (
-              <div
-                className={`absolute right-0 top-12 w-56 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+            <div className="relative ml-2">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-[#252540]" : "hover:bg-gray-100"}`}
               >
-                <div className="p-2 space-y-1">
-                  <TreasuryDropdown isDarkMode={isDarkMode} balance={balance} />
+                {showMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
 
-                  <a
-                    href="https://nouns.wtf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {t("learnNouns")}
-                  </a>
+              {showMenu && (
+                <div
+                  className={`absolute right-0 top-12 w-56 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+                >
+                  <div className="p-2 space-y-1">
+                    <TreasuryDropdown isDarkMode={isDarkMode} balance={balance} />
 
-                  <a
-                    href="https://toga.nounswap.wtf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {t("togaPfp")}
-                  </a>
-
-                  <button
-                    onClick={copyNoggle}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
-                  >
-                    {copyFeedback ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                    {copyFeedback ? "Copied!" : "⌐◨-◨"}
-                  </button>
-
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                      className={`flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    <a
+                      href="https://nouns.wtf"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
                     >
-                      <span>
-                        {selectedLanguage === "en"
-                          ? "🇬🇧 English"
-                          : selectedLanguage === "zh"
-                            ? "🇨🇳 中文"
-                            : selectedLanguage === "es"
-                              ? "🇪🇸 Español"
-                              : selectedLanguage === "pt"
-                                ? "🇧🇷 Português"
-                                : "🇯🇵 日本語"}
-                      </span>
-                      <ChevronDown className="h-4 w-4" />
+                      <ExternalLink className="h-4 w-4" />
+                      {t("learnNouns")}
+                    </a>
+
+                    <a
+                      href="https://toga.nounswap.wtf"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {t("togaPfp")}
+                    </a>
+
+                    <button
+                      onClick={copyNoggle}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    >
+                      {copyFeedback ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                      {copyFeedback ? "Copied!" : "⌐◨-◨"}
                     </button>
-                    {showLanguageMenu && (
-                      <div
-                        className={`absolute left-full top-0 ml-2 w-36 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                        className={`flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
                       >
-                        <div className="p-1">
-                          {(["en", "zh", "es", "pt", "ja"] as LanguageCode[]).map((lang) => (
-                            <button
-                              key={lang}
-                              onClick={() => handleLanguageChange(lang)}
-                              className={`w-full text-left px-3 py-2 rounded text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"} ${selectedLanguage === lang ? (isDarkMode ? "bg-[#3a3a5a]" : "bg-gray-100") : ""}`}
-                            >
-                              {lang === "en"
-                                ? "🇬🇧 English"
-                                : lang === "zh"
-                                  ? "🇨🇳 中文"
-                                  : lang === "es"
-                                    ? "🇪🇸 Español"
-                                    : lang === "pt"
-                                      ? "🇧🇷 Português"
-                                      : "🇯🇵 日本語"}
-                            </button>
-                          ))}
+                        <span>
+                          {selectedLanguage === "en"
+                            ? "🇬🇧 English"
+                            : selectedLanguage === "zh"
+                              ? "🇨🇳 中文"
+                              : selectedLanguage === "es"
+                                ? "🇪🇸 Español"
+                                : selectedLanguage === "pt"
+                                  ? "🇧🇷 Português"
+                                  : "🇯🇵 日本語"}
+                        </span>
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                      {showLanguageMenu && (
+                        <div
+                          className={`absolute left-full top-0 ml-2 w-36 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+                        >
+                          <div className="p-1">
+                            {(["en", "zh", "es", "pt", "ja"] as LanguageCode[]).map((lang) => (
+                              <button
+                                key={lang}
+                                onClick={() => handleLanguageChange(lang)}
+                                className={`w-full text-left px-3 py-2 rounded text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"} ${selectedLanguage === lang ? (isDarkMode ? "bg-[#3a3a5a]" : "bg-gray-100") : ""}`}
+                              >
+                                {lang === "en"
+                                  ? "🇬🇧 English"
+                                  : lang === "zh"
+                                    ? "🇨🇳 中文"
+                                    : lang === "es"
+                                      ? "🇪🇸 Español"
+                                      : lang === "pt"
+                                        ? "🇧🇷 Português"
+                                        : "🇯🇵 日本語"}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+
+                    <a
+                      href="https://discord.gg/nouncil"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {t("discord")}
+                    </a>
+
+                    <button
+                      onClick={() => setIsDarkMode(!isDarkMode)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    >
+                      {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      {isDarkMode ? "Light Mode" : "Dark Mode"}
+                    </button>
                   </div>
-
-                  <a
-                    href="https://discord.gg/nouncil"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {t("discord")}
-                  </a>
-
-                  <button
-                    onClick={() => setIsDarkMode(!isDarkMode)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
-                  >
-                    {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    {isDarkMode ? "Light Mode" : "Dark Mode"}
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-stretch md:gap-8">
-          {/* Left column - Auction stats */}
-          <div className="flex flex-col gap-3 md:w-1/2 order-2 md:order-1">
-            {/* Time Remaining */}
-            <div
-              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-purple-100"}`}>
-                  <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
-                </div>
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("timeRemaining")}</span>
-              </div>
-              <span className="font-mono font-bold text-lg">
-                {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
-              </span>
+        <div className="flex flex-col items-center mb-6">
+          <div
+            className={`w-full aspect-square max-w-[280px] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
+          >
+            <Image
+              src={`https://noun.pics/${nounId}`}
+              alt={`Noun ${nounId}`}
+              width={280}
+              height={280}
+              className="w-full h-full object-cover"
+              priority
+            />
+          </div>
+          <h1 className="text-2xl font-bold mt-4">Noun {nounId}</h1>
+        </div>
+
+        <Card className={`mb-6 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
+              <h2 className="font-semibold">{t("auctionStatus")}</h2>
             </div>
 
-            {/* Current Bid */}
-            <div
-              className={`flex flex-col p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-green-100"}`}>
-                    <TrendingUp className={`h-5 w-5 ${isDarkMode ? "text-green-400" : "text-green-600"}`} />
-                  </div>
-                  <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("currentBid")}</span>
-                </div>
-                <span className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-                  {Number.parseFloat(currentBid).toFixed(2)} ETH
+            <div className="space-y-4">
+              <div
+                className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+              >
+                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("timeRemaining")}</span>
+                <span className="font-mono font-bold text-lg">
+                  {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
                 </span>
               </div>
-              {currentBidder !== "0x0000000000000000000000000000000000000000" && (
-                <div
-                  className={`mt-2 pl-12 text-sm flex items-center gap-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}
-                >
-                  <span>by</span>
-                  <EnsDisplay address={currentBidder as `0x${string}`} />
-                </div>
-              )}
-            </div>
 
-            {/* Minimum Next Bid */}
-            <div
-              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-yellow-100"}`}>
-                  <Gavel className={`h-5 w-5 ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`} />
+              <div
+                className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+              >
+                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("currentBid")}</span>
+                <div className="text-right">
+                  <span className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
+                    {Number.parseFloat(currentBid).toFixed(2)} ETH
+                  </span>
+                  {currentBidder !== "0x0000000000000000000000000000000000000000" && (
+                    <div className="text-xs text-gray-500">
+                      <EnsDisplay address={currentBidder as `0x${string}`} />
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              <div
+                className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+              >
                 <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("minimumNextBid")}</span>
+                <span className={`font-bold ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
+                  {Number.parseFloat(minNextBid).toFixed(4)} ETH
+                </span>
               </div>
-              <span className={`font-bold text-lg ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
-                {Number.parseFloat(minNextBid).toFixed(4)} ETH
-              </span>
-            </div>
 
-            {/* Curator of Auction */}
-            <div
-              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-purple-100"}`}>
-                  <User className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
-                </div>
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("curatorOfAuction")}</span>
-              </div>
-              <span className={`font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
-                {curatorLoading ? (
-                  <span className="animate-pulse">Loading...</span>
-                ) : auctionCurator ? (
-                  <EnsDisplay address={auctionCurator as `0x${string}`} />
-                ) : (
-                  <span className="text-gray-500">-</span>
-                )}
-              </span>
-            </div>
-
-            {/* Connect Wallet / Bid Section */}
-            <div
-              className={`p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
-            >
-              {isConnected ? (
-                <div className="flex flex-col gap-3">
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder={t("enterBidAmount")}
-                      value={bidAmount}
-                      onChange={(e) => setBidAmount(e.target.value)}
-                      step="0.01"
-                      min={minNextBid}
-                      className={`flex-1 ${isDarkMode ? "bg-[#1a1a2e] border-[#3a3a5a]" : ""}`}
-                    />
-                    <Button
-                      onClick={handleBid}
-                      disabled={isPending || isConfirming || !bidAmount}
-                      className="bg-purple-600 hover:bg-purple-700 px-6"
-                    >
-                      {isConfirming ? t("confirmingBid") : isPending ? t("placingBid") : t("placeBid")}
-                    </Button>
-                  </div>
-                  {error && <p className="text-red-500 text-sm">{error.message}</p>}
-                  {isConfirmed && <p className="text-sm text-green-500 text-center">{t("bidSuccessful")}</p>}
-                </div>
-              ) : (
-                <Button
-                  onClick={() => {
-                    const connector = connectors.find((c) => c.name === "WalletConnect") || connectors[0]
-                    if (connector) connect({ connector })
-                  }}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+              {auctionCurator && (
+                <div
+                  className={`flex justify-between items-center p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
                 >
-                  {t("connectWalletToBid")}
-                </Button>
+                  <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("curatorOfAuction")}</span>
+                  <span className={`font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
+                    <EnsDisplay address={auctionCurator as `0x${string}`} />
+                  </span>
+                </div>
               )}
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Right column - Noun artwork */}
-          <div className="flex flex-col items-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0">
-            <div
-              className={`w-full aspect-square max-w-[320px] md:max-w-none md:h-full rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
-            >
-              {nounId !== null ? (
-                <Image
-                  src={`https://noun.pics/${nounId}`}
-                  alt={`Noun ${nounId}`}
-                  width={500}
-                  height={500}
-                  className="w-full h-full object-cover"
-                  priority
-                />
-              ) : (
-                <Image
-                  src="/loading-skull-noun.gif"
-                  alt="Loading Noun..."
-                  width={500}
-                  height={500}
-                  className="w-full h-full object-cover"
-                  unoptimized
-                />
-              )}
+        <Card className={`mb-6 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}`}>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Gavel className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
+              <h2 className="font-semibold">{t("placeYourBid")}</h2>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold mt-4">{nounId !== null ? `Noun ${nounId}` : "Loading..."}</h1>
-          </div>
-        </div>
+
+            {isConnected ? (
+              <div className="space-y-4">
+                <Input
+                  type="number"
+                  placeholder={t("enterBidAmount")}
+                  value={bidAmount}
+                  onChange={(e) => setBidAmount(e.target.value)}
+                  step="0.01"
+                  min={minNextBid}
+                  className={isDarkMode ? "bg-[#1a1a2e] border-[#3a3a5a]" : ""}
+                />
+                <Button
+                  onClick={handleBid}
+                  disabled={isPending || isConfirming || !bidAmount}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  {isConfirming ? t("confirmingBid") : isPending ? t("placingBid") : t("placeBid")}
+                </Button>
+                {error && <p className="text-red-500 text-sm">{error.message}</p>}
+              </div>
+            ) : (
+              <p className={`text-center py-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                {t("connectWallet")}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {bidHistory.length > 0 && (
+          <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+            <CardContent className="pt-6">
+              <h2 className="font-semibold mb-4">{t("bidHistory")}</h2>
+              <div className="space-y-2">
+                {bidHistory.slice(0, 5).map((bid, index) => (
+                  <div
+                    key={index}
+                    className={`flex justify-between items-center p-2 rounded ${isDarkMode ? "bg-[#1a1a2e]" : "bg-gray-100"}`}
+                  >
+                    <EnsDisplay address={bid.sender as `0x${string}`} />
+                    <span className="font-mono">{formatEther(bid.value)} ETH</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

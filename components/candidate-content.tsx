@@ -9,7 +9,6 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Users, Clock, ExternalLink } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
-import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
@@ -57,12 +56,11 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
     )
   }
 
-  const data = candidate
-  if (!data || !data.id) {
+  const data = candidate.data
+  if (!data) {
     return null
   }
 
-  // Extract candidate number from the end of the ID or use a fallback
   const candidateNumber = candidateId.split("-").pop() || candidateId
 
   return (
@@ -81,7 +79,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <h1 className={`text-2xl font-bold ${isDarkMode ? "text-white" : ""}`}>{data.description}</h1>
+                <h1 className={`text-2xl font-bold ${isDarkMode ? "text-white" : ""}`}>{data.title}</h1>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>Proposed by:</span>
                   <EnsDisplay address={data.proposer} showAvatar avatarSize={20} />
@@ -96,14 +94,14 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center gap-6 text-sm flex-wrap">
+            <div className="flex items-center gap-6 text-sm">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span>{signatures.data?.length || 0} signatures</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>Created {new Date(data.createdTimestamp * 1000).toLocaleDateString()}</span>
+                <span>Created {new Date(data.createdAt * 1000).toLocaleDateString()}</span>
               </div>
               <a
                 href={`https://nouns.wtf/candidates/${candidateId}`}
@@ -112,7 +110,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                 className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
               >
                 <ExternalLink className="h-4 w-4" />
-                Sponsor on nouns.wtf
+                View on nouns.wtf
               </a>
             </div>
 
@@ -123,58 +121,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               <div
                 className={`prose max-w-none ${isDarkMode ? "prose-invert" : ""} prose-headings:font-bold prose-a:text-blue-400`}
               >
-                <ReactMarkdown
-                  components={{
-                    h1: () => null,
-                    img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
-                    a: ({ href, children }) => {
-                      // Check if it's a YouTube link
-                      const youtubeMatch = href?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
-                      if (youtubeMatch) {
-                        return (
-                          <div className="my-4">
-                            <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
-                              <iframe
-                                src={`https://www.youtube.com/embed/${youtubeMatch[1]}`}
-                                title="YouTube video"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                                className="absolute inset-0 w-full h-full"
-                              />
-                            </div>
-                          </div>
-                        )
-                      }
-                      return (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:underline"
-                        >
-                          {children}
-                        </a>
-                      )
-                    },
-                    p: ({ children, node }) => {
-                      // Check if the paragraph contains only an image
-                      const hasOnlyImage =
-                        node?.children?.length === 1 &&
-                        node?.children[0]?.type === "element" &&
-                        (node?.children[0] as any)?.tagName === "img"
-                      if (hasOnlyImage) {
-                        return <>{children}</>
-                      }
-                      return (
-                        <div className="mb-4 text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                          {children}
-                        </div>
-                      )
-                    },
-                  }}
-                >
-                  {data.fullDescription || ""}
-                </ReactMarkdown>
+                <ReactMarkdown>{data.description}</ReactMarkdown>
               </div>
             </div>
 
