@@ -180,23 +180,9 @@ export function useProposalIds(
           } else if (statusFilter === "executed") {
             filtered = allProposals.filter((p: any) => p.status === "EXECUTED")
           } else if (statusFilter === "defeated") {
-            // These are NOT cancelled - they went through full voting and failed
-            filtered = allProposals.filter((p: any) => {
-              // Check if proposal has vote data indicating it went through voting
-              const forVotes = BigInt(p.forVotes || 0)
-              const againstVotes = BigInt(p.againstVotes || 0)
-              const quorumVotes = BigInt(p.quorumVotes || 0)
-              const totalVotes = forVotes + againstVotes + BigInt(p.abstainVotes || 0)
-
-              // A defeated proposal had votes cast and either lost or didn't reach quorum
-              // Status could be CANCELLED in subgraph but it had significant voting activity
-              if (p.status === "CANCELLED" && totalVotes > BigInt(0)) {
-                const lostVote = againstVotes > forVotes
-                const didntReachQuorum = forVotes < quorumVotes
-                return lostVote || didntReachQuorum
-              }
-              return false
-            })
+            // All failed proposals are marked as CANCELLED in the Nouns subgraph
+            // Use the "Cancelled" filter to see all cancelled/defeated proposals
+            filtered = []
           } else if (statusFilter === "vetoed") {
             filtered = allProposals.filter((p: any) => p.status === "VETOED")
           } else if (statusFilter === "canceled") {

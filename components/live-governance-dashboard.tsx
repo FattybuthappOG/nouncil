@@ -38,7 +38,6 @@ const translations = {
     showAll: "Show All",
     active: "Active",
     executed: "Executed",
-    defeated: "Defeated",
     vetoed: "Vetoed",
     canceled: "Canceled",
     loadMore: "Load 20 More",
@@ -72,7 +71,6 @@ const translations = {
     showAll: "显示全部",
     active: "活跃",
     executed: "已执行",
-    defeated: "已失败",
     vetoed: "已否决",
     canceled: "已取消",
     loadMore: "加载更多20个",
@@ -106,7 +104,6 @@ const translations = {
     showAll: "Mostrar Todo",
     active: "Activo",
     executed: "Ejecutado",
-    defeated: "Derrotadas",
     vetoed: "Vetadas",
     canceled: "Canceladas",
     loadMore: "Cargar 20 Más",
@@ -140,7 +137,6 @@ const translations = {
     showAll: "सभी दिखाएं",
     active: "सक्रिय",
     executed: "निष्पादित",
-    defeated: "पराजित",
     vetoed: "वीटो",
     canceled: "रद्द",
     loadMore: "20 और लोड करें",
@@ -174,7 +170,6 @@ const translations = {
     showAll: "عرض الكل",
     active: "نشط",
     executed: "منفذ",
-    defeated: "مهزومة",
     vetoed: "مرفوضة",
     canceled: "ملغى",
     loadMore: "تحميل 20 أكثر",
@@ -208,7 +203,6 @@ const translations = {
     showAll: "Mostrar Tudo",
     active: "Ativo",
     executed: "Executado",
-    defeated: "Derrotadas",
     vetoed: "Vetadas",
     canceled: "Canceladas",
     loadMore: "Carregar Mais 20",
@@ -242,7 +236,6 @@ const translations = {
     showAll: "সব দেখান",
     active: "সক্রিয়",
     executed: "সম্পাদিত",
-    defeated: "পরাজিত",
     vetoed: "ভেটো",
     canceled: "বাতিল",
     loadMore: "আরও 20 লোড করুন",
@@ -276,7 +269,6 @@ const translations = {
     showAll: "Показать Все",
     active: "Активный",
     executed: "Выполнено",
-    defeated: "Отклонённые",
     vetoed: "Ветированные",
     canceled: "Отменённые",
     loadMore: "Загрузить Еще 20",
@@ -310,7 +302,6 @@ const translations = {
     showAll: "すべて表示",
     active: "アクティブ",
     executed: "実行済み",
-    defeated: "否決",
     vetoed: "拒否権",
     canceled: "キャンセル",
     loadMore: "さらに20件読み込む",
@@ -344,7 +335,6 @@ const translations = {
     showAll: "Afficher Tout",
     active: "Actif",
     executed: "Exécuté",
-    defeated: "Rejetées",
     vetoed: "Vetées",
     canceled: "Annulées",
     loadMore: "Charger 20 de Plus",
@@ -412,9 +402,7 @@ function LiveGovernanceDashboardContent() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [displayedProposals, setDisplayedProposals] = useState(20)
   const [displayedCandidates, setDisplayedCandidates] = useState(20)
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated" | "vetoed" | "canceled">(
-    "all",
-  )
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "vetoed" | "canceled">("all")
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState(false)
@@ -645,7 +633,7 @@ function LiveGovernanceDashboardContent() {
 
   const filteredProposalIds = proposalIds
 
-  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "defeated" | "vetoed" | "canceled") => {
+  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "vetoed" | "canceled") => {
     setStatusFilter(filter)
     setDisplayedProposals(20)
   }
@@ -921,7 +909,6 @@ function LiveGovernanceDashboardContent() {
                   <SelectItem value="all">{t("showAll")}</SelectItem>
                   <SelectItem value="active">{t("active")}</SelectItem>
                   <SelectItem value="executed">{t("executed")}</SelectItem>
-                  <SelectItem value="defeated">{t("defeated")}</SelectItem>
                   <SelectItem value="vetoed">{t("vetoed")}</SelectItem>
                   <SelectItem value="canceled">{t("canceled")}</SelectItem>
                 </SelectContent>
