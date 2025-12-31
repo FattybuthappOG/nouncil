@@ -129,8 +129,15 @@ export function useProposalIds(
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
     const fetchProposalIds = async () => {
       try {
         const response = await fetch(
@@ -151,6 +158,10 @@ export function useProposalIds(
             }),
           },
         )
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
 
         const data = await response.json()
 
@@ -186,7 +197,7 @@ export function useProposalIds(
     }
 
     fetchProposalIds()
-  }, [limit, statusFilter])
+  }, [mounted, limit, statusFilter])
 
   return { proposalIds, totalCount, isLoading }
 }
@@ -237,7 +248,7 @@ export function useProposalData(proposalId: number) {
 
     const fetchCurrentBlock = async () => {
       try {
-        const response = await fetch("https://eth.merkle.io", {
+        const response = await fetch("https://rpc.ankr.com/eth", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -253,13 +264,12 @@ export function useProposalData(proposalId: number) {
         }
       } catch (error) {
         // Silently fail - block number is optional for timing display
-        // Use proposal state from Subgraph API as primary source of truth
       }
     }
     fetchCurrentBlock()
-    const interval = setInterval(fetchCurrentBlock, 30000) // Update every 30 seconds (reduced frequency)
+    const interval = setInterval(fetchCurrentBlock, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [mounted])
 
   useEffect(() => {
     if (!mounted) return
@@ -325,18 +335,8 @@ export function useProposalData(proposalId: number) {
           const safeForVotes = proposal.forVotes ? BigInt(proposal.forVotes) : BigInt(0)
           const safeAgainstVotes = proposal.againstVotes ? BigInt(proposal.againstVotes) : BigInt(0)
           const safeAbstainVotes = proposal.abstainVotes ? BigInt(proposal.abstainVotes) : BigInt(0)
-          // Dynamic quorum in Nouns ranges from ~72 (min) to ~180 (max) depending on against votes
           const safeQuorum =
-            proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? BigInt(proposal.quorumVotes) : BigInt(72) // Use min quorum as fallback instead of arbitrary 200
-
-          console.log("[v0] Proposal quorum data:", {
-            proposalId,
-            quorumVotes: proposal.quorumVotes,
-            safeQuorum: safeQuorum.toString(),
-            forVotes: safeForVotes.toString(),
-            againstVotes: safeAgainstVotes.toString(),
-            abstainVotes: safeAbstainVotes.toString(),
-          })
+            proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? BigInt(proposal.quorumVotes) : BigInt(72)
 
           setProposalData({
             id: proposalId,
@@ -369,7 +369,7 @@ export function useProposalData(proposalId: number) {
     }
 
     fetchProposalFromAPI()
-  }, [proposalId, stateData])
+  }, [mounted, proposalId, stateData])
 
   return { ...proposalData, currentBlock }
 }
@@ -407,48 +407,55 @@ export function useCandidateIds(limit = 20) {
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
-    return () => setMounted(false)
   }, [])
 
   useEffect(() => {
     if (!mounted) return
 
-    const abortController = new AbortController()
-    const timeoutId = setTimeout(() => abortController.abort(), 15000) // 15s timeout
-
-    const fetchCandidates = async (retryCount = 0) => {
+    const fetchCandidates = async () => {
       try {
-        setError(null)
+        const countResponse = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(first: 1000, where: { canceled: false }) {
+                  id
+                }
+              }
+            `,
+            }),
+          },
+        )
+
+        const countData = await countResponse.json()
+        const allCandidatesCount = countData?.data?.proposalCandidates?.length || 0
+        setTotalCount(allCandidatesCount)
 
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               query: `
-              query GetCandidates($limit: Int!) {
-                all: proposalCandidates(first: 1000, orderBy: createdTimestamp) {
-                  id
-                }
-                candidates: proposalCandidates(
-                  first: $limit
-                  orderBy: createdTimestamp
-                  orderDirection: desc
-                ) {
+              query {
+                proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
                   id
                   slug
                   proposer
                   createdTimestamp
                   createdTransactionHash
+                  canceled
+                  canceledTimestamp
                   latestVersion {
+                    id
                     content {
                       title
                       description
@@ -458,82 +465,40 @@ export function useCandidateIds(limit = 20) {
                       calldatas
                     }
                   }
-                  canceledTimestamp
                 }
               }
             `,
-              variables: { limit },
             }),
-            signal: abortController.signal,
           },
         )
 
         if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`)
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
 
         const data = await response.json()
 
-        if (data?.errors) {
-          throw new Error(data.errors[0]?.message || "GraphQL error")
+        if (data?.data?.proposalCandidates) {
+          const candidatesWithNumber = data.data.proposalCandidates.map((c: any, index: number) => ({
+            ...c,
+            // Calculate candidate number: total count minus position in the list
+            candidateNumber: allCandidatesCount - index,
+            title: c.latestVersion?.content?.title || `Candidate`,
+            description: c.latestVersion?.content?.description || "",
+          }))
+          setCandidates(candidatesWithNumber)
         }
-
-        if (!mounted) return
-
-        const totalCandidates = data?.data?.all?.length || 0
-        setTotalCount(totalCandidates)
-
-        if (data?.data?.candidates) {
-          const candidatesList = data.data.candidates.map((c: any) => {
-            const content = c.latestVersion?.content || {}
-            const desc = content.description || `Candidate ${c.id}`
-
-            return {
-              id: c.id,
-              slug: c.slug,
-              title: content.title || desc.split("\n")[0] || c.slug || c.id,
-            }
-          })
-
-          setCandidates(candidatesList)
-        }
-
-        setIsLoading(false)
-      } catch (err) {
-        if (!mounted) return
-
-        if (err instanceof Error && err.name === "AbortError") {
-          console.error("[v0] Candidate fetch aborted/timeout")
-          setError("Request timed out. Please refresh.")
-          setIsLoading(false)
-          return
-        }
-
-        console.error("[v0] Error fetching candidates:", err)
-
-        if (retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000
-          console.log(`[v0] Retrying candidate fetch in ${delay}ms (attempt ${retryCount + 1}/3)`)
-          setTimeout(() => {
-            if (mounted) fetchCandidates(retryCount + 1)
-          }, delay)
-          return
-        }
-
-        setError(err instanceof Error ? err.message : "Failed to load candidates")
+      } catch (error) {
+        console.error("Error fetching candidates:", error)
+      } finally {
         setIsLoading(false)
       }
     }
 
     fetchCandidates()
+  }, [mounted, limit])
 
-    return () => {
-      clearTimeout(timeoutId)
-      abortController.abort()
-    }
-  }, [limit, mounted])
-
-  return { candidates, totalCount, isLoading, error }
+  return { candidates, totalCount, isLoading }
 }
 
 export function useCandidateData(candidateId: string) {
@@ -571,38 +536,7 @@ export function useCandidateData(candidateId: string) {
     if (!mounted) return
 
     const fetchCandidateFromAPI = async () => {
-      console.log("[v0] Fetching candidate from API with id:", candidateId)
       try {
-        const countResponse = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: asc) {
-                  id
-                  createdTimestamp
-                }
-              }
-            `,
-            }),
-          },
-        )
-
-        const countData = await countResponse.json()
-        const allCandidateIds = countData?.data?.proposalCandidates || []
-        const totalCandidates = allCandidateIds.length
-
-        const candidateIndex = Number.parseInt(candidateId) - 1
-        const targetCandidate = allCandidateIds[candidateIndex]
-
-        if (!targetCandidate) {
-          setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
-          return
-        }
-
         const response = await fetch(
           "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
           {
@@ -611,7 +545,7 @@ export function useCandidateData(candidateId: string) {
             body: JSON.stringify({
               query: `
               query {
-                proposalCandidate(id: "${targetCandidate.id}") {
+                proposalCandidate(id: "${candidateId}") {
                   id
                   slug
                   proposer
@@ -661,11 +595,9 @@ export function useCandidateData(candidateId: string) {
             error: false,
           })
         } else {
-          console.log("[v0] No candidate found, setting error state")
           setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
-        console.error("[v0] Error fetching candidate:", error)
         setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }

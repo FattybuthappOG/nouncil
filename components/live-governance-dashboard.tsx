@@ -961,12 +961,13 @@ function LiveGovernanceDashboardContent() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {safeCandidates.map((candidate, index) => (
+                    {safeCandidates.map((candidate) => (
                       <CandidateCard
                         key={candidate.id}
-                        candidateId={String(totalCandidates - index)}
-                        candidateNumber={totalCandidates - index}
+                        candidateId={candidate.id}
+                        candidateNumber={candidate.candidateNumber}
                         isDarkMode={isDarkMode}
+                        candidateData={candidate}
                       />
                     ))}
                   </div>
@@ -980,7 +981,7 @@ function LiveGovernanceDashboardContent() {
                             : "bg-blue-500 hover:bg-blue-600 text-white"
                         }`}
                       >
-                        {t("loadMore")}
+                        {t("loadMore")} (20 more)
                       </button>
                     </div>
                   )}
