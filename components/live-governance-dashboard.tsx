@@ -39,6 +39,7 @@ const translations = {
     active: "Active",
     executed: "Executed",
     defeated: "Defeated",
+    vetoed: "Vetoed",
     canceled: "Canceled",
     loadMore: "Load 20 More",
     connectWallet: "Connect Wallet",
@@ -72,6 +73,7 @@ const translations = {
     active: "活跃",
     executed: "已执行",
     defeated: "已失败",
+    vetoed: "已否决",
     canceled: "已取消",
     loadMore: "加载更多20个",
     connectWallet: "连接钱包",
@@ -104,8 +106,9 @@ const translations = {
     showAll: "Mostrar Todo",
     active: "Activo",
     executed: "Ejecutado",
-    defeated: "Derrotado",
-    canceled: "Cancelado",
+    defeated: "Derrotadas",
+    vetoed: "Vetadas",
+    canceled: "Canceladas",
     loadMore: "Cargar 20 Más",
     connectWallet: "Conectar Billetera",
     treasury: "Tesorería",
@@ -113,14 +116,14 @@ const translations = {
     generateTogaPFP: "Generar PFP Toga",
     language: "Idioma",
     joinDiscord: "Únete a Discord",
-    joinCallsThursday: "Únete a las llamadas todos los jueves en Discord",
+    joinCallsThursday: "Rejoignez les appels tous les jeudis sur Discord",
     toggleTheme: "Cambiar Tema",
     proposer: "Proponente",
     viewOnEtherscan: "Voir en Etherscan",
     transactionSimulator: "Simulateur de Transacciones",
     votes: "Votos",
     for: "A Favor",
-    against: "En Contra",
+    against: "Contre",
     abstain: "Abstención",
     vote: "Votar",
     loadingProposals: "Cargando propuestas...",
@@ -138,6 +141,7 @@ const translations = {
     active: "सक्रिय",
     executed: "निष्पादित",
     defeated: "पराजित",
+    vetoed: "वीटो",
     canceled: "रद्द",
     loadMore: "20 और लोड करें",
     connectWallet: "वॉलेट कनेक्ट करें",
@@ -170,7 +174,8 @@ const translations = {
     showAll: "عرض الكل",
     active: "نشط",
     executed: "منفذ",
-    defeated: "مهزوم",
+    defeated: "مهزومة",
+    vetoed: "مرفوضة",
     canceled: "ملغى",
     loadMore: "تحميل 20 أكثر",
     connectWallet: "ربط المحفظة",
@@ -203,8 +208,9 @@ const translations = {
     showAll: "Mostrar Tudo",
     active: "Ativo",
     executed: "Executado",
-    defeated: "Derrotado",
-    canceled: "Cancelado",
+    defeated: "Derrotadas",
+    vetoed: "Vetadas",
+    canceled: "Canceladas",
     loadMore: "Carregar Mais 20",
     connectWallet: "Conectar Carteira",
     treasury: "Tesouraria",
@@ -237,6 +243,7 @@ const translations = {
     active: "সক্রিয়",
     executed: "সম্পাদিত",
     defeated: "পরাজিত",
+    vetoed: "ভেটো",
     canceled: "বাতিল",
     loadMore: "আরও 20 লোড করুন",
     connectWallet: "ওয়ালেট সংযুক্ত করুন",
@@ -269,8 +276,9 @@ const translations = {
     showAll: "Показать Все",
     active: "Активный",
     executed: "Выполнено",
-    defeated: "Отклонено",
-    canceled: "Отменено",
+    defeated: "Отклонённые",
+    vetoed: "Ветированные",
+    canceled: "Отменённые",
     loadMore: "Загрузить Еще 20",
     connectWallet: "Подключить Кошелек",
     treasury: "Казна",
@@ -303,7 +311,8 @@ const translations = {
     active: "アクティブ",
     executed: "実行済み",
     defeated: "否決",
-    canceled: "キャンセル済み",
+    vetoed: "拒否権",
+    canceled: "キャンセル",
     loadMore: "さらに20件読み込む",
     connectWallet: "ウォレットを接続",
     treasury: "財務",
@@ -335,8 +344,9 @@ const translations = {
     showAll: "Afficher Tout",
     active: "Actif",
     executed: "Exécuté",
-    defeated: "Rejeté",
-    canceled: "Annulé",
+    defeated: "Rejetées",
+    vetoed: "Vetées",
+    canceled: "Annulées",
     loadMore: "Charger 20 de Plus",
     connectWallet: "Connecter le Portefeuille",
     treasury: "Trésorerie",
@@ -402,7 +412,9 @@ function LiveGovernanceDashboardContent() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [displayedProposals, setDisplayedProposals] = useState(20)
   const [displayedCandidates, setDisplayedCandidates] = useState(20)
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated" | "canceled">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated" | "vetoed" | "canceled">(
+    "all",
+  )
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState(false)
@@ -633,7 +645,7 @@ function LiveGovernanceDashboardContent() {
 
   const filteredProposalIds = proposalIds
 
-  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "defeated" | "canceled") => {
+  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "defeated" | "vetoed" | "canceled") => {
     setStatusFilter(filter)
     setDisplayedProposals(20)
   }
@@ -910,6 +922,7 @@ function LiveGovernanceDashboardContent() {
                   <SelectItem value="active">{t("active")}</SelectItem>
                   <SelectItem value="executed">{t("executed")}</SelectItem>
                   <SelectItem value="defeated">{t("defeated")}</SelectItem>
+                  <SelectItem value="vetoed">{t("vetoed")}</SelectItem>
                   <SelectItem value="canceled">{t("canceled")}</SelectItem>
                 </SelectContent>
               </Select>
