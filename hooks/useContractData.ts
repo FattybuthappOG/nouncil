@@ -151,6 +151,11 @@ export function useProposalIds(
                 proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
                   id
                   status
+                  forVotes
+                  againstVotes
+                  abstainVotes
+                  quorumVotes
+                  endBlock
                 }
               }
             `,
@@ -167,28 +172,36 @@ export function useProposalIds(
         if (data?.data?.proposals) {
           const allProposals = data.data.proposals
 
-          const uniqueStatuses = [...new Set(allProposals.map((p: any) => p.status))]
-          console.log("[v0] All unique proposal statuses from subgraph:", uniqueStatuses)
-          console.log("[v0] Current filter:", statusFilter)
-
           let filtered = allProposals
           if (statusFilter === "active") {
             filtered = allProposals.filter(
-              (p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "OBJECTION_PERIOD",
+              (p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED",
             )
           } else if (statusFilter === "executed") {
             filtered = allProposals.filter((p: any) => p.status === "EXECUTED")
           } else if (statusFilter === "defeated") {
-            const defeatedProposals = allProposals.filter((p: any) => p.status === "DEFEATED" || p.status === "EXPIRED")
-            console.log("[v0] Defeated proposals found:", defeatedProposals.length, defeatedProposals.slice(0, 5))
-            filtered = defeatedProposals
+            filtered = allProposals.filter((p: any) => {
+              if (p.status !== "CANCELLED") return false
+              const forVotes = BigInt(p.forVotes || 0)
+              const againstVotes = BigInt(p.againstVotes || 0)
+              const quorumVotes = BigInt(p.quorumVotes || 0)
+              const lostVote = forVotes <= againstVotes
+              const didntReachQuorum = forVotes < quorumVotes
+              return lostVote || didntReachQuorum
+            })
           } else if (statusFilter === "vetoed") {
             filtered = allProposals.filter((p: any) => p.status === "VETOED")
           } else if (statusFilter === "canceled") {
-            filtered = allProposals.filter((p: any) => p.status === "CANCELLED")
+            filtered = allProposals.filter((p: any) => {
+              if (p.status !== "CANCELLED") return false
+              const forVotes = BigInt(p.forVotes || 0)
+              const againstVotes = BigInt(p.againstVotes || 0)
+              const quorumVotes = BigInt(p.quorumVotes || 0)
+              const wasWinning = forVotes > againstVotes && forVotes >= quorumVotes
+              return wasWinning
+            })
           }
 
-          console.log("[v0] Filtered proposals count:", filtered.length)
           setTotalCount(filtered.length)
           const ids = filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id))
           setProposalIds(ids)
