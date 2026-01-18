@@ -697,6 +697,20 @@ function LiveGovernanceDashboardContent() {
 
                 {/* Menu Items */}
                 <div className="space-y-3">
+                  {/* Discord - Join Calls (First option) */}
+                  <a
+                    href="https://discord.gg/tnyXJZsGnq"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
+                    <span className="font-medium">{t("joinCallsThursday")}</span>
+                  </a>
+
                   {/* Treasury */}
                   <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
 
@@ -784,20 +798,6 @@ function LiveGovernanceDashboardContent() {
                     )}
                   </div>
 
-                  {/* Discord */}
-                  <a
-                    href="https://discord.gg/tnyXJZsGnq"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setShowMenu(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                    }`}
-                  >
-                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
-                    <span className="font-medium">{t("joinCallsThursday")}</span>
-                  </a>
-
                   {/* Lil Nouns */}
                   <Link
                     href="/lilnouns"
@@ -809,7 +809,7 @@ function LiveGovernanceDashboardContent() {
                     }`}
                   >
                     <img src="/images/lilnouns-logo.png" alt="Lil Nouns" className="h-6 w-auto" />
-                    <span className="font-medium">Lil Nouns Governance</span>
+                    <span className="font-medium">Governance</span>
                   </Link>
 
                   {/* Dark Mode Toggle */}
