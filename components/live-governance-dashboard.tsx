@@ -639,7 +639,7 @@ function LiveGovernanceDashboardContent() {
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
       <header
         className={`${
           isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
@@ -682,7 +682,7 @@ function LiveGovernanceDashboardContent() {
                 isDarkMode ? "bg-gray-900" : "bg-white"
               } shadow-2xl overflow-y-auto`}
             >
-              <div className="p-6 min-h-screen">
+              <div className="p-4 md:p-6 min-h-screen overflow-x-hidden">
                 {/* Menu Header */}
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold"></h2>

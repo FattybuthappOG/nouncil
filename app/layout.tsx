@@ -48,7 +48,7 @@ export default async function RootLayout({
         <meta property="fc:miniapp" content="https://nouncil.wtf/.well-known/farcaster.json" />
         <meta property="miniapp:version" content="1.0.0" />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} overflow-x-hidden`}>
         <ContextProvider cookies={cookies}>
           <MiniappReady />
           <SnowEffect />
