@@ -16,9 +16,9 @@ const PROPOSAL_STATE_NAMES = [
 ]
 
 async function fetchFromSubgraph(query: string) {
-  // Try Goldsky first (same infrastructure as main Nouns)
+  // Try primary endpoint first (The Graph hosted service)
   try {
-    console.log("[v0] Lil Nouns: Fetching from Goldsky...")
+    console.log("[v0] Lil Nouns: Fetching from primary endpoint...", LILNOUNS_SUBGRAPH_URL)
     const response = await fetch(LILNOUNS_SUBGRAPH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -26,37 +26,41 @@ async function fetchFromSubgraph(query: string) {
     })
     if (response.ok) {
       const data = await response.json()
-      console.log("[v0] Lil Nouns Goldsky response:", data)
+      console.log("[v0] Lil Nouns primary response:", data)
       if (data?.data) return data
       if (data?.errors) {
-        console.error("[v0] Lil Nouns Goldsky errors:", data.errors)
+        console.error("[v0] Lil Nouns primary errors:", data.errors)
       }
+    } else {
+      console.error("[v0] Lil Nouns primary response not OK:", response.status, response.statusText)
     }
   } catch (e) {
-    console.error("[v0] Lil Nouns Goldsky request failed:", e)
+    console.error("[v0] Lil Nouns primary request failed:", e)
   }
 
-  // Fallback to The Graph decentralized network
+  // Fallback to Studio API
   try {
-    console.log("[v0] Lil Nouns: Trying The Graph...")
+    console.log("[v0] Lil Nouns: Trying fallback endpoint...", LILNOUNS_GOLDSKY_URL)
     const response = await fetch(LILNOUNS_GOLDSKY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
     })
-    const data = await response.json()
-    console.log("[v0] Lil Nouns The Graph response:", data)
-    return data
+    if (response.ok) {
+      const data = await response.json()
+      console.log("[v0] Lil Nouns fallback response:", data)
+      return data
+    } else {
+      console.error("[v0] Lil Nouns fallback response not OK:", response.status, response.statusText)
+    }
   } catch (e) {
-    console.error("[v0] Lil Nouns The Graph request also failed:", e)
-    return { data: null }
+    console.error("[v0] Lil Nouns fallback request also failed:", e)
   }
+  
+  return { data: null }
 }
 
-export function useLilNounsProposalIds(
-  limit = 20,
-  statusFilter: "all" | "active" | "executed" | "vetoed" | "canceled" = "all",
-) {
+export function useLilNounsProposalIds(limit = 20) {
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -71,52 +75,43 @@ export function useLilNounsProposalIds(
 
     const fetchProposalIds = async () => {
       try {
+        // Simple query to get all proposals
         const data = await fetchFromSubgraph(`
           query {
             proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
               id
-              status
-              forVotes
-              againstVotes
-              abstainVotes
-              quorumVotes
-              endBlock
             }
           }
         `)
 
+        console.log("[v0] Lil Nouns proposals data:", data)
+
         if (data?.data?.proposals) {
           const allProposals = data.data.proposals
-
-          let filtered = allProposals
-          if (statusFilter === "active") {
-            filtered = allProposals.filter(
-              (p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED",
-            )
-          } else if (statusFilter === "executed") {
-            filtered = allProposals.filter((p: any) => p.status === "EXECUTED")
-          } else if (statusFilter === "vetoed") {
-            filtered = allProposals.filter((p: any) => p.status === "VETOED")
-          } else if (statusFilter === "canceled") {
-            filtered = allProposals.filter((p: any) => p.status === "CANCELLED")
-          }
-
-          setTotalCount(filtered.length)
-          const ids = filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id))
-          setProposalIds(ids)
+          const ids = allProposals.map((p: any) => Number.parseInt(p.id))
+          setTotalCount(ids.length)
+          setProposalIds(ids.slice(0, limit))
+        } else {
+          console.log("[v0] Lil Nouns: No proposals found in response")
+          setProposalIds([])
+          setTotalCount(0)
         }
       } catch (error) {
-        console.error("Error fetching Lil Nouns proposals:", error)
+        console.error("[v0] Lil Nouns: Error fetching proposals:", error)
+        setProposalIds([])
+        setTotalCount(0)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchProposalIds()
-  }, [mounted, limit, statusFilter])
+  }, [mounted, limit])
 
   return { proposalIds, totalCount, isLoading }
 }
+
+
 
 export function useLilNounsProposalData(proposalId: number) {
   const [mounted, setMounted] = useState(false)

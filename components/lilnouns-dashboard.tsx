@@ -11,7 +11,6 @@ import TreasuryDropdown from "./treasury-dropdown"
 import { useLilNounsProposalIds, useLilNounsCandidateIds } from "@/hooks/useLilNounsData"
 import WalletConnectButton from "./wallet-connect-button"
 import { useConnect } from "wagmi"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Language configuration
 const LANGUAGES = [
@@ -235,7 +234,7 @@ type LanguageCode = keyof typeof translations
 export default function LilNounsDashboard() {
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState<"proposals" | "candidates">("proposals")
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "vetoed" | "canceled">("all")
+  
   const [displayedProposals, setDisplayedProposals] = useState(20)
   const [displayedCandidates, setDisplayedCandidates] = useState(20)
   const [isDarkMode, setIsDarkMode] = useState(true)
@@ -252,7 +251,7 @@ export default function LilNounsDashboard() {
   const { data: balanceData } = useBalance({ address })
   const router = useRouter()
 
-  const { proposalIds, totalCount, isLoading: proposalIdsLoading } = useLilNounsProposalIds(displayedProposals, statusFilter)
+  const { proposalIds, totalCount, isLoading: proposalIdsLoading } = useLilNounsProposalIds(displayedProposals)
   const candidateIdsData = useLilNounsCandidateIds(displayedCandidates)
   const totalCandidates = candidateIdsData?.totalCount || 0
   const safeCandidates = candidateIdsData?.candidates || []
@@ -309,10 +308,7 @@ export default function LilNounsDashboard() {
     localStorage.setItem("nouns-language", lang)
   }
 
-  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "vetoed" | "canceled") => {
-    setStatusFilter(filter)
-    setDisplayedProposals(20)
-  }
+  
 
   if (!mounted) {
     return (
@@ -495,21 +491,6 @@ export default function LilNounsDashboard() {
               {t("candidates")} ({totalCandidates})
             </button>
           </div>
-
-          {activeTab === "proposals" && (
-            <Select value={statusFilter} onValueChange={(value) => handleStatusFilterChange(value as any)}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder={t("filterByStatus")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("showAll")}</SelectItem>
-                <SelectItem value="active">{t("active")}</SelectItem>
-                <SelectItem value="executed">{t("executed")}</SelectItem>
-                <SelectItem value="vetoed">{t("vetoed")}</SelectItem>
-                <SelectItem value="canceled">{t("canceled")}</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
@@ -521,7 +502,7 @@ export default function LilNounsDashboard() {
                 <div className="col-span-2 text-center py-8">{t("noProposalsFound")}</div>
               ) : (
                 proposalIds.map((id) => (
-                  <LilNounsProposalCard key={id} proposalId={id} isDarkMode={isDarkMode} statusFilter={statusFilter} />
+                  <LilNounsProposalCard key={id} proposalId={id} isDarkMode={isDarkMode} />
                 ))
               )}
               {hasMoreProposals && (
