@@ -5,7 +5,11 @@ import { Button } from "./ui/button"
 import { mainnet } from "wagmi/chains"
 import { useState, useEffect } from "react"
 
-function WalletConnectButtonInner() {
+interface WalletConnectButtonProps {
+  colorScheme?: "default" | "pink"
+}
+
+function WalletConnectButtonInner({ colorScheme = "default" }: WalletConnectButtonProps) {
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
   const { disconnect } = useDisconnect()
@@ -18,11 +22,13 @@ function WalletConnectButtonInner() {
     },
   })
 
+  const pinkClasses = "bg-pink-600 hover:bg-pink-700 text-white"
+
   if (isConnected && address) {
     const displayName = ensName || `${address.slice(0, 6)}...${address.slice(-4)}`
 
     return (
-      <Button onClick={() => disconnect()} variant="outline">
+      <Button onClick={() => disconnect()} variant="outline" className={colorScheme === "pink" ? "border-pink-600 text-pink-600 hover:bg-pink-600/10" : ""}>
         {displayName}
       </Button>
     )
@@ -34,10 +40,17 @@ function WalletConnectButtonInner() {
     return null
   }
 
-  return <Button onClick={() => connect({ connector: walletConnectConnector })}>Connect Wallet</Button>
+  return (
+    <Button 
+      onClick={() => connect({ connector: walletConnectConnector })}
+      className={colorScheme === "pink" ? pinkClasses : ""}
+    >
+      Connect Wallet
+    </Button>
+  )
 }
 
-export function WalletConnectButton() {
+export function WalletConnectButton({ colorScheme = "default" }: WalletConnectButtonProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -46,13 +59,13 @@ export function WalletConnectButton() {
 
   if (!mounted) {
     return (
-      <Button variant="outline" disabled>
+      <Button variant="outline" disabled className={colorScheme === "pink" ? "border-pink-600 text-pink-600" : ""}>
         Connect Wallet
       </Button>
     )
   }
 
-  return <WalletConnectButtonInner />
+  return <WalletConnectButtonInner colorScheme={colorScheme} />
 }
 
 export default WalletConnectButton
