@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LILNOUNS_SUBGRAPH_URL, LILNOUNS_GOLDSKY_URL } from "@/lib/lilnouns-constants"
 
 const PROPOSAL_STATE_NAMES = [
   "Pending",
@@ -16,48 +15,31 @@ const PROPOSAL_STATE_NAMES = [
 ]
 
 async function fetchFromSubgraph(query: string) {
-  // Try primary endpoint first (The Graph hosted service)
+  // Use local API route to handle subgraph requests (avoids CORS issues)
   try {
-    console.log("[v0] Lil Nouns: Fetching from primary endpoint...", LILNOUNS_SUBGRAPH_URL)
-    const response = await fetch(LILNOUNS_SUBGRAPH_URL, {
+    console.log("[v0] Lil Nouns: Fetching via API route...")
+    const response = await fetch("/api/lilnouns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
     })
-    if (response.ok) {
-      const data = await response.json()
-      console.log("[v0] Lil Nouns primary response:", data)
-      if (data?.data) return data
-      if (data?.errors) {
-        console.error("[v0] Lil Nouns primary errors:", data.errors)
-      }
-    } else {
-      console.error("[v0] Lil Nouns primary response not OK:", response.status, response.statusText)
-    }
-  } catch (e) {
-    console.error("[v0] Lil Nouns primary request failed:", e)
-  }
-
-  // Fallback to Studio API
-  try {
-    console.log("[v0] Lil Nouns: Trying fallback endpoint...", LILNOUNS_GOLDSKY_URL)
-    const response = await fetch(LILNOUNS_GOLDSKY_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    })
-    if (response.ok) {
-      const data = await response.json()
-      console.log("[v0] Lil Nouns fallback response:", data)
+    
+    const data = await response.json()
+    console.log("[v0] Lil Nouns API response:", data)
+    
+    if (data?.data) {
       return data
-    } else {
-      console.error("[v0] Lil Nouns fallback response not OK:", response.status, response.statusText)
     }
+    
+    if (data?.error) {
+      console.error("[v0] Lil Nouns API error:", data.error)
+    }
+    
+    return { data: null }
   } catch (e) {
-    console.error("[v0] Lil Nouns fallback request also failed:", e)
+    console.error("[v0] Lil Nouns API request failed:", e)
+    return { data: null }
   }
-  
-  return { data: null }
 }
 
 export function useLilNounsProposalIds(limit = 20) {
