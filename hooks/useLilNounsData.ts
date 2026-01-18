@@ -16,8 +16,9 @@ const PROPOSAL_STATE_NAMES = [
 ]
 
 async function fetchFromSubgraph(query: string) {
-  // Try The Graph first
+  // Try Goldsky first (same infrastructure as main Nouns)
   try {
+    console.log("[v0] Lil Nouns: Fetching from Goldsky...")
     const response = await fetch(LILNOUNS_SUBGRAPH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -25,19 +26,31 @@ async function fetchFromSubgraph(query: string) {
     })
     if (response.ok) {
       const data = await response.json()
+      console.log("[v0] Lil Nouns Goldsky response:", data)
       if (data?.data) return data
+      if (data?.errors) {
+        console.error("[v0] Lil Nouns Goldsky errors:", data.errors)
+      }
     }
   } catch (e) {
-    console.error("The Graph request failed, trying Goldsky...")
+    console.error("[v0] Lil Nouns Goldsky request failed:", e)
   }
 
-  // Fallback to Goldsky
-  const response = await fetch(LILNOUNS_GOLDSKY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
-  })
-  return response.json()
+  // Fallback to The Graph decentralized network
+  try {
+    console.log("[v0] Lil Nouns: Trying The Graph...")
+    const response = await fetch(LILNOUNS_GOLDSKY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    })
+    const data = await response.json()
+    console.log("[v0] Lil Nouns The Graph response:", data)
+    return data
+  } catch (e) {
+    console.error("[v0] Lil Nouns The Graph request also failed:", e)
+    return { data: null }
+  }
 }
 
 export function useLilNounsProposalIds(

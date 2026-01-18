@@ -798,6 +798,20 @@ function LiveGovernanceDashboardContent() {
                     <span className="font-medium">{t("joinCallsThursday")}</span>
                   </a>
 
+                  {/* Lil Nouns */}
+                  <Link
+                    href="/lilnouns"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode
+                        ? "bg-gray-800 hover:bg-gray-700 text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+                    }`}
+                  >
+                    <img src="/images/lilnouns-logo.png" alt="Lil Nouns" className="h-6 w-auto" />
+                    <span className="font-medium">Lil Nouns Governance</span>
+                  </Link>
+
                   {/* Dark Mode Toggle */}
                   <button
                     onClick={() => {
