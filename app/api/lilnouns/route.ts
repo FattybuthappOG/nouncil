@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server"
 
-// Lil Nouns Subgraph ID on The Graph decentralized network
-const LILNOUNS_SUBGRAPH_ID = "4FfnVdrSfBP54nhXVtoj3s2pT6vSRf39BjQyMWRSPDCp"
-
-// Multiple endpoint options to try
+// Multiple endpoint options to try - prioritize Goldsky (same project as main Nouns)
 const ENDPOINTS = [
-  // The Graph Gateway (may require API key in header)
-  `https://gateway.thegraph.com/api/subgraphs/id/${LILNOUNS_SUBGRAPH_ID}`,
-  // Arbitrum gateway
-  `https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/${LILNOUNS_SUBGRAPH_ID}`,
+  // Goldsky - same project as main Nouns, trying "lil-nouns" subgraph name
+  "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/lil-nouns/prod/gn",
+  // Alternative Goldsky subgraph name variations
+  "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/lilnouns/prod/gn",
+  // Try nouns-builder project which may have lil nouns
+  "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/lil-nouns-mainnet/prod/gn",
 ]
 
 export async function POST(request: Request) {
