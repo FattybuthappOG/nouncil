@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { getProposals, getProposalVotes, getProposalStatus, type Proposal, type VoteCounts } from "@/lib/lilnouns-governor"
+import { getCandidates, getCandidateBySlug, type Candidate } from "@/lib/lilnouns-candidates"
+import { getCurrentBlock } from "@/lib/lilnouns-ethClient"
 
 const PROPOSAL_STATE_NAMES = [
   "Pending",
-  "Active", 
+  "Active",
   "Canceled",
   "Defeated",
   "Succeeded",
@@ -14,34 +17,7 @@ const PROPOSAL_STATE_NAMES = [
   "Vetoed",
 ]
 
-async function fetchFromSubgraph(query: string) {
-  // Use local API route to handle subgraph requests (avoids CORS issues)
-  try {
-    console.log("[v0] Lil Nouns: Fetching via API route...")
-    const response = await fetch("/api/lilnouns", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    })
-    
-    const data = await response.json()
-    console.log("[v0] Lil Nouns API response:", data)
-    
-    if (data?.data) {
-      return data
-    }
-    
-    if (data?.error) {
-      console.error("[v0] Lil Nouns API error:", data.error)
-    }
-    
-    return { data: null }
-  } catch (e) {
-    console.error("[v0] Lil Nouns API request failed:", e)
-    return { data: null }
-  }
-}
-
+// Hook to fetch all Lil Nouns proposal IDs
 export function useLilNounsProposalIds(limit = 20) {
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
@@ -57,29 +33,12 @@ export function useLilNounsProposalIds(limit = 20) {
 
     const fetchProposalIds = async () => {
       try {
-        // Simple query to get all proposals
-        const data = await fetchFromSubgraph(`
-          query {
-            proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
-              id
-            }
-          }
-        `)
-
-        console.log("[v0] Lil Nouns proposals data:", data)
-
-        if (data?.data?.proposals) {
-          const allProposals = data.data.proposals
-          const ids = allProposals.map((p: any) => Number.parseInt(p.id))
-          setTotalCount(ids.length)
-          setProposalIds(ids.slice(0, limit))
-        } else {
-          console.log("[v0] Lil Nouns: No proposals found in response")
-          setProposalIds([])
-          setTotalCount(0)
-        }
+        const proposals = await getProposals()
+        const ids = proposals.map((p) => Number.parseInt(p.id))
+        setTotalCount(ids.length)
+        setProposalIds(ids.slice(0, limit))
       } catch (error) {
-        console.error("[v0] Lil Nouns: Error fetching proposals:", error)
+        console.error("Error fetching Lil Nouns proposals:", error)
         setProposalIds([])
         setTotalCount(0)
       } finally {
@@ -93,11 +52,13 @@ export function useLilNounsProposalIds(limit = 20) {
   return { proposalIds, totalCount, isLoading }
 }
 
-
-
+// Hook to fetch proposal data for display in cards
 export function useLilNounsProposalData(proposalId: number) {
   const [mounted, setMounted] = useState(false)
   const [currentBlock, setCurrentBlock] = useState<number>(0)
+  const [proposal, setProposal] = useState<Proposal | null>(null)
+  const [votes, setVotes] = useState<VoteCounts | null>(null)
+  const [status, setStatus] = useState<string>("PENDING")
 
   const [proposalData, setProposalData] = useState({
     id: proposalId,
@@ -106,8 +67,8 @@ export function useLilNounsProposalData(proposalId: number) {
     forVotes: BigInt(0),
     againstVotes: BigInt(0),
     abstainVotes: BigInt(0),
-    state: 1,
-    stateName: "Active",
+    state: 0,
+    stateName: "Pending",
     quorum: BigInt(72),
     description: `Proposal ${proposalId}`,
     fullDescription: "",
@@ -131,20 +92,8 @@ export function useLilNounsProposalData(proposalId: number) {
 
     const fetchCurrentBlock = async () => {
       try {
-        const response = await fetch("https://rpc.ankr.com/eth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "eth_blockNumber",
-            params: [],
-            id: 1,
-          }),
-        })
-        const data = await response.json()
-        if (data.result) {
-          setCurrentBlock(Number.parseInt(data.result, 16))
-        }
+        const block = await getCurrentBlock()
+        setCurrentBlock(Number(block))
       } catch (error) {
         // Silently fail
       }
@@ -157,82 +106,58 @@ export function useLilNounsProposalData(proposalId: number) {
   useEffect(() => {
     if (!mounted) return
 
-    const fetchProposalFromAPI = async () => {
+    const fetchProposalData = async () => {
       try {
-        const data = await fetchFromSubgraph(`
-          query {
-            proposal(id: "${proposalId}") {
-              id
-              description
-              proposer {
-                id
-              }
-              signers {
-                id
-              }
-              forVotes
-              againstVotes
-              abstainVotes
-              quorumVotes
-              status
-              createdTimestamp
-              createdBlock
-              startBlock
-              endBlock
-              createdTransactionHash
-              targets
-              values
-              signatures
-              calldatas
-            }
-          }
-        `)
+        const proposals = await getProposals()
+        const found = proposals.find((p) => p.id === proposalId.toString())
 
-        const proposal = data?.data?.proposal
+        if (found) {
+          setProposal(found)
 
-        if (proposal) {
-          const desc = proposal.description || `Proposal ${proposalId}`
-          const title =
-            desc
-              .split("\n")[0]
-              .replace(/^#+\s*/, "")
-              .trim() || `Proposal ${proposalId}`
+          // Get status
+          const proposalStatus = await getProposalStatus(found)
+          setStatus(proposalStatus)
 
+          // Map status to state number
           const statusMap: Record<string, number> = {
             PENDING: 0,
             ACTIVE: 1,
             CANCELLED: 2,
+            CANCELED: 2,
             DEFEATED: 3,
             SUCCEEDED: 4,
             QUEUED: 5,
             EXPIRED: 6,
             EXECUTED: 7,
             VETOED: 8,
+            ENDED: 7,
           }
-          const stateNum = statusMap[proposal.status] ?? 1
+          const stateNum = statusMap[proposalStatus] ?? 0
           const stateName = PROPOSAL_STATE_NAMES[stateNum] || "Pending"
 
-          const sponsorsList = proposal.signers?.map((s: any) => s.id as `0x${string}`) || []
+          // Get votes
+          const proposalVotes = await getProposalVotes(proposalId.toString())
+          setVotes(proposalVotes)
 
           setProposalData({
             id: proposalId,
-            proposer: proposal.proposer?.id || "0x0000000000000000000000000000000000000000",
-            sponsors: sponsorsList,
-            forVotes: BigInt(proposal.forVotes || 0),
-            againstVotes: BigInt(proposal.againstVotes || 0),
-            abstainVotes: BigInt(proposal.abstainVotes || 0),
+            proposer: found.proposer as `0x${string}`,
+            sponsors: [],
+            forVotes: proposalVotes.forVotes,
+            againstVotes: proposalVotes.againstVotes,
+            abstainVotes: proposalVotes.abstainVotes,
             state: stateNum,
             stateName: stateName,
-            quorum: BigInt(proposal.quorumVotes || 72),
-            description: title,
-            fullDescription: desc,
-            startBlock: BigInt(proposal.startBlock || 0),
-            endBlock: BigInt(proposal.endBlock || 0),
-            transactionHash: proposal.createdTransactionHash || "",
-            targets: proposal.targets || [],
-            values: proposal.values || [],
-            signatures: proposal.signatures || [],
-            calldatas: proposal.calldatas || [],
+            quorum: BigInt(72),
+            description: found.title,
+            fullDescription: found.description,
+            startBlock: found.startBlock,
+            endBlock: found.endBlock,
+            transactionHash: "",
+            targets: [],
+            values: [],
+            signatures: [],
+            calldatas: [],
             isLoading: false,
             error: false,
           })
@@ -240,16 +165,18 @@ export function useLilNounsProposalData(proposalId: number) {
           setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
+        console.error("Error fetching Lil Nouns proposal:", error)
         setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
 
-    fetchProposalFromAPI()
+    fetchProposalData()
   }, [mounted, proposalId])
 
   return { ...proposalData, currentBlock }
 }
 
+// Hook to fetch all candidates
 export function useLilNounsCandidateIds(limit = 20) {
   const [candidates, setCandidates] = useState<any[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
@@ -263,66 +190,44 @@ export function useLilNounsCandidateIds(limit = 20) {
   useEffect(() => {
     if (!mounted) return
 
-    const fetchCandidates = async () => {
+    const fetchCandidatesData = async () => {
       try {
-        const countData = await fetchFromSubgraph(`
-          query {
-            proposalCandidates(first: 1000, where: { canceled: false }) {
-              id
-            }
-          }
-        `)
+        const allCandidates = await getCandidates()
+        setTotalCount(allCandidates.length)
 
-        const allCandidatesCount = countData?.data?.proposalCandidates?.length || 0
-        setTotalCount(allCandidatesCount)
-
-        const data = await fetchFromSubgraph(`
-          query {
-            proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
-              id
-              slug
-              proposer
-              createdTimestamp
-              createdTransactionHash
-              canceled
-              canceledTimestamp
-              latestVersion {
-                id
-                content {
-                  title
-                  description
-                  targets
-                  values
-                  signatures
-                  calldatas
-                }
-              }
-            }
-          }
-        `)
-
-        if (data?.data?.proposalCandidates) {
-          const candidatesWithNumber = data.data.proposalCandidates.map((c: any, index: number) => ({
-            ...c,
-            candidateNumber: allCandidatesCount - index,
-            title: c.latestVersion?.content?.title || `Candidate`,
-            description: c.latestVersion?.content?.description || "",
-          }))
-          setCandidates(candidatesWithNumber)
-        }
+        // Transform to match expected format
+        const candidatesWithNumber = allCandidates.slice(0, limit).map((c, index) => ({
+          id: c.slug,
+          slug: c.slug,
+          proposer: c.proposer,
+          createdTimestamp: Number(c.createdBlock),
+          candidateNumber: allCandidates.length - index,
+          title: c.title,
+          description: c.description,
+          latestVersion: {
+            content: {
+              title: c.title,
+              description: c.description,
+            },
+          },
+        }))
+        setCandidates(candidatesWithNumber)
       } catch (error) {
         console.error("Error fetching Lil Nouns candidates:", error)
+        setCandidates([])
+        setTotalCount(0)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchCandidates()
+    fetchCandidatesData()
   }, [mounted, limit])
 
   return { candidates, totalCount, isLoading }
 }
 
+// Hook to fetch a single candidate
 export function useLilNounsCandidateData(candidateId: string) {
   const [mounted, setMounted] = useState(false)
   const [candidateData, setCandidateData] = useState({
@@ -357,52 +262,25 @@ export function useLilNounsCandidateData(candidateId: string) {
   useEffect(() => {
     if (!mounted) return
 
-    const fetchCandidateFromAPI = async () => {
+    const fetchCandidateData = async () => {
       try {
-        const data = await fetchFromSubgraph(`
-          query {
-            proposalCandidate(id: "${candidateId}") {
-              id
-              slug
-              proposer
-              createdTimestamp
-              createdTransactionHash
-              latestVersion {
-                content {
-                  title
-                  description
-                  targets
-                  values
-                  signatures
-                  calldatas
-                }
-              }
-              canceledTimestamp
-            }
-          }
-        `)
-
-        const candidate = data?.data?.proposalCandidate
+        const candidate = await getCandidateBySlug(decodeURIComponent(candidateId))
 
         if (candidate) {
-          const content = candidate.latestVersion?.content || {}
-          const title = content.title || `Candidate ${candidateId}`
-          const description = content.description || ""
-
           setCandidateData({
             id: candidateId,
-            slug: candidate.slug || "",
-            proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
+            slug: candidate.slug,
+            proposer: candidate.proposer as `0x${string}`,
             sponsors: [],
-            description: title,
-            fullDescription: description,
-            createdTimestamp: Number.parseInt(candidate.createdTimestamp || "0"),
-            transactionHash: candidate.createdTransactionHash || "",
-            targets: content.targets || [],
-            values: content.values || [],
-            signatures: content.signatures || [],
-            calldatas: content.calldatas || [],
-            canceled: !!candidate.canceledTimestamp,
+            description: candidate.title,
+            fullDescription: candidate.description,
+            createdTimestamp: Number(candidate.createdBlock),
+            transactionHash: "",
+            targets: candidate.targets,
+            values: [],
+            signatures: [],
+            calldatas: [],
+            canceled: false,
             isLoading: false,
             error: false,
           })
@@ -410,90 +288,23 @@ export function useLilNounsCandidateData(candidateId: string) {
           setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
+        console.error("Error fetching Lil Nouns candidate:", error)
         setCandidateData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
 
-    fetchCandidateFromAPI()
+    fetchCandidateData()
   }, [candidateId, mounted])
 
   return candidateData
 }
 
+// Hook for proposal feedback (not available on-chain for Lil Nouns, return empty)
 export function useLilNounsProposalFeedback(proposalId: number) {
-  const [feedback, setFeedback] = useState<
-    Array<{
-      voter: string
-      support: number
-      supportLabel: string
-      reason: string
-      blockNumber: number
-      isSignal: boolean
-    }>
-  >([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-
-    const fetchFeedback = async () => {
-      try {
-        const data = await fetchFromSubgraph(`
-          query {
-            proposalFeedbacks(
-              where: { proposal: "${proposalId}" }
-              orderBy: createdTimestamp
-              orderDirection: desc
-              first: 1000
-            ) {
-              id
-              voter {
-                id
-              }
-              support
-              reason
-              createdTimestamp
-              createdBlock
-            }
-          }
-        `)
-
-        if (data?.data?.proposalFeedbacks) {
-          const feedbackList = data.data.proposalFeedbacks.map((f: any) => {
-            const supportNum = Number(f.support)
-            let supportLabel = "Abstain"
-            if (supportNum === 1) supportLabel = "For"
-            else if (supportNum === 0) supportLabel = "Against"
-
-            return {
-              voter: f.voter?.id || "",
-              support: supportNum,
-              supportLabel,
-              reason: f.reason || "",
-              blockNumber: Number(f.createdBlock || 0),
-              isSignal: true,
-            }
-          })
-          setFeedback(feedbackList)
-        }
-      } catch (error) {
-        console.error("Error fetching feedback:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchFeedback()
-  }, [mounted, proposalId])
-
-  return { feedback, isLoading }
+  return { feedback: [], isLoading: false }
 }
 
+// Hook to fetch votes for a proposal
 export function useLilNounsVotes(proposalId: number) {
   const [votes, setVotes] = useState<
     Array<{
@@ -513,57 +324,55 @@ export function useLilNounsVotes(proposalId: number) {
   }, [])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !proposalId) return
 
-    const fetchVotes = async () => {
+    const fetchVotesData = async () => {
       try {
-        const data = await fetchFromSubgraph(`
-          query {
-            votes(
-              where: { proposal: "${proposalId}" }
-              orderBy: blockNumber
-              orderDirection: desc
-              first: 1000
-            ) {
-              id
-              voter {
-                id
-              }
-              support
-              votes
-              reason
-              blockNumber
-            }
-          }
-        `)
+        // Get vote counts from on-chain
+        const voteCounts = await getProposalVotes(proposalId.toString())
 
-        if (data?.data?.votes) {
-          const votesList = data.data.votes.map((v: any) => {
-            const supportNum = Number(v.support)
-            let supportLabel = "Abstain"
-            if (supportNum === 1) supportLabel = "For"
-            else if (supportNum === 0) supportLabel = "Against"
-
-            return {
-              voter: v.voter?.id || "",
-              support: supportNum,
-              supportLabel,
-              votes: Number(v.votes || 0),
-              reason: v.reason || "",
-              blockNumber: Number(v.blockNumber || 0),
-            }
-          })
-          setVotes(votesList)
-        }
+        // Return aggregated votes (individual votes would require more complex event parsing)
+        const votesList = [
+          {
+            voter: "aggregate",
+            support: 1,
+            supportLabel: "For",
+            votes: Number(voteCounts.forVotes),
+            reason: "",
+            blockNumber: 0,
+          },
+          {
+            voter: "aggregate",
+            support: 0,
+            supportLabel: "Against",
+            votes: Number(voteCounts.againstVotes),
+            reason: "",
+            blockNumber: 0,
+          },
+          {
+            voter: "aggregate",
+            support: 2,
+            supportLabel: "Abstain",
+            votes: Number(voteCounts.abstainVotes),
+            reason: "",
+            blockNumber: 0,
+          },
+        ]
+        setVotes(votesList)
       } catch (error) {
-        console.error("Error fetching votes:", error)
+        console.error("Error fetching Lil Nouns votes:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchVotes()
+    fetchVotesData()
   }, [mounted, proposalId])
 
   return { votes, isLoading }
+}
+
+// Hook for candidate feedback (not available on-chain, return empty)
+export function useLilNounsCandidateFeedback(slug: string) {
+  return { feedback: [], isLoading: false }
 }
