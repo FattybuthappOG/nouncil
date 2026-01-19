@@ -14,6 +14,11 @@ export const publicClient = createPublicClient({
   transport: fallback(transports),
 })
 
+// Alias for compatibility
+export function getClient() {
+  return publicClient
+}
+
 // Current block cache
 let cachedBlockNumber: bigint | null = null
 let lastBlockFetch = 0
