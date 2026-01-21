@@ -264,7 +264,12 @@ function ProposalContentInner({
                 remarkPlugins={[remarkGfm]}
                 components={{
                   h1: () => null,
-                  img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
+                  img: ({ src, alt }) => (
+                    <span className="block my-4">
+                      <img src={src || "/placeholder.svg"} alt={alt || ""} className="rounded-lg max-w-full h-auto border border-border" loading="lazy" />
+                    </span>
+                  ),
+                  p: ({ children }) => <div className="mb-4">{children}</div>,
                   table: ({ children }) => (
                     <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
                       <table className="min-w-full divide-y divide-[#3a3a5a] text-sm table-auto">

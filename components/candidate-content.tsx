@@ -126,14 +126,18 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                   remarkPlugins={[remarkGfm]}
                   components={{
                     h1: () => null,
-                    img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
+                    img: ({ src, alt }) => (
+                      <span className="block my-4">
+                        <img src={src || "/placeholder.svg"} alt={alt || ""} className="rounded-lg max-w-full h-auto border border-border" loading="lazy" />
+                      </span>
+                    ),
                     a: ({ href, children }) => {
                       // Check if it's a YouTube link
                       const youtubeMatch = href?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
                       if (youtubeMatch) {
                         return (
-                          <div className="my-4">
-                            <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
+                          <span className="block my-4">
+                            <span className="block relative w-full aspect-video rounded-lg overflow-hidden border border-border">
                               <iframe
                                 src={`https://www.youtube.com/embed/${youtubeMatch[1]}`}
                                 title="YouTube video"
@@ -141,8 +145,8 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                                 allowFullScreen
                                 className="absolute inset-0 w-full h-full"
                               />
-                            </div>
-                          </div>
+                            </span>
+                          </span>
                         )
                       }
                       return (
@@ -156,17 +160,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                         </a>
                       )
                     },
-                    p: ({ children, node }) => {
-                      // Check if the paragraph contains only an image
-                      const hasOnlyImage =
-                        node?.children?.length === 1 &&
-                        node?.children[0]?.type === "element" &&
-                        (node?.children[0] as any)?.tagName === "img"
-                      if (hasOnlyImage) {
-                        return <>{children}</>
-                      }
-                      return <p className="mb-4">{children}</p>
-                    },
+                    p: ({ children }) => <div className="mb-4">{children}</div>,
                     table: ({ children }) => (
                       <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
                         <table className="min-w-full divide-y divide-[#3a3a5a] text-sm table-auto">
