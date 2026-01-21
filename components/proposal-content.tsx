@@ -13,6 +13,7 @@ import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 type LanguageCode = "en" | "zh"
 
@@ -260,12 +261,13 @@ function ProposalContentInner({
             <h2 className="text-lg font-semibold mb-4">{t.description}</h2>
             <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-400">
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   h1: () => null,
                   img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
                   table: ({ children }) => (
                     <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
-                      <table className="min-w-full divide-y divide-[#3a3a5a] text-sm">
+                      <table className="min-w-full divide-y divide-[#3a3a5a] text-sm table-auto">
                         {children}
                       </table>
                     </div>
@@ -280,10 +282,10 @@ function ProposalContentInner({
                     <tr className="hover:bg-[#2a2a4a] transition-colors">{children}</tr>
                   ),
                   th: ({ children }) => (
-                    <th className="px-4 py-3 text-left font-semibold text-gray-200 whitespace-nowrap">{children}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-200 border-r border-[#3a3a5a] last:border-r-0">{children}</th>
                   ),
                   td: ({ children }) => (
-                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{children}</td>
+                    <td className="px-4 py-3 text-gray-300 border-r border-[#3a3a5a] last:border-r-0">{children}</td>
                   ),
                 }}
               >

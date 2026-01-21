@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Users, Clock, ExternalLink } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
 
@@ -122,6 +123,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                 className={`prose max-w-none ${isDarkMode ? "prose-invert" : ""} prose-headings:font-bold prose-a:text-blue-400`}
               >
                 <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
                   components={{
                     h1: () => null,
                     img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
@@ -167,7 +169,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                     },
                     table: ({ children }) => (
                       <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
-                        <table className="min-w-full divide-y divide-[#3a3a5a] text-sm">
+                        <table className="min-w-full divide-y divide-[#3a3a5a] text-sm table-auto">
                           {children}
                         </table>
                       </div>
@@ -182,10 +184,10 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                       <tr className="hover:bg-[#2a2a4a] transition-colors">{children}</tr>
                     ),
                     th: ({ children }) => (
-                      <th className="px-4 py-3 text-left font-semibold text-gray-200 whitespace-nowrap">{children}</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-200 border-r border-[#3a3a5a] last:border-r-0">{children}</th>
                     ),
                     td: ({ children }) => (
-                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{children}</td>
+                      <td className="px-4 py-3 text-gray-300 border-r border-[#3a3a5a] last:border-r-0">{children}</td>
                     ),
                   }}
                 >
