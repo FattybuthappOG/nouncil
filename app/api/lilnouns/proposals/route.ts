@@ -7,10 +7,10 @@ const LILNOUNS_GOVERNOR = "0x5d2C31ce16924C2a71D317e5BbFd5ce387854039" as const
 // Lil Nouns Governor deployment block (approx)
 const DEPLOYMENT_BLOCK = 15133985n
 
-// Use public RPCs that support larger block ranges for getLogs
+// Use Cloudflare's public Ethereum RPC (no auth required)
 const client = createPublicClient({
   chain: mainnet,
-  transport: http("https://rpc.ankr.com/eth"),
+  transport: http("https://cloudflare-eth.com"),
 })
 
 // Governor ABI for reading
