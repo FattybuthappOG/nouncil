@@ -7,20 +7,17 @@ export function parseContentForMedia(content: string): {
   const youtubeVideos: string[] = []
   let processedText = content
 
-  // First, extract and remove markdown image syntax: ![alt](url) or ![](url)
-  const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/gi
-  const markdownMatches = content.matchAll(markdownImageRegex)
-  for (const match of markdownMatches) {
-    const imageUrl = match[1]
-    if (imageUrl && /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(imageUrl)) {
-      images.push(imageUrl)
-    }
-    // Remove the entire markdown image syntax from text
+  // Extract markdown image syntax ![alt](url) first
+  const markdownImageRegex = /!\[[^\]]*\]\((https?:\/\/[^)]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^)]*)?)\)/gi
+  const markdownImageMatches = content.matchAll(markdownImageRegex)
+  for (const match of markdownImageMatches) {
+    images.push(match[1])
+    // Remove entire markdown image syntax
     processedText = processedText.replace(match[0], '')
   }
 
   // Extract standalone image URLs (jpg, jpeg, png, gif, webp)
-  const imageRegex = /(https?:\/\/[^\s\)]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s\)]*)?)/gi
+  const imageRegex = /(https?:\/\/[^\s)]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s)]*)?)/gi
   const imageMatches = processedText.match(imageRegex)
   if (imageMatches) {
     for (const imageUrl of imageMatches) {
@@ -32,6 +29,9 @@ export function parseContentForMedia(content: string): {
     }
   }
 
+  // Remove any leftover markdown link syntax with empty URLs like ![]() or []()
+  processedText = processedText.replace(/!?\[[^\]]*\]\(\s*\)/g, '')
+
   // Extract YouTube URLs and convert to embed format
   const youtubeRegex =
     /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/gi
@@ -42,13 +42,8 @@ export function parseContentForMedia(content: string): {
     processedText = processedText.replace(match[0], '')
   }
 
-  // Clean up leftover empty markdown link syntax, parentheses, and extra whitespace
-  processedText = processedText
-    .replace(/\[\]\(\)/g, '') // Empty markdown links
-    .replace(/!\[\]/g, '') // Leftover ![]
-    .replace(/\(\)/g, '') // Empty parentheses
-    .replace(/\n{3,}/g, '\n\n') // Multiple newlines
-    .trim()
+  // Clean up extra whitespace left after removing URLs
+  processedText = processedText.replace(/\n{3,}/g, '\n\n').trim()
 
   return { text: processedText, images, youtubeVideos }
 }

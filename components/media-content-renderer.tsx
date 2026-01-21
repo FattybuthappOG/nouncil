@@ -12,8 +12,8 @@ export function MediaContentRenderer({ content, className = "" }: MediaContentRe
 
   return (
     <div className={className}>
-      {/* Text content */}
-      <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words mb-3">{text}</p>
+      {/* Text content - use div instead of p to avoid hydration errors when nested in markdown */}
+      <div className="text-sm text-muted-foreground whitespace-pre-wrap break-words mb-3">{text}</div>
 
       {/* Images */}
       {images.length > 0 && (

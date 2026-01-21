@@ -8,7 +8,8 @@ const LILNOUNS_GOVERNOR = "0x5d2C31ce16924C2a71D317e5BbFd5ce387854039" as const
 const DEPLOYMENT_BLOCK = 15133985n
 
 // Use Alchemy with API key from environment, fallback to public RPC
-const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+// Prefer server-side env var (ALCHEMY_API_KEY) over client-exposed one
+const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY
 const RPC_URL = ALCHEMY_KEY 
   ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`
   : "https://eth.llamarpc.com"
