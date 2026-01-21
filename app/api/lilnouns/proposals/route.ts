@@ -19,15 +19,8 @@ const client = createPublicClient({
   transport: http(RPC_ENDPOINTS[0]),
 })
 
-// Governor ABI for reading
+// Governor ABI for reading - Lil Nouns uses NounsDAOLogicV2/V3 style
 const GOVERNOR_ABI = [
-  {
-    inputs: [],
-    name: "proposalCount",
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
   {
     inputs: [{ name: "proposalId", type: "uint256" }],
     name: "proposals",
@@ -59,6 +52,49 @@ const GOVERNOR_ABI = [
     type: "function",
   },
 ] as const
+
+// Find the highest valid proposal ID by binary search
+async function findHighestProposalId(): Promise<number> {
+  let low = 1
+  let high = 1000 // Start with a reasonable upper bound
+  let lastValid = 0
+  
+  // First, find an upper bound that fails
+  while (true) {
+    try {
+      await client.readContract({
+        address: LILNOUNS_GOVERNOR,
+        abi: GOVERNOR_ABI,
+        functionName: "state",
+        args: [BigInt(high)],
+      })
+      lastValid = high
+      high *= 2
+      if (high > 10000) break // Safety limit
+    } catch {
+      break
+    }
+  }
+  
+  // Binary search between lastValid and high
+  low = lastValid
+  while (low < high) {
+    const mid = Math.floor((low + high + 1) / 2)
+    try {
+      await client.readContract({
+        address: LILNOUNS_GOVERNOR,
+        abi: GOVERNOR_ABI,
+        functionName: "state",
+        args: [BigInt(mid)],
+      })
+      low = mid
+    } catch {
+      high = mid - 1
+    }
+  }
+  
+  return low
+}
 
 const PROPOSAL_STATES = [
   "Pending", "Active", "Canceled", "Defeated", "Succeeded", "Queued", "Expired", "Executed", "Vetoed"
@@ -150,14 +186,8 @@ export async function GET(request: Request) {
         description,
       })
     } else {
-      // Fetch list of proposals
-      const count = await client.readContract({
-        address: LILNOUNS_GOVERNOR,
-        abi: GOVERNOR_ABI,
-        functionName: "proposalCount",
-      }) as bigint
-
-      const totalCount = Number(count)
+      // Fetch list of proposals - find highest valid proposal ID first
+      const totalCount = await findHighestProposalId()
       const proposals = []
       
       // Fetch proposals in parallel batches
