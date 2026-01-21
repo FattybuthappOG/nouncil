@@ -165,6 +165,28 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                       }
                       return <p className="mb-4">{children}</p>
                     },
+                    table: ({ children }) => (
+                      <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
+                        <table className="min-w-full divide-y divide-[#3a3a5a] text-sm">
+                          {children}
+                        </table>
+                      </div>
+                    ),
+                    thead: ({ children }) => (
+                      <thead className="bg-[#1a1a2e]">{children}</thead>
+                    ),
+                    tbody: ({ children }) => (
+                      <tbody className="divide-y divide-[#3a3a5a] bg-[#252540]">{children}</tbody>
+                    ),
+                    tr: ({ children }) => (
+                      <tr className="hover:bg-[#2a2a4a] transition-colors">{children}</tr>
+                    ),
+                    th: ({ children }) => (
+                      <th className="px-4 py-3 text-left font-semibold text-gray-200 whitespace-nowrap">{children}</th>
+                    ),
+                    td: ({ children }) => (
+                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{children}</td>
+                    ),
                   }}
                 >
                   {data.fullDescription || ""}
