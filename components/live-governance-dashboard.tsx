@@ -645,18 +645,19 @@ function LiveGovernanceDashboardContent() {
           isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
         } border-b sticky top-0 z-50 backdrop-blur`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
-            </Link>
-
-            {/* AuctionButton */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between relative">
+          {/* Left section - Auction Button */}
+          <div className="flex items-center gap-3 flex-1">
             <AuctionButton isDarkMode={isDarkMode} />
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* Center section - Logo (absolute positioned for true center) */}
+          <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex items-center hover:opacity-80 transition-opacity">
+            <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
+          </Link>
+
+          {/* Right section - Wallet & Menu */}
+          <div className="flex items-center gap-4 flex-1 justify-end">
             {/* WalletConnectButton */}
             <WalletConnectButton />
 
