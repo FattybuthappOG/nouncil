@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createPublicClient, http, parseAbiItem } from "viem"
+import { createPublicClient, http, parseAbiItem, fallback } from "viem"
 import { mainnet } from "viem/chains"
 
 const LILNOUNS_GOVERNOR = "0x5d2C31ce16924C2a71D317e5BbFd5ce387854039" as const
@@ -9,14 +9,15 @@ const DEPLOYMENT_BLOCK = 15133985n
 
 // RPC endpoints - prefer public endpoints to avoid exposing API keys
 const RPC_ENDPOINTS = [
-  "https://cloudflare-eth.com",
-  "https://eth.llamarpc.com",
   "https://rpc.ankr.com/eth",
+  "https://cloudflare-eth.com", 
+  "https://eth.llamarpc.com",
 ]
 
+// Create client with fallback transports
 const client = createPublicClient({
   chain: mainnet,
-  transport: http(RPC_ENDPOINTS[0]),
+  transport: fallback(RPC_ENDPOINTS.map(url => http(url))),
 })
 
 // Governor ABI for reading - Lil Nouns uses NounsDAOLogicV2/V3 style
@@ -53,47 +54,75 @@ const GOVERNOR_ABI = [
   },
 ] as const
 
-// Find the highest valid proposal ID by binary search
+// Find the highest valid proposal ID - start from known count and verify
 async function findHighestProposalId(): Promise<number> {
-  let low = 1
-  let high = 1000 // Start with a reasonable upper bound
-  let lastValid = 0
+  // Lil Nouns has around 200+ proposals as of 2025, start checking from there
+  const knownApproxCount = 250
   
-  // First, find an upper bound that fails
-  while (true) {
-    try {
-      await client.readContract({
-        address: LILNOUNS_GOVERNOR,
-        abi: GOVERNOR_ABI,
-        functionName: "state",
-        args: [BigInt(high)],
-      })
-      lastValid = high
-      high *= 2
-      if (high > 10000) break // Safety limit
-    } catch {
-      break
+  // Quick check if our estimate is valid
+  try {
+    await client.readContract({
+      address: LILNOUNS_GOVERNOR,
+      abi: GOVERNOR_ABI,
+      functionName: "state",
+      args: [BigInt(knownApproxCount)],
+    })
+    
+    // Binary search upward to find actual max
+    let low = knownApproxCount
+    let high = knownApproxCount + 100
+    
+    while (low < high) {
+      const mid = Math.floor((low + high + 1) / 2)
+      try {
+        await client.readContract({
+          address: LILNOUNS_GOVERNOR,
+          abi: GOVERNOR_ABI,
+          functionName: "state",
+          args: [BigInt(mid)],
+        })
+        low = mid
+      } catch {
+        high = mid - 1
+      }
+    }
+    return low
+  } catch {
+    // If our estimate is too high, search downward
+    for (let i = knownApproxCount; i >= 1; i -= 10) {
+      try {
+        await client.readContract({
+          address: LILNOUNS_GOVERNOR,
+          abi: GOVERNOR_ABI,
+          functionName: "state",
+          args: [BigInt(i)],
+        })
+        // Found a valid one, now search upward from here
+        let high = i + 10
+        let low = i
+        while (low < high) {
+          const mid = Math.floor((low + high + 1) / 2)
+          try {
+            await client.readContract({
+              address: LILNOUNS_GOVERNOR,
+              abi: GOVERNOR_ABI,
+              functionName: "state",
+              args: [BigInt(mid)],
+            })
+            low = mid
+          } catch {
+            high = mid - 1
+          }
+        }
+        return low
+      } catch {
+        continue
+      }
     }
   }
   
-  // Binary search between lastValid and high
-  low = lastValid
-  while (low < high) {
-    const mid = Math.floor((low + high + 1) / 2)
-    try {
-      await client.readContract({
-        address: LILNOUNS_GOVERNOR,
-        abi: GOVERNOR_ABI,
-        functionName: "state",
-        args: [BigInt(mid)],
-      })
-      low = mid
-    } catch {
-      high = mid - 1
-    }
-  }
-  
-  return low
+  // Fallback - return a known safe minimum
+  return 200
 }
 
 const PROPOSAL_STATES = [
