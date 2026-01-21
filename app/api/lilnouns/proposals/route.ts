@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createPublicClient, http, parseAbiItem, fallback } from "viem"
+import { createPublicClient, http, parseAbiItem } from "viem"
 import { mainnet } from "viem/chains"
 
 const LILNOUNS_GOVERNOR = "0x5d2C31ce16924C2a71D317e5BbFd5ce387854039" as const
@@ -7,21 +7,21 @@ const LILNOUNS_GOVERNOR = "0x5d2C31ce16924C2a71D317e5BbFd5ce387854039" as const
 // Lil Nouns Governor deployment block (approx)
 const DEPLOYMENT_BLOCK = 15133985n
 
-// RPC endpoints - prefer public endpoints to avoid exposing API keys
-const RPC_ENDPOINTS = [
-  "https://rpc.ankr.com/eth",
-  "https://cloudflare-eth.com", 
-  "https://eth.llamarpc.com",
-]
-
-// Create client with fallback transports
+// Use public RPCs that support larger block ranges for getLogs
 const client = createPublicClient({
   chain: mainnet,
-  transport: fallback(RPC_ENDPOINTS.map(url => http(url))),
+  transport: http("https://rpc.ankr.com/eth"),
 })
 
-// Governor ABI for reading - Lil Nouns uses NounsDAOLogicV2/V3 style
+// Governor ABI for reading
 const GOVERNOR_ABI = [
+  {
+    inputs: [],
+    name: "proposalCount",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
   {
     inputs: [{ name: "proposalId", type: "uint256" }],
     name: "proposals",
@@ -54,77 +54,6 @@ const GOVERNOR_ABI = [
   },
 ] as const
 
-// Find the highest valid proposal ID - start from known count and verify
-async function findHighestProposalId(): Promise<number> {
-  // Lil Nouns has around 200+ proposals as of 2025, start checking from there
-  const knownApproxCount = 250
-  
-  // Quick check if our estimate is valid
-  try {
-    await client.readContract({
-      address: LILNOUNS_GOVERNOR,
-      abi: GOVERNOR_ABI,
-      functionName: "state",
-      args: [BigInt(knownApproxCount)],
-    })
-    
-    // Binary search upward to find actual max
-    let low = knownApproxCount
-    let high = knownApproxCount + 100
-    
-    while (low < high) {
-      const mid = Math.floor((low + high + 1) / 2)
-      try {
-        await client.readContract({
-          address: LILNOUNS_GOVERNOR,
-          abi: GOVERNOR_ABI,
-          functionName: "state",
-          args: [BigInt(mid)],
-        })
-        low = mid
-      } catch {
-        high = mid - 1
-      }
-    }
-    return low
-  } catch {
-    // If our estimate is too high, search downward
-    for (let i = knownApproxCount; i >= 1; i -= 10) {
-      try {
-        await client.readContract({
-          address: LILNOUNS_GOVERNOR,
-          abi: GOVERNOR_ABI,
-          functionName: "state",
-          args: [BigInt(i)],
-        })
-        // Found a valid one, now search upward from here
-        let high = i + 10
-        let low = i
-        while (low < high) {
-          const mid = Math.floor((low + high + 1) / 2)
-          try {
-            await client.readContract({
-              address: LILNOUNS_GOVERNOR,
-              abi: GOVERNOR_ABI,
-              functionName: "state",
-              args: [BigInt(mid)],
-            })
-            low = mid
-          } catch {
-            high = mid - 1
-          }
-        }
-        return low
-      } catch {
-        continue
-      }
-    }
-  }
-  
-  // Fallback - return a known safe minimum
-  return 200
-}
-
 const PROPOSAL_STATES = [
   "Pending", "Active", "Canceled", "Defeated", "Succeeded", "Queued", "Expired", "Executed", "Vetoed"
 ]
@@ -144,15 +73,12 @@ async function getProposalDescription(proposalId: number, creationBlock: bigint)
   }
 
   try {
-    // Search in a small range around the creation block
-    const fromBlock = creationBlock - 10n
-    const toBlock = creationBlock + 10n
-
+    // Search in a very small range (same block only) to avoid RPC limits
     const logs = await client.getLogs({
       address: LILNOUNS_GOVERNOR,
       event: PROPOSAL_CREATED_EVENT,
-      fromBlock,
-      toBlock,
+      fromBlock: creationBlock,
+      toBlock: creationBlock,
     })
 
     for (const log of logs) {
@@ -163,7 +89,7 @@ async function getProposalDescription(proposalId: number, creationBlock: bigint)
       }
     }
   } catch (error) {
-    console.error(`Error fetching description for proposal ${proposalId}:`, error)
+    // Silently fail and return default description
   }
 
   return `Lil Nouns Proposal ${proposalId}`
@@ -215,8 +141,14 @@ export async function GET(request: Request) {
         description,
       })
     } else {
-      // Fetch list of proposals - find highest valid proposal ID first
-      const totalCount = await findHighestProposalId()
+      // Fetch list of proposals
+      const count = await client.readContract({
+        address: LILNOUNS_GOVERNOR,
+        abi: GOVERNOR_ABI,
+        functionName: "proposalCount",
+      }) as bigint
+
+      const totalCount = Number(count)
       const proposals = []
       
       // Fetch proposals in parallel batches
