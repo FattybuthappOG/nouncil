@@ -7,13 +7,27 @@ export function parseContentForMedia(content: string): {
   const youtubeVideos: string[] = []
   let processedText = content
 
-  // Extract image URLs (jpg, jpeg, png, gif, webp)
-  const imageRegex = /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s]*)?)/gi
-  const imageMatches = content.match(imageRegex)
+  // First, extract and remove markdown image syntax: ![alt](url) or ![](url)
+  const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/gi
+  const markdownMatches = content.matchAll(markdownImageRegex)
+  for (const match of markdownMatches) {
+    const imageUrl = match[1]
+    if (imageUrl && /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(imageUrl)) {
+      images.push(imageUrl)
+    }
+    // Remove the entire markdown image syntax from text
+    processedText = processedText.replace(match[0], '')
+  }
+
+  // Extract standalone image URLs (jpg, jpeg, png, gif, webp)
+  const imageRegex = /(https?:\/\/[^\s\)]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s\)]*)?)/gi
+  const imageMatches = processedText.match(imageRegex)
   if (imageMatches) {
-    images.push(...imageMatches)
-    // Remove image URLs from the text so they don't appear as both links and images
     for (const imageUrl of imageMatches) {
+      if (!images.includes(imageUrl)) {
+        images.push(imageUrl)
+      }
+      // Remove image URLs from the text
       processedText = processedText.replace(imageUrl, '')
     }
   }
@@ -21,15 +35,20 @@ export function parseContentForMedia(content: string): {
   // Extract YouTube URLs and convert to embed format
   const youtubeRegex =
     /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/gi
-  const youtubeMatches = content.matchAll(youtubeRegex)
+  const youtubeMatches = processedText.matchAll(youtubeRegex)
   for (const match of youtubeMatches) {
     youtubeVideos.push(match[1])
     // Remove YouTube URLs from text
     processedText = processedText.replace(match[0], '')
   }
 
-  // Clean up extra whitespace left after removing URLs
-  processedText = processedText.replace(/\n{3,}/g, '\n\n').trim()
+  // Clean up leftover empty markdown link syntax, parentheses, and extra whitespace
+  processedText = processedText
+    .replace(/\[\]\(\)/g, '') // Empty markdown links
+    .replace(/!\[\]/g, '') // Leftover ![]
+    .replace(/\(\)/g, '') // Empty parentheses
+    .replace(/\n{3,}/g, '\n\n') // Multiple newlines
+    .trim()
 
   return { text: processedText, images, youtubeVideos }
 }
