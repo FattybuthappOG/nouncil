@@ -7,10 +7,15 @@ const LILNOUNS_GOVERNOR = "0x5d2C31ce16924C2a71D317e5BbFd5ce387854039" as const
 // Lil Nouns Governor deployment block (approx)
 const DEPLOYMENT_BLOCK = 15133985n
 
-// Use Cloudflare's public Ethereum RPC (no auth required)
+// Use Alchemy with API key from environment, fallback to public RPC
+const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+const RPC_URL = ALCHEMY_KEY 
+  ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`
+  : "https://eth.llamarpc.com"
+
 const client = createPublicClient({
   chain: mainnet,
-  transport: http("https://cloudflare-eth.com"),
+  transport: http(RPC_URL),
 })
 
 // Governor ABI for reading
