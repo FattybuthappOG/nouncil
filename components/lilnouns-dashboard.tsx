@@ -478,18 +478,18 @@ export default function LilNounsDashboard() {
             >
               {t("proposals")} ({totalCount})
             </button>
-            <button
-              onClick={() => setActiveTab("candidates")}
+            <a
+              href="https://lilnouns.camp/candidates"
+              target="_blank"
+              rel="noopener noreferrer"
               className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === "candidates"
-                  ? "bg-pink-600 text-white"
-                  : isDarkMode
-                    ? "bg-gray-800 text-gray-400 hover:text-white"
-                    : "bg-gray-200 text-gray-600 hover:text-gray-900"
+                isDarkMode
+                  ? "bg-gray-800 text-gray-400 hover:text-white"
+                  : "bg-gray-200 text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t("candidates")} ({totalCandidates})
-            </button>
+              {t("candidates")}
+            </a>
           </div>
         </div>
 

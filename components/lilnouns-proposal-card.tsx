@@ -160,7 +160,7 @@ function LilNounsProposalCardContent({
 
   return (
     <Card
-      onClick={() => !showVoteForm && (window.location.href = `/lilnouns/proposal/${proposalId}`)}
+      onClick={() => !showVoteForm && window.open(`https://lilnouns.camp/proposals/${proposalId}`, '_blank')}
       className={`transition-colors duration-200 cursor-pointer hover:shadow-lg ${isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-white border-gray-200 hover:border-gray-300"}`}
     >
       <CardHeader className="pb-3">

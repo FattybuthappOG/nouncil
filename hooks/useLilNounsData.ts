@@ -1,14 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  getProposalCount, 
-  getProposalData, 
-  getProposalIds, 
-  getProposalVotes,
-  type LilNounsProposal 
-} from "@/lib/lilnouns-governor"
-import { getCurrentBlock } from "@/lib/lilnouns-ethClient"
 
 const PROPOSAL_STATE_NAMES = [
   "Pending",
@@ -22,7 +14,7 @@ const PROPOSAL_STATE_NAMES = [
   "Vetoed",
 ]
 
-// Hook to fetch all Lil Nouns proposal IDs
+// Hook to fetch all Lil Nouns proposal IDs using API route
 export function useLilNounsProposalIds(limit = 20) {
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
@@ -38,12 +30,17 @@ export function useLilNounsProposalIds(limit = 20) {
 
     const fetchProposalIds = async () => {
       try {
-        const [count, ids] = await Promise.all([
-          getProposalCount(),
-          getProposalIds(limit),
-        ])
-        setTotalCount(count)
-        setProposalIds(ids)
+        const response = await fetch(`/api/lilnouns/proposals?limit=${limit}`)
+        const data = await response.json()
+        
+        if (data.proposals) {
+          const ids = data.proposals.map((p: any) => p.id)
+          setProposalIds(ids)
+          setTotalCount(data.totalCount || ids.length)
+        } else {
+          setProposalIds([])
+          setTotalCount(0)
+        }
       } catch (error) {
         console.error("Error fetching Lil Nouns proposals:", error)
         setProposalIds([])
@@ -59,7 +56,7 @@ export function useLilNounsProposalIds(limit = 20) {
   return { proposalIds, totalCount, isLoading }
 }
 
-// Hook to fetch proposal data for display in cards
+// Hook to fetch proposal data for display in cards using API route
 export function useLilNounsProposalData(proposalId: number) {
   const [mounted, setMounted] = useState(false)
   const [currentBlock, setCurrentBlock] = useState<number>(0)
@@ -92,43 +89,28 @@ export function useLilNounsProposalData(proposalId: number) {
   }, [])
 
   useEffect(() => {
-    if (!mounted) return
-
-    const fetchCurrentBlock = async () => {
-      try {
-        const block = await getCurrentBlock()
-        setCurrentBlock(Number(block))
-      } catch (error) {
-        // Silently fail
-      }
-    }
-    fetchCurrentBlock()
-    const interval = setInterval(fetchCurrentBlock, 30000)
-    return () => clearInterval(interval)
-  }, [mounted])
-
-  useEffect(() => {
     if (!mounted || !proposalId) return
 
     const fetchProposalData = async () => {
       try {
-        const proposal = await getProposalData(proposalId)
+        const response = await fetch(`/api/lilnouns/proposals?id=${proposalId}`)
+        const proposal = await response.json()
 
-        if (proposal) {
+        if (proposal && proposal.id) {
           setProposalData({
             id: proposalId,
             proposer: proposal.proposer as `0x${string}`,
             sponsors: [],
-            forVotes: proposal.forVotes,
-            againstVotes: proposal.againstVotes,
-            abstainVotes: proposal.abstainVotes,
+            forVotes: BigInt(proposal.forVotes || 0),
+            againstVotes: BigInt(proposal.againstVotes || 0),
+            abstainVotes: BigInt(proposal.abstainVotes || 0),
             state: proposal.stateNumber,
             stateName: proposal.state,
-            quorum: proposal.quorumVotes,
-            description: `Proposal ${proposalId}`,
-            fullDescription: `Lil Nouns Proposal ${proposalId}`,
-            startBlock: proposal.startBlock,
-            endBlock: proposal.endBlock,
+            quorum: BigInt(proposal.quorumVotes || 0),
+            description: proposal.description || `Proposal ${proposalId}`,
+            fullDescription: proposal.description || `Lil Nouns Proposal ${proposalId}`,
+            startBlock: BigInt(proposal.startBlock || 0),
+            endBlock: BigInt(proposal.endBlock || 0),
             transactionHash: "",
             targets: [],
             values: [],
@@ -188,7 +170,7 @@ export function useLilNounsProposalFeedback(proposalId: number) {
   return { feedback: [], isLoading: false }
 }
 
-// Hook to fetch votes for a proposal
+// Hook to fetch votes for a proposal using API route
 export function useLilNounsVotes(proposalId: number) {
   const [votes, setVotes] = useState<
     Array<{
@@ -212,36 +194,39 @@ export function useLilNounsVotes(proposalId: number) {
 
     const fetchVotesData = async () => {
       try {
-        const voteCounts = await getProposalVotes(proposalId.toString())
+        const response = await fetch(`/api/lilnouns/proposals?id=${proposalId}`)
+        const proposal = await response.json()
 
-        // Return aggregated votes
-        const votesList = [
-          {
-            voter: "aggregate",
-            support: 1,
-            supportLabel: "For",
-            votes: Number(voteCounts.forVotes),
-            reason: "",
-            blockNumber: 0,
-          },
-          {
-            voter: "aggregate",
-            support: 0,
-            supportLabel: "Against",
-            votes: Number(voteCounts.againstVotes),
-            reason: "",
-            blockNumber: 0,
-          },
-          {
-            voter: "aggregate",
-            support: 2,
-            supportLabel: "Abstain",
-            votes: Number(voteCounts.abstainVotes),
-            reason: "",
-            blockNumber: 0,
-          },
-        ]
-        setVotes(votesList)
+        if (proposal) {
+          // Return aggregated votes since we don't have individual voter data
+          const votesList = [
+            {
+              voter: "Total For Votes",
+              support: 1,
+              supportLabel: "For",
+              votes: Number(proposal.forVotes || 0),
+              reason: "",
+              blockNumber: 0,
+            },
+            {
+              voter: "Total Against Votes",
+              support: 0,
+              supportLabel: "Against",
+              votes: Number(proposal.againstVotes || 0),
+              reason: "",
+              blockNumber: 0,
+            },
+            {
+              voter: "Total Abstain Votes",
+              support: 2,
+              supportLabel: "Abstain",
+              votes: Number(proposal.abstainVotes || 0),
+              reason: "",
+              blockNumber: 0,
+            },
+          ]
+          setVotes(votesList)
+        }
       } catch (error) {
         console.error("Error fetching Lil Nouns votes:", error)
       } finally {
