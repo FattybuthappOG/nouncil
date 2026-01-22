@@ -653,13 +653,14 @@ function LiveGovernanceDashboardContent() {
 
           {/* Center section - Logo (absolute positioned for true center) */}
           <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex items-center hover:opacity-80 transition-opacity">
-            <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
+            <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-10 sm:h-12 w-auto" />
           </Link>
 
           {/* Right section - Wallet & Menu */}
-          <div className="flex items-center gap-4 flex-1 justify-end">
-            {/* WalletConnectButton */}
-            <WalletConnectButton />
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
+            {/* WalletConnectButton - compact on mobile */}
+            <span className="hidden sm:inline-block"><WalletConnectButton /></span>
+            <span className="sm:hidden"><WalletConnectButton compact /></span>
 
             <button
               onClick={() => setShowMenu(true)}

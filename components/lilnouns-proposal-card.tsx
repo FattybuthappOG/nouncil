@@ -13,6 +13,7 @@ import { useLilNounsProposalData } from "@/hooks/useLilNounsData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { LILNOUNS_GOVERNOR_ADDRESS } from "@/lib/lilnouns-constants"
 import { EnsDisplay } from "./ens-display"
+import { WalletConnectButton } from "./wallet-connect-button"
 
 // Lil Nouns Governor ABI (same interface as Nouns)
 const LILNOUNS_GOVERNOR_ABI = [
@@ -243,8 +244,8 @@ function LilNounsProposalCardContent({
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>
           {!isConnected ? (
-            <div className={`text-sm text-center w-full py-2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-              Connect wallet to vote
+            <div className="flex justify-center w-full py-2">
+              <WalletConnectButton colorScheme="pink" />
             </div>
           ) : isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-2">
@@ -255,17 +256,17 @@ function LilNounsProposalCardContent({
           ) : votingIsActive ? (
             <>
               {!showVoteForm ? (
-                <div className="flex gap-2">
+                <div className="flex gap-1 sm:gap-2">
                   <Button
                     onClick={(e) => {
                       e.stopPropagation()
                       handleVote(1)
                     }}
                     size="sm"
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm px-2 sm:px-3"
                   >
-                    <ThumbsUp className="w-4 h-4 mr-1" />
-                    For
+                    <ThumbsUp className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+                    <span className="hidden sm:inline">For</span>
                   </Button>
                   <Button
                     onClick={(e) => {
@@ -274,10 +275,10 @@ function LilNounsProposalCardContent({
                     }}
                     size="sm"
                     variant="destructive"
-                    className="flex-1"
+                    className="flex-1 text-xs sm:text-sm px-2 sm:px-3"
                   >
-                    <ThumbsDown className="w-4 h-4 mr-1" />
-                    Against
+                    <ThumbsDown className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Against</span>
                   </Button>
                   <Button
                     onClick={(e) => {
@@ -286,10 +287,10 @@ function LilNounsProposalCardContent({
                     }}
                     size="sm"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 text-xs sm:text-sm px-2 sm:px-3"
                   >
-                    <Minus className="w-4 h-4 mr-1" />
-                    Abstain
+                    <Minus className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Abstain</span>
                   </Button>
                 </div>
               ) : (
