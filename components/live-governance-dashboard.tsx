@@ -884,10 +884,10 @@ function LiveGovernanceDashboardContent() {
 
         {/* Tabs and Filter */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <button
               onClick={() => setActiveTab("proposals")}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm md:text-base ${
                 activeTab === "proposals"
                   ? isDarkMode
                     ? "bg-blue-600 text-white"
@@ -897,11 +897,11 @@ function LiveGovernanceDashboardContent() {
                     : "bg-gray-200 text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t("proposals")} ({totalCount})
+              {t("proposals")} <span className="text-[10px] sm:text-xs md:text-sm">({totalCount})</span>
             </button>
             <button
               onClick={() => setActiveTab("candidates")}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm md:text-base ${
                 activeTab === "candidates"
                   ? isDarkMode
                     ? "bg-blue-600 text-white"
@@ -911,7 +911,7 @@ function LiveGovernanceDashboardContent() {
                     : "bg-gray-200 text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t("candidates")} ({totalCandidates})
+              {t("candidates")} <span className="text-[10px] sm:text-xs md:text-sm">({totalCandidates})</span>
             </button>
           </div>
 
