@@ -837,15 +837,15 @@ function LiveGovernanceDashboardContent() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Bar */}
-        <div className="mb-8">
+        <div className="mb-4 sm:mb-8">
           <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={searchPlaceholder}
-              className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+              className={`w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 rounded-lg border text-sm sm:text-base ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
                   : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
@@ -918,15 +918,15 @@ function LiveGovernanceDashboardContent() {
           {activeTab === "proposals" && (
             <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-6">
               <Select value={statusFilter} onValueChange={(value) => handleStatusFilterChange(value as any)}>
-                <SelectTrigger className="w-full md:w-[200px]">
+                <SelectTrigger className="w-full md:w-[200px] h-8 sm:h-10 text-xs sm:text-sm">
                   <SelectValue placeholder={t("filterByStatus")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t("showAll")}</SelectItem>
-                  <SelectItem value="active">{t("active")}</SelectItem>
-                  <SelectItem value="executed">{t("executed")}</SelectItem>
-                  <SelectItem value="vetoed">{t("vetoed")}</SelectItem>
-                  <SelectItem value="canceled">{t("canceled")}</SelectItem>
+                  <SelectItem value="all" className="text-xs sm:text-sm">{t("showAll")}</SelectItem>
+                  <SelectItem value="active" className="text-xs sm:text-sm">{t("active")}</SelectItem>
+                  <SelectItem value="executed" className="text-xs sm:text-sm">{t("executed")}</SelectItem>
+                  <SelectItem value="vetoed" className="text-xs sm:text-sm">{t("vetoed")}</SelectItem>
+                  <SelectItem value="canceled" className="text-xs sm:text-sm">{t("canceled")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
