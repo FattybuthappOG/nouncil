@@ -21,14 +21,14 @@ interface CandidateData {
   candidateNumber?: number
 }
 
-interface CandidateCardProps {
+interface LilNounsCandidateCardProps {
   candidateId: string
   isDarkMode: boolean
   candidateNumber?: number
   candidateData?: CandidateData
 }
 
-export function CandidateCard({ candidateId, isDarkMode, candidateNumber, candidateData }: CandidateCardProps) {
+export function LilNounsCandidateCard({ candidateId, isDarkMode, candidateNumber, candidateData }: LilNounsCandidateCardProps) {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
@@ -62,7 +62,7 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber, candid
 
   const handleClick = () => {
     const num = candidateData.candidateNumber || candidateNumber
-    router.push(`/candidate/${num}`)
+    router.push(`/lilnouns/candidate/${num}`)
   }
 
   const formatTimeAgo = (timestamp: number) => {
@@ -90,9 +90,9 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber, candid
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               {(candidateData.candidateNumber || candidateNumber) && (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800 shrink-0">
+                <Badge variant="secondary" className="bg-pink-100 text-pink-800 shrink-0">
                   #{candidateData.candidateNumber || candidateNumber}
                 </Badge>
               )}
@@ -107,9 +107,8 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber, candid
               <EnsDisplay address={candidateData.proposer as `0x${string}`} className="text-sm" />
             </div>
 
-            {/* Meta info row - removed tx hash */}
+            {/* Meta info row */}
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              {/* Time ago */}
               <div className="flex items-center gap-1">
                 <Clock className={`w-3 h-3 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`} />
                 <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
@@ -150,4 +149,4 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber, candid
   )
 }
 
-export default CandidateCard
+export default LilNounsCandidateCard

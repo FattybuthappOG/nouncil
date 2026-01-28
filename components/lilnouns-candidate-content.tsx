@@ -9,22 +9,20 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Users, Clock, ExternalLink } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
-import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
+import { useLilNounsCandidateData } from "@/hooks/useLilNounsData"
 
-function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
+function LilNounsCandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
-  const candidate = useCandidateData(candidateId)
-  const signatures = useCandidateSignatures(candidateId)
+  const candidate = useLilNounsCandidateData(candidateId)
 
   if (candidate.isLoading) {
     return (
       <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
         <div className="max-w-4xl mx-auto w-full">
-          <Button variant="ghost" className="mb-6 gap-2" onClick={() => router.push("/?tab=candidates")}>
+          <Button variant="ghost" className="mb-6 gap-2" onClick={() => router.push("/lilnouns?tab=candidates")}>
             <ArrowLeft className="h-4 w-4" />
-            Back to Candidates
+            Back to Lil Nouns Candidates
           </Button>
           <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
             <CardContent className="pt-6">
@@ -44,9 +42,9 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
     return (
       <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
         <div className="max-w-4xl mx-auto w-full">
-          <Button variant="ghost" className="mb-6 gap-2" onClick={() => router.push("/?tab=candidates")}>
+          <Button variant="ghost" className="mb-6 gap-2" onClick={() => router.push("/lilnouns?tab=candidates")}>
             <ArrowLeft className="h-4 w-4" />
-            Back to Candidates
+            Back to Lil Nouns Candidates
           </Button>
           <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
             <CardContent className="pt-6">
@@ -63,7 +61,6 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
     return null
   }
 
-  // Extract candidate number from the end of the ID or use a fallback
   const candidateNumber = candidateId.split("-").pop() || candidateId
 
   return (
@@ -72,20 +69,20 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
         <Button
           variant="ghost"
           className={`mb-6 gap-2 ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-[#252540]" : ""}`}
-          onClick={() => router.push("/?tab=candidates")}
+          onClick={() => router.push("/lilnouns?tab=candidates")}
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Candidates
+          Back to Lil Nouns Candidates
         </Button>
 
         <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
           <CardHeader>
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className={isDarkMode ? "border-[#3a3a5a] text-gray-300" : ""}>
+                <Badge variant="outline" className={isDarkMode ? "border-pink-500/50 text-pink-300" : ""}>
                   #{candidateNumber}
                 </Badge>
-                <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">Candidate</Badge>
+                <Badge className="bg-pink-500/20 text-pink-300 border-pink-500/30">Lil Nouns Candidate</Badge>
               </div>
               <h1 className={`text-2xl font-bold ${isDarkMode ? "text-white" : ""} break-words`}>{data.description}</h1>
               <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
@@ -97,21 +94,17 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
           <CardContent className="space-y-6">
             <div className="flex items-center gap-6 text-sm flex-wrap">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{signatures.data?.length || 0} signatures</span>
-              </div>
-              <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span>Created {new Date(data.createdTimestamp * 1000).toLocaleDateString()}</span>
               </div>
               <a
-                href={`https://nouns.wtf/candidates/${candidateId}`}
+                href={`https://lilnouns.wtf/candidates/${candidateId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                className="flex items-center gap-1 text-pink-400 hover:text-pink-300"
               >
                 <ExternalLink className="h-4 w-4" />
-                View on nouns.wtf
+                View on lilnouns.wtf
               </a>
             </div>
 
@@ -120,24 +113,18 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             <div>
               <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Description</h2>
               <div
-                className={`prose max-w-none ${isDarkMode ? "prose-invert" : ""} prose-headings:font-bold prose-a:text-blue-400`}
+                className={`prose max-w-none ${isDarkMode ? "prose-invert" : ""} prose-headings:font-bold prose-a:text-pink-400`}
               >
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
                   components={{
                     h1: () => null,
-                    img: ({ src, alt }) => (
-                      <span className="block my-4">
-                        <img src={src || "/placeholder.svg"} alt={alt || ""} className="rounded-lg max-w-full h-auto border border-border" loading="lazy" />
-                      </span>
-                    ),
+                    img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
                     a: ({ href, children }) => {
-                      // Check if it's a YouTube link
                       const youtubeMatch = href?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
                       if (youtubeMatch) {
                         return (
-                          <span className="block my-4">
-                            <span className="block relative w-full aspect-video rounded-lg overflow-hidden border border-border">
+                          <div className="my-4">
+                            <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
                               <iframe
                                 src={`https://www.youtube.com/embed/${youtubeMatch[1]}`}
                                 title="YouTube video"
@@ -145,8 +132,8 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                                 allowFullScreen
                                 className="absolute inset-0 w-full h-full"
                               />
-                            </span>
-                          </span>
+                            </div>
+                          </div>
                         )
                       }
                       return (
@@ -154,60 +141,28 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                           href={href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-400 hover:underline"
+                          className="text-pink-400 hover:underline"
                         >
                           {children}
                         </a>
                       )
                     },
-                    p: ({ children }) => <div className="mb-4">{children}</div>,
-                    table: ({ children }) => (
-                      <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
-                        <table className="min-w-full divide-y divide-[#3a3a5a] text-sm table-auto">
-                          {children}
-                        </table>
-                      </div>
-                    ),
-                    thead: ({ children }) => (
-                      <thead className="bg-[#1a1a2e]">{children}</thead>
-                    ),
-                    tbody: ({ children }) => (
-                      <tbody className="divide-y divide-[#3a3a5a] bg-[#252540]">{children}</tbody>
-                    ),
-                    tr: ({ children }) => (
-                      <tr className="hover:bg-[#2a2a4a] transition-colors">{children}</tr>
-                    ),
-                    th: ({ children }) => (
-                      <th className="px-4 py-3 text-left font-semibold text-gray-200 border-r border-[#3a3a5a] last:border-r-0">{children}</th>
-                    ),
-                    td: ({ children }) => (
-                      <td className="px-4 py-3 text-gray-300 border-r border-[#3a3a5a] last:border-r-0">{children}</td>
-                    ),
+                    p: ({ children, node }) => {
+                      const hasOnlyImage =
+                        node?.children?.length === 1 &&
+                        node?.children[0]?.type === "element" &&
+                        (node?.children[0] as any)?.tagName === "img"
+                      if (hasOnlyImage) {
+                        return <>{children}</>
+                      }
+                      return <p className="mb-4">{children}</p>
+                    },
                   }}
                 >
                   {data.fullDescription || ""}
                 </ReactMarkdown>
               </div>
             </div>
-
-            {signatures.data && signatures.data.length > 0 && (
-              <>
-                <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
-                <div>
-                  <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Signers</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {signatures.data.map((sig: { signer: { id: string } }, index: number) => (
-                      <div
-                        key={index}
-                        className={`flex items-center gap-2 p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-muted"}`}
-                      >
-                        <EnsDisplay address={sig.signer.id} showAvatar avatarSize={24} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -215,7 +170,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   )
 }
 
-export default function CandidateContent({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
+export default function LilNounsCandidateContent({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -240,5 +195,5 @@ export default function CandidateContent({ candidateId, isDarkMode }: { candidat
     )
   }
 
-  return <CandidateContentInner candidateId={candidateId} isDarkMode={isDarkMode} />
+  return <LilNounsCandidateContentInner candidateId={candidateId} isDarkMode={isDarkMode} />
 }

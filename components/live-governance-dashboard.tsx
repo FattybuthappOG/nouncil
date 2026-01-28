@@ -38,7 +38,7 @@ const translations = {
     showAll: "Show All",
     active: "Active",
     executed: "Executed",
-    defeated: "Defeated",
+    vetoed: "Vetoed",
     canceled: "Canceled",
     loadMore: "Load 20 More",
     connectWallet: "Connect Wallet",
@@ -71,7 +71,7 @@ const translations = {
     showAll: "显示全部",
     active: "活跃",
     executed: "已执行",
-    defeated: "已失败",
+    vetoed: "已否决",
     canceled: "已取消",
     loadMore: "加载更多20个",
     connectWallet: "连接钱包",
@@ -104,8 +104,8 @@ const translations = {
     showAll: "Mostrar Todo",
     active: "Activo",
     executed: "Ejecutado",
-    defeated: "Derrotado",
-    canceled: "Cancelado",
+    vetoed: "Vetadas",
+    canceled: "Canceladas",
     loadMore: "Cargar 20 Más",
     connectWallet: "Conectar Billetera",
     treasury: "Tesorería",
@@ -113,14 +113,14 @@ const translations = {
     generateTogaPFP: "Generar PFP Toga",
     language: "Idioma",
     joinDiscord: "Únete a Discord",
-    joinCallsThursday: "Únete a las llamadas todos los jueves en Discord",
+    joinCallsThursday: "Rejoignez les appels tous les jeudis sur Discord",
     toggleTheme: "Cambiar Tema",
     proposer: "Proponente",
     viewOnEtherscan: "Voir en Etherscan",
     transactionSimulator: "Simulateur de Transacciones",
     votes: "Votos",
     for: "A Favor",
-    against: "En Contra",
+    against: "Contre",
     abstain: "Abstención",
     vote: "Votar",
     loadingProposals: "Cargando propuestas...",
@@ -137,7 +137,7 @@ const translations = {
     showAll: "सभी दिखाएं",
     active: "सक्रिय",
     executed: "निष्पादित",
-    defeated: "पराजित",
+    vetoed: "वीटो",
     canceled: "रद्द",
     loadMore: "20 और लोड करें",
     connectWallet: "वॉलेट कनेक्ट करें",
@@ -170,7 +170,7 @@ const translations = {
     showAll: "عرض الكل",
     active: "نشط",
     executed: "منفذ",
-    defeated: "مهزوم",
+    vetoed: "مرفوضة",
     canceled: "ملغى",
     loadMore: "تحميل 20 أكثر",
     connectWallet: "ربط المحفظة",
@@ -203,8 +203,8 @@ const translations = {
     showAll: "Mostrar Tudo",
     active: "Ativo",
     executed: "Executado",
-    defeated: "Derrotado",
-    canceled: "Cancelado",
+    vetoed: "Vetadas",
+    canceled: "Canceladas",
     loadMore: "Carregar Mais 20",
     connectWallet: "Conectar Carteira",
     treasury: "Tesouraria",
@@ -236,7 +236,7 @@ const translations = {
     showAll: "সব দেখান",
     active: "সক্রিয়",
     executed: "সম্পাদিত",
-    defeated: "পরাজিত",
+    vetoed: "ভেটো",
     canceled: "বাতিল",
     loadMore: "আরও 20 লোড করুন",
     connectWallet: "ওয়ালেট সংযুক্ত করুন",
@@ -269,8 +269,8 @@ const translations = {
     showAll: "Показать Все",
     active: "Активный",
     executed: "Выполнено",
-    defeated: "Отклонено",
-    canceled: "Отменено",
+    vetoed: "Ветированные",
+    canceled: "Отменённые",
     loadMore: "Загрузить Еще 20",
     connectWallet: "Подключить Кошелек",
     treasury: "Казна",
@@ -302,8 +302,8 @@ const translations = {
     showAll: "すべて表示",
     active: "アクティブ",
     executed: "実行済み",
-    defeated: "否決",
-    canceled: "キャンセル済み",
+    vetoed: "拒否権",
+    canceled: "キャンセル",
     loadMore: "さらに20件読み込む",
     connectWallet: "ウォレットを接続",
     treasury: "財務",
@@ -335,8 +335,8 @@ const translations = {
     showAll: "Afficher Tout",
     active: "Actif",
     executed: "Exécuté",
-    defeated: "Rejeté",
-    canceled: "Annulé",
+    vetoed: "Vetées",
+    canceled: "Annulées",
     loadMore: "Charger 20 de Plus",
     connectWallet: "Connecter le Portefeuille",
     treasury: "Trésorerie",
@@ -402,7 +402,7 @@ function LiveGovernanceDashboardContent() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [displayedProposals, setDisplayedProposals] = useState(20)
   const [displayedCandidates, setDisplayedCandidates] = useState(20)
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "defeated" | "canceled">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "executed" | "vetoed" | "canceled">("all")
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en")
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState(false)
@@ -633,32 +633,34 @@ function LiveGovernanceDashboardContent() {
 
   const filteredProposalIds = proposalIds
 
-  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "defeated" | "canceled") => {
+  const handleStatusFilterChange = (filter: "all" | "active" | "executed" | "vetoed" | "canceled") => {
     setStatusFilter(filter)
     setDisplayedProposals(20)
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
       <header
         className={`${
           isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
         } border-b sticky top-0 z-50 backdrop-blur`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-12 w-auto" />
-            </Link>
-
-            {/* AuctionButton */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between relative">
+          {/* Left section - Auction Button */}
+          <div className="flex items-center gap-3 flex-1">
             <AuctionButton isDarkMode={isDarkMode} />
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* WalletConnectButton */}
-            <WalletConnectButton />
+          {/* Center section - Logo (absolute positioned for true center) */}
+          <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex items-center hover:opacity-80 transition-opacity">
+            <img src="/images/logo-nouncil.webp" alt="Nouncil" className="h-10 sm:h-12 w-auto" />
+          </Link>
+
+          {/* Right section - Wallet & Menu */}
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
+            {/* WalletConnectButton - compact on mobile */}
+            <span className="hidden sm:inline-block"><WalletConnectButton /></span>
+            <span className="sm:hidden"><WalletConnectButton compact /></span>
 
             <button
               onClick={() => setShowMenu(true)}
@@ -682,7 +684,7 @@ function LiveGovernanceDashboardContent() {
                 isDarkMode ? "bg-gray-900" : "bg-white"
               } shadow-2xl overflow-y-auto`}
             >
-              <div className="p-6 min-h-screen">
+              <div className="p-4 md:p-6 min-h-screen overflow-x-hidden">
                 {/* Menu Header */}
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold"></h2>
@@ -697,6 +699,20 @@ function LiveGovernanceDashboardContent() {
 
                 {/* Menu Items */}
                 <div className="space-y-3">
+                  {/* Discord - Join Calls (First option) */}
+                  <a
+                    href="https://discord.gg/tnyXJZsGnq"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
+                    <span className="font-medium">{t("joinCallsThursday")}</span>
+                  </a>
+
                   {/* Treasury */}
                   <TreasuryDropdown balance={balance} isDarkMode={isDarkMode} />
 
@@ -784,19 +800,19 @@ function LiveGovernanceDashboardContent() {
                     )}
                   </div>
 
-                  {/* Discord */}
-                  <a
-                    href="https://discord.gg/tnyXJZsGnq"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  {/* Lil Nouns */}
+                  <Link
+                    href="/lilnouns"
                     onClick={() => setShowMenu(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                      isDarkMode
+                        ? "bg-gray-800 hover:bg-gray-700 text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-900"
                     }`}
                   >
-                    <img src="/images/discord-logo.svg" alt="Discord" className="w-6 h-6" />
-                    <span className="font-medium">{t("joinCallsThursday")}</span>
-                  </a>
+                    <img src="/images/lilnouns-logo.png" alt="Lil Nouns" className="h-6 w-auto" />
+                    <span className="font-medium">Governance</span>
+                  </Link>
 
                   {/* Dark Mode Toggle */}
                   <button
@@ -821,15 +837,15 @@ function LiveGovernanceDashboardContent() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Bar */}
-        <div className="mb-8">
+        <div className="mb-4 sm:mb-8">
           <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={searchPlaceholder}
-              className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+              className={`w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 rounded-lg border text-sm sm:text-base ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
                   : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
@@ -868,10 +884,10 @@ function LiveGovernanceDashboardContent() {
 
         {/* Tabs and Filter */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <button
               onClick={() => setActiveTab("proposals")}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm md:text-base ${
                 activeTab === "proposals"
                   ? isDarkMode
                     ? "bg-blue-600 text-white"
@@ -881,11 +897,11 @@ function LiveGovernanceDashboardContent() {
                     : "bg-gray-200 text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t("proposals")} ({totalCount})
+              {t("proposals")} <span className="text-[10px] sm:text-xs md:text-sm">({totalCount})</span>
             </button>
             <button
               onClick={() => setActiveTab("candidates")}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm md:text-base ${
                 activeTab === "candidates"
                   ? isDarkMode
                     ? "bg-blue-600 text-white"
@@ -895,22 +911,22 @@ function LiveGovernanceDashboardContent() {
                     : "bg-gray-200 text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t("candidates")} ({totalCandidates})
+              {t("candidates")} <span className="text-[10px] sm:text-xs md:text-sm">({totalCandidates})</span>
             </button>
           </div>
 
           {activeTab === "proposals" && (
             <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-6">
               <Select value={statusFilter} onValueChange={(value) => handleStatusFilterChange(value as any)}>
-                <SelectTrigger className="w-full md:w-[200px]">
+                <SelectTrigger className="w-full md:w-[200px] h-8 sm:h-10 text-xs sm:text-sm">
                   <SelectValue placeholder={t("filterByStatus")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t("showAll")}</SelectItem>
-                  <SelectItem value="active">{t("active")}</SelectItem>
-                  <SelectItem value="executed">{t("executed")}</SelectItem>
-                  <SelectItem value="defeated">{t("defeated")}</SelectItem>
-                  <SelectItem value="canceled">{t("canceled")}</SelectItem>
+                  <SelectItem value="all" className="text-xs sm:text-sm">{t("showAll")}</SelectItem>
+                  <SelectItem value="active" className="text-xs sm:text-sm">{t("active")}</SelectItem>
+                  <SelectItem value="executed" className="text-xs sm:text-sm">{t("executed")}</SelectItem>
+                  <SelectItem value="vetoed" className="text-xs sm:text-sm">{t("vetoed")}</SelectItem>
+                  <SelectItem value="canceled" className="text-xs sm:text-sm">{t("canceled")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -961,12 +977,13 @@ function LiveGovernanceDashboardContent() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {safeCandidates.map((candidate, index) => (
+                    {safeCandidates.map((candidate) => (
                       <CandidateCard
                         key={candidate.id}
-                        candidateId={String(totalCandidates - index)}
-                        candidateNumber={totalCandidates - index}
+                        candidateId={candidate.id}
+                        candidateNumber={candidate.candidateNumber}
                         isDarkMode={isDarkMode}
+                        candidateData={candidate}
                       />
                     ))}
                   </div>
@@ -980,7 +997,7 @@ function LiveGovernanceDashboardContent() {
                             : "bg-blue-500 hover:bg-blue-600 text-white"
                         }`}
                       >
-                        {t("loadMore")}
+                        {t("loadMore")} (20 more)
                       </button>
                     </div>
                   )}

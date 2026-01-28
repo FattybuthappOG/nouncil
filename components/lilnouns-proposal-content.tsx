@@ -6,20 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink } from "lucide-react"
-import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
+import { useLilNounsProposalData, useLilNounsVotes, useLilNounsProposalFeedback } from "@/hooks/useLilNounsData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
 import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 
 type LanguageCode = "en" | "zh"
 
 const translations: Record<LanguageCode, Record<string, string>> = {
   en: {
-    back: "Back",
+    back: "Back to Lil Nouns",
     proposer: "Proposer",
     sponsors: "Sponsors",
     viewOnEtherscan: "View on Etherscan",
@@ -28,29 +27,15 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     against: "Against",
     abstain: "Abstain",
     quorumProgress: "Quorum Progress",
-    castYourVote: "Cast your vote:",
-    voting: "Voting",
-    change: "Change",
-    reasonForVote: "Reason for vote (optional but encouraged):",
-    explainYourVote: "Explain your vote reasoning...",
-    submitVote: "Submit Vote",
-    submittingVote: "Submitting Vote...",
-    votingClosed: "Voting is closed",
-    votingStarts: "Voting starts in",
-    votingEnds: "Voting ends in",
-    days: "days",
-    hours: "hours",
-    minutes: "minutes",
     description: "Description",
     transactionSimulator: "Transaction Simulator",
-    connectToVote: "Connect wallet to vote",
     activity: "Activity",
     loadingVotes: "Loading votes...",
     noVotesYet: "No votes yet",
     showAllVotes: "Show All",
   },
   zh: {
-    back: "返回",
+    back: "返回 Lil Nouns",
     proposer: "提议者",
     sponsors: "赞助者",
     viewOnEtherscan: "在 Etherscan 上查看",
@@ -59,22 +44,8 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     against: "反对",
     abstain: "弃权",
     quorumProgress: "法定人数进度",
-    castYourVote: "投出您的票：",
-    voting: "投票中",
-    change: "更改",
-    reasonForVote: "投票理由（可选但建议填写）：",
-    explainYourVote: "解释您的投票理由...",
-    submitVote: "提交投票",
-    submittingVote: "正在提交投票...",
-    votingClosed: "投票已关闭",
-    votingStarts: "投票开始于",
-    votingEnds: "投票结束于",
-    days: "天",
-    hours: "小时",
-    minutes: "分钟",
     description: "描述",
     transactionSimulator: "交易模拟器",
-    connectToVote: "连接钱包以投票",
     activity: "活动",
     loadingVotes: "加载投票...",
     noVotesYet: "暂无投票",
@@ -82,14 +53,12 @@ const translations: Record<LanguageCode, Record<string, string>> = {
   },
 }
 
-function ProposalContentInner({
+function LilNounsProposalContentInner({
   params,
   isDarkMode,
-  setIsDarkMode,
 }: {
   params: { id: string }
   isDarkMode: boolean
-  setIsDarkMode: (value: boolean) => void
 }) {
   const router = useRouter()
   const proposalId = params.id
@@ -97,9 +66,9 @@ function ProposalContentInner({
   const [showAllVotes, setShowAllVotes] = useState(false)
   const t = translations[language]
 
-  const proposal = useProposalData(Number(proposalId))
-  const votes = useProposalVotes(Number(proposalId))
-  const feedback = useProposalFeedback(Number(proposalId))
+  const proposal = useLilNounsProposalData(Number(proposalId))
+  const votes = useLilNounsVotes(Number(proposalId))
+  const feedback = useLilNounsProposalFeedback(Number(proposalId))
 
   if (proposal.isLoading) {
     return (
@@ -119,7 +88,7 @@ function ProposalContentInner({
     return (
       <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
         <div className="max-w-4xl mx-auto w-full">
-          <Button variant="ghost" className="mb-6 gap-2" onClick={() => router.push("/")}>
+          <Button variant="ghost" className="mb-6 gap-2" onClick={() => router.push("/lilnouns")}>
             <ArrowLeft className="h-4 w-4" />
             {t.back}
           </Button>
@@ -153,11 +122,12 @@ function ProposalContentInner({
             variant="ghost"
             size="sm"
             className="gap-2 text-gray-300 hover:text-white"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/lilnouns")}
           >
             <ArrowLeft className="h-4 w-4" />
             {t.back}
           </Button>
+          <span className="text-pink-500 font-bold">Lil Nouns</span>
         </div>
       </div>
 
@@ -176,25 +146,35 @@ function ProposalContentInner({
               >
                 {stateLabel}
               </Badge>
-              <Badge variant="outline" className={isDarkMode ? "border-[#3a3a5a] text-gray-300" : ""}>
+              <Badge variant="outline" className={isDarkMode ? "border-pink-500/50 text-pink-300" : ""}>
                 #{proposalId}
               </Badge>
             </div>
 
             <h1 className="text-2xl font-bold break-words">{title || proposal.description}</h1>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
               <span>{t.proposer}:</span>
               <EnsDisplay address={proposal.proposer || ""} showAvatar avatarSize={20} />
               <a
                 href={`https://etherscan.io/address/${proposal.proposer}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300"
+                className="text-pink-400 hover:text-pink-300"
               >
                 <ExternalLink className="h-4 w-4" />
               </a>
             </div>
+
+            <a
+              href={`https://lilnouns.wtf/vote/${proposalId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-pink-400 hover:text-pink-300"
+            >
+              View on lilnouns.wtf
+              <ExternalLink className="h-4 w-4" />
+            </a>
           </CardContent>
         </Card>
 
@@ -236,7 +216,7 @@ function ProposalContentInner({
                 <div className="flex flex-col">
                   <span className="text-sm text-muted-foreground">{t.quorumProgress}</span>
                   <span className="text-xs text-muted-foreground">
-                    FOR votes needed: {dynamicQuorum} (dynamic based on Against votes)
+                    FOR votes needed: {dynamicQuorum}
                   </span>
                 </div>
                 <div className="flex flex-col items-end">
@@ -247,11 +227,6 @@ function ProposalContentInner({
                 </div>
               </div>
               <Progress value={quorumPercentage} className={`h-2 ${quorumMet ? "bg-green-500/30" : "bg-[#3a3a5a]"}`} />
-              {againstVotes > 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Quorum threshold increased by {againstVotes} Against votes
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -259,39 +234,11 @@ function ProposalContentInner({
         <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
           <CardContent className="pt-6">
             <h2 className="text-lg font-semibold mb-4">{t.description}</h2>
-            <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-400">
+            <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-pink-400">
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
                 components={{
                   h1: () => null,
-                  img: ({ src, alt }) => (
-                    <span className="block my-4">
-                      <img src={src || "/placeholder.svg"} alt={alt || ""} className="rounded-lg max-w-full h-auto border border-border" loading="lazy" />
-                    </span>
-                  ),
-                  p: ({ children }) => <div className="mb-4">{children}</div>,
-                  table: ({ children }) => (
-                    <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
-                      <table className="min-w-full divide-y divide-[#3a3a5a] text-sm table-auto">
-                        {children}
-                      </table>
-                    </div>
-                  ),
-                  thead: ({ children }) => (
-                    <thead className="bg-[#1a1a2e]">{children}</thead>
-                  ),
-                  tbody: ({ children }) => (
-                    <tbody className="divide-y divide-[#3a3a5a] bg-[#252540]">{children}</tbody>
-                  ),
-                  tr: ({ children }) => (
-                    <tr className="hover:bg-[#2a2a4a] transition-colors">{children}</tr>
-                  ),
-                  th: ({ children }) => (
-                    <th className="px-4 py-3 text-left font-semibold text-gray-200 border-r border-[#3a3a5a] last:border-r-0">{children}</th>
-                  ),
-                  td: ({ children }) => (
-                    <td className="px-4 py-3 text-gray-300 border-r border-[#3a3a5a] last:border-r-0">{children}</td>
-                  ),
+                  img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
                 }}
               >
                 {body || proposal.fullDescription || ""}
@@ -325,7 +272,7 @@ function ProposalContentInner({
               <div className="space-y-3">
                 {(showAllVotes ? votes.votes : votes.votes.slice(0, 10)).map(
                   (
-                    vote: { voter: string; support: number; supportLabel: string; votes: string; reason?: string },
+                    vote: { voter: string; support: number; supportLabel: string; votes: number; reason?: string },
                     index: number,
                   ) => (
                     <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-[#1a1a2e]">
@@ -375,14 +322,12 @@ function ProposalContentInner({
   )
 }
 
-export default function ProposalContent({
+export default function LilNounsProposalContent({
   params,
   isDarkMode,
-  setIsDarkMode,
 }: {
   params: { id: string }
   isDarkMode: boolean
-  setIsDarkMode: (value: boolean) => void
 }) {
   const [mounted, setMounted] = useState(false)
 
@@ -404,5 +349,5 @@ export default function ProposalContent({
     )
   }
 
-  return <ProposalContentInner params={params} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />
+  return <LilNounsProposalContentInner params={params} isDarkMode={isDarkMode} />
 }

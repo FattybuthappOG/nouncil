@@ -9,25 +9,38 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
 import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
-import { useProposalData } from "@/hooks/useContractData"
+import { useLilNounsProposalData } from "@/hooks/useLilNounsData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
-import { GOVERNOR_CONTRACT } from "@/lib/contracts"
+import { LILNOUNS_GOVERNOR_ADDRESS } from "@/lib/lilnouns-constants"
 import { EnsDisplay } from "./ens-display"
 import { WalletConnectButton } from "./wallet-connect-button"
 
-interface ProposalVotingCardProps {
+// Lil Nouns Governor ABI (same interface as Nouns)
+const LILNOUNS_GOVERNOR_ABI = [
+  {
+    inputs: [
+      { internalType: "uint256", name: "proposalId", type: "uint256" },
+      { internalType: "uint8", name: "support", type: "uint8" },
+      { internalType: "string", name: "reason", type: "string" },
+    ],
+    name: "castVoteWithReason",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const
+
+interface LilNounsProposalCardProps {
   proposalId: number
   isDarkMode: boolean
-  proposalData?: any
   statusFilter?: string
 }
 
-export function ProposalVotingCard({
+export function LilNounsProposalCard({
   proposalId,
   isDarkMode,
-  proposalData,
   statusFilter = "all",
-}: ProposalVotingCardProps) {
+}: LilNounsProposalCardProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -51,27 +64,25 @@ export function ProposalVotingCard({
   }
 
   return (
-    <ProposalVotingCardContent
+    <LilNounsProposalCardContent
       proposalId={proposalId}
       isDarkMode={isDarkMode}
-      proposalData={proposalData}
       statusFilter={statusFilter}
     />
   )
 }
 
-function ProposalVotingCardContent({
+function LilNounsProposalCardContent({
   proposalId,
   isDarkMode,
-  proposalData,
   statusFilter = "all",
-}: ProposalVotingCardProps) {
+}: LilNounsProposalCardProps) {
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
 
   const { isConnected } = useAccount()
-  const proposal = useProposalData(proposalId)
+  const proposal = useLilNounsProposalData(proposalId)
 
   const { data: hash, writeContract, isPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
@@ -94,8 +105,6 @@ function ProposalVotingCardContent({
   const { label: stateLabel, color: stateColor } = getProposalStateLabel(proposal.state)
 
   const displayStatus = proposal.stateName || "Pending"
-
-  const isVisible = statusFilter === "all" || displayStatus.toUpperCase() === statusFilter
 
   let timingDisplay = null
   if (showTiming && currentBlock) {
@@ -136,10 +145,10 @@ function ProposalVotingCardContent({
     if (selectedSupport === null || !isConnected) return
 
     writeContract({
-      address: GOVERNOR_CONTRACT.address,
-      abi: GOVERNOR_CONTRACT.abi,
-      functionName: "castRefundableVoteWithReason",
-      args: [BigInt(proposalId), selectedSupport as 0 | 1 | 2, voteReason, 22],
+      address: LILNOUNS_GOVERNOR_ADDRESS,
+      abi: LILNOUNS_GOVERNOR_ABI,
+      functionName: "castVoteWithReason",
+      args: [BigInt(proposalId), selectedSupport as 0 | 1 | 2, voteReason],
     })
   }
 
@@ -152,14 +161,14 @@ function ProposalVotingCardContent({
 
   return (
     <Card
-      onClick={() => !showVoteForm && (window.location.href = `/proposal/${proposalId}`)}
+      onClick={() => !showVoteForm && window.open(`https://lilnouns.camp/proposals/${proposalId}`, '_blank')}
       className={`transition-colors duration-200 cursor-pointer hover:shadow-lg ${isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-white border-gray-200 hover:border-gray-300"}`}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <Badge variant="secondary" className="bg-pink-100 text-pink-800">
                 #{proposalId}
               </Badge>
               <Badge variant="outline" className={`text-${stateColor}-600 border-${stateColor}-600`}>
@@ -230,13 +239,13 @@ function ProposalVotingCardContent({
         </div>
 
         <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
+          Quorum: {quorumNeeded} Lil Nouns needed {quorumMet ? "✓" : ""}
         </div>
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>
           {!isConnected ? (
             <div className="flex justify-center w-full py-2">
-              <WalletConnectButton />
+              <WalletConnectButton colorScheme="pink" />
             </div>
           ) : isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-2">
@@ -316,7 +325,7 @@ function ProposalVotingCardContent({
                   <Button
                     onClick={submitVote}
                     disabled={isPending || isConfirming}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full bg-pink-600 hover:bg-pink-700 text-white"
                     size="sm"
                   >
                     {isPending || isConfirming ? "Submitting..." : "Submit Vote"}
@@ -335,4 +344,4 @@ function ProposalVotingCardContent({
   )
 }
 
-export default ProposalVotingCard
+export default LilNounsProposalCard

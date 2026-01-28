@@ -1,6 +1,6 @@
 "use client"
 
-import { http, createConfig, cookieStorage, createStorage } from "wagmi"
+import { http, createConfig } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { walletConnect, injected } from "wagmi/connectors"
 
@@ -21,13 +21,8 @@ export function getConfig() {
       injected(),
     ],
     transports: {
-      [mainnet.id]: http("https://eth.llamarpc.com"),
+      [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
     },
     ssr: true,
-    storage: createStorage({
-      storage: cookieStorage,
-    }),
   })
 }
-
-// The config should only be created inside components via getConfig()
