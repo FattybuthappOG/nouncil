@@ -327,7 +327,7 @@ export default function LilNounsDashboard() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between relative">
           {/* Back Button */}
-          <div className="flex items-center">
+          <div className="flex items-center flex-1">
             <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <ArrowLeft className="h-5 w-5" />
               <span className="hidden sm:inline text-sm">{t("backToNouncil")}</span>
@@ -335,23 +335,25 @@ export default function LilNounsDashboard() {
           </div>
 
           {/* Centered Logo */}
-          <div className="absolute left-1/2 transform -translate-x-1/2">
+          <div className="absolute left-1/2 transform -translate-x-1/2 pointer-events-none">
             <img 
               src="/images/lilnouns-logo.png" 
               alt="Lil Nouns" 
-              className="h-10 w-auto"
+              className="h-9 sm:h-10 w-auto"
             />
           </div>
 
-          <div className="flex items-center gap-4">
-            <WalletConnectButton colorScheme="pink" />
+          <div className="flex items-center gap-1.5 sm:gap-4 flex-1 justify-end pl-4">
+            {/* WalletConnectButton - compact on mobile */}
+            <span className="hidden sm:inline-block"><WalletConnectButton colorScheme="pink" /></span>
+            <span className="sm:hidden"><WalletConnectButton colorScheme="pink" compact /></span>
 
             <button
               onClick={() => setShowMenu(true)}
-              className={`p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
+              className={`p-1.5 sm:p-2 rounded-lg transition-colors ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
               aria-label="Open menu"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
         </div>
@@ -465,10 +467,10 @@ export default function LilNounsDashboard() {
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <button
               onClick={() => setActiveTab("proposals")}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm md:text-base ${
                 activeTab === "proposals"
                   ? "bg-pink-600 text-white"
                   : isDarkMode
@@ -476,13 +478,13 @@ export default function LilNounsDashboard() {
                     : "bg-gray-200 text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t("proposals")} ({totalCount})
+              {t("proposals")} <span className="text-[10px] sm:text-xs md:text-sm">({totalCount})</span>
             </button>
             <a
               href="https://lilnouns.camp/candidates"
               target="_blank"
               rel="noopener noreferrer"
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm md:text-base ${
                 isDarkMode
                   ? "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
                   : "bg-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-300"
