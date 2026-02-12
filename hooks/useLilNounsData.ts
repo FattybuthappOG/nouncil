@@ -136,7 +136,6 @@ export function useLilNounsProposalData(proposalId: number) {
 
 // Hook to fetch all candidates (placeholder - requires subgraph)
 export function useLilNounsCandidateIds(limit = 20) {
-  // Candidates require a subgraph to enumerate - return empty
   return {
     candidates: [] as { id: string; slug: string; proposer: string }[],
     totalCount: 0,
@@ -161,7 +160,7 @@ export function useLilNounsCandidateData(candidateId: string) {
     calldatas: [] as string[],
     canceled: false,
     isLoading: false,
-    error: true, // Always error since we can't fetch without subgraph
+    error: true,
   }
 }
 
@@ -198,7 +197,6 @@ export function useLilNounsVotes(proposalId: number) {
         const proposal = await response.json()
 
         if (proposal) {
-          // Return aggregated votes since we don't have individual voter data
           const votesList = [
             {
               voter: "Total For Votes",

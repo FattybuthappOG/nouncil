@@ -374,28 +374,16 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
 
     const fetchTransactionData = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposal(id: "${proposalId}") {
-                  targets
-                  values
-                  signatures
-                  calldatas
-                }
-              }
-            `,
-            }),
-          },
-        )
-
-        const data = await response.json()
-        const proposal = data?.data?.proposal
+        const { querySubgraph } = await import("@/lib/subgraph")
+        const data = await querySubgraph(`{
+          proposal(id: "${proposalId}") {
+            targets
+            values
+            signatures
+            calldatas
+          }
+        }`)
+        const proposal = data?.proposal
 
         if (proposal && proposal.targets && proposal.targets.length > 0) {
           const txs: TransactionData[] = proposal.targets.map((target: string, index: number) => {
