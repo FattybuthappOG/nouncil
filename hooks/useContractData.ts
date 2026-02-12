@@ -3,6 +3,7 @@
 import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
+import { querySubgraph } from "@/lib/subgraph"
 
 // Governor contract hooks
 export function useGovernorData() {
@@ -156,37 +157,20 @@ export function useProposalIds(
 
     const fetchProposalIds = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
-                  id
-                  status
-                  forVotes
-                  againstVotes
-                  abstainVotes
-                  quorumVotes
-                  endBlock
-                }
-              }
-            `,
-            }),
-          },
-        )
+        const data = await querySubgraph(`{
+          proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
+            id
+            status
+            forVotes
+            againstVotes
+            abstainVotes
+            quorumVotes
+            endBlock
+          }
+        }`)
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        if (data?.data?.proposals) {
-          const allProposals = data.data.proposals
+        if (data?.proposals) {
+          const allProposals = data.proposals
 
           let filtered = allProposals
           if (statusFilter === "active") {
@@ -229,7 +213,7 @@ export function useProposalIds(
   return { proposalIds, totalCount, isLoading }
 }
 
-// Fallback: fetch a single proposal via the server-side API route (reads from contract with event log descriptions)
+// Fallback: fetch a single proposal via the server-side API route (tries subgraph then contract with batch RPC)
 async function fetchProposalFromAPIFallback(
   proposalId: number,
   stateData: any,
@@ -247,10 +231,12 @@ async function fetchProposalFromAPIFallback(
   const stateNum = stateData !== undefined ? Number(stateData) : (proposal.stateNumber ?? 1)
   const stateName = PROPOSAL_STATE_NAMES[stateNum] || "Pending"
 
+  const sponsorsList = (proposal.sponsors || []).map((s: any) => (typeof s === 'string' ? s : s.id) as `0x${string}`)
+
   setProposalData(() => ({
     id: proposalId,
     proposer: (proposal.proposer || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-    sponsors: [],
+    sponsors: sponsorsList,
     forVotes: BigInt(proposal.forVotes || 0),
     againstVotes: BigInt(proposal.againstVotes || 0),
     abstainVotes: BigInt(proposal.abstainVotes || 0),
@@ -261,11 +247,11 @@ async function fetchProposalFromAPIFallback(
     fullDescription: desc,
     startBlock: BigInt(proposal.startBlock || 0),
     endBlock: BigInt(proposal.endBlock || 0),
-    transactionHash: "",
-    targets: [],
-    values: [],
-    signatures: [],
-    calldatas: [],
+    transactionHash: proposal.createdTransactionHash || "",
+    targets: proposal.targets || [],
+    values: proposal.values || [],
+    signatures: proposal.signatures || [],
+    calldatas: proposal.calldatas || [],
     isLoading: false,
     error: false,
   }))
@@ -316,23 +302,32 @@ export function useProposalData(proposalId: number) {
     if (!mounted) return
 
     const fetchCurrentBlock = async () => {
-      try {
-        const response = await fetch("https://rpc.ankr.com/eth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "eth_blockNumber",
-            params: [],
-            id: 1,
-          }),
-        })
-        const data = await response.json()
-        if (data.result) {
-          setCurrentBlock(Number.parseInt(data.result, 16))
+      const rpcs = [
+        "https://ethereum-rpc.publicnode.com",
+        "https://cloudflare-eth.com",
+        "https://eth.llamarpc.com",
+        "https://1rpc.io/eth",
+      ]
+      for (const rpc of rpcs) {
+        try {
+          const response = await fetch(rpc, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "eth_blockNumber",
+              params: [],
+              id: 1,
+            }),
+          })
+          const data = await response.json()
+          if (data.result) {
+            setCurrentBlock(Number.parseInt(data.result, 16))
+            return
+          }
+        } catch {
+          continue
         }
-      } catch (error) {
-        // Silently fail - block number is optional for timing display
       }
     }
     fetchCurrentBlock()
@@ -345,46 +340,30 @@ export function useProposalData(proposalId: number) {
 
     const fetchProposalFromAPI = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposal(id: "${proposalId}") {
-                  id
-                  description
-                  proposer {
-                    id
-                  }
-                  signers {
-                    id
-                  }
-                  forVotes
-                  againstVotes
-                  abstainVotes
-                  quorumVotes
-                  status
-                  createdTimestamp
-                  createdBlock
-                  startBlock
-                  endBlock
-                  createdTransactionHash
-                  targets
-                  values
-                  signatures
-                  calldatas
-                }
-              }
-            `,
-            }),
-          },
-        )
+        const data = await querySubgraph(`{
+          proposal(id: "${proposalId}") {
+            id
+            description
+            proposer { id }
+            signers { id }
+            forVotes
+            againstVotes
+            abstainVotes
+            quorumVotes
+            status
+            createdTimestamp
+            createdBlock
+            startBlock
+            endBlock
+            createdTransactionHash
+            targets
+            values
+            signatures
+            calldatas
+          }
+        }`)
 
-        const data = await response.json()
-        const proposal = data?.data?.proposal
+        const proposal = data?.proposal
 
         if (proposal) {
           const desc = proposal.description || `Proposal ${proposalId}`
@@ -492,69 +471,40 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
-        const countResponse = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidates(first: 1000, where: { canceled: false }) {
-                  id
-                }
-              }
-            `,
-            }),
-          },
-        )
+        const countData = await querySubgraph(`{
+          proposalCandidates(first: 1000, where: { canceled: false }) {
+            id
+          }
+        }`)
 
-        const countData = await countResponse.json()
-        const allCandidatesCount = countData?.data?.proposalCandidates?.length || 0
+        const allCandidatesCount = countData?.proposalCandidates?.length || 0
         setTotalCount(allCandidatesCount)
 
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
-                  id
-                  slug
-                  proposer
-                  createdTimestamp
-                  createdTransactionHash
-                  canceled
-                  canceledTimestamp
-                  latestVersion {
-                    id
-                    content {
-                      title
-                      description
-                      targets
-                      values
-                      signatures
-                      calldatas
-                    }
-                  }
-                }
+        const data = await querySubgraph(`{
+          proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
+            id
+            slug
+            proposer
+            createdTimestamp
+            createdTransactionHash
+            canceled
+            canceledTimestamp
+            latestVersion {
+              id
+              content {
+                title
+                description
+                targets
+                values
+                signatures
+                calldatas
               }
-            `,
-            }),
-          },
-        )
+            }
+          }
+        }`)
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        if (data?.data?.proposalCandidates) {
-          const candidatesWithNumber = data.data.proposalCandidates.map((c: any, index: number) => ({
+        if (data?.proposalCandidates) {
+          const candidatesWithNumber = data.proposalCandidates.map((c: any, index: number) => ({
             ...c,
             candidateNumber: allCandidatesCount - index,
             title: c.latestVersion?.content?.title || `Candidate`,
@@ -613,40 +563,28 @@ export function useCandidateData(candidateId: string) {
 
     const fetchCandidateFromAPI = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidate(id: "${candidateId}") {
-                  id
-                  slug
-                  proposer
-                  createdTimestamp
-                  createdTransactionHash
-                  latestVersion {
-                    content {
-                      title
-                      description
-                      targets
-                      values
-                      signatures
-                      calldatas
-                    }
-                  }
-                  canceledTimestamp
-                }
+        const data = await querySubgraph(`{
+          proposalCandidate(id: "${candidateId}") {
+            id
+            slug
+            proposer
+            createdTimestamp
+            createdTransactionHash
+            latestVersion {
+              content {
+                title
+                description
+                targets
+                values
+                signatures
+                calldatas
               }
-            `,
-            }),
-          },
-        )
+            }
+            canceledTimestamp
+          }
+        }`)
 
-        const data = await response.json()
-        const candidate = data?.data?.proposalCandidate
+        const candidate = data?.proposalCandidate
 
         if (candidate) {
           const content = candidate.latestVersion?.content || {}
@@ -707,39 +645,24 @@ export function useProposalFeedback(proposalId: number) {
 
     const fetchFeedback = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalFeedbacks(
-                  where: { proposal: "${proposalId}" }
-                  orderBy: createdTimestamp
-                  orderDirection: desc
-                  first: 1000
-                ) {
-                  id
-                  voter {
-                    id
-                  }
-                  support
-                  reason
-                  createdTimestamp
-                  createdBlock
-                }
-              }
-            `,
-            }),
-          },
-        )
+        const data = await querySubgraph(`{
+          proposalFeedbacks(
+            where: { proposal: "${proposalId}" }
+            orderBy: createdTimestamp
+            orderDirection: desc
+            first: 1000
+          ) {
+            id
+            voter { id }
+            support
+            reason
+            createdTimestamp
+            createdBlock
+          }
+        }`)
 
-        const data = await response.json()
-
-        if (data?.data?.proposalFeedbacks) {
-          const feedbackList = data.data.proposalFeedbacks.map((f: any) => {
+        if (data?.proposalFeedbacks) {
+          const feedbackList = data.proposalFeedbacks.map((f: any) => {
             const supportNum = Number(f.support)
             let supportLabel = "Abstain"
             if (supportNum === 0) supportLabel = "Against"
@@ -795,40 +718,25 @@ export function useProposalVotes(proposalId: number) {
 
     const fetchVotes = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                votes(
-                  where: { proposal: "${proposalId}" }
-                  orderBy: blockNumber
-                  orderDirection: desc
-                  first: 1000
-                ) {
-                  id
-                  voter {
-                    id
-                  }
-                  support
-                  supportDetailed
-                  votes
-                  reason
-                  blockNumber
-                }
-              }
-            `,
-            }),
-          },
-        )
+        const data = await querySubgraph(`{
+          votes(
+            where: { proposal: "${proposalId}" }
+            orderBy: blockNumber
+            orderDirection: desc
+            first: 1000
+          ) {
+            id
+            voter { id }
+            support
+            supportDetailed
+            votes
+            reason
+            blockNumber
+          }
+        }`)
 
-        const data = await response.json()
-
-        if (data?.data?.votes) {
-          const votesList = data.data.votes.map((v: any) => {
+        if (data?.votes) {
+          const votesList = data.votes.map((v: any) => {
             const supportNum = Number(v.support)
             let supportLabel = "Abstain"
             if (supportNum === 0) supportLabel = "Against"
@@ -882,36 +790,22 @@ export function useCandidateSignatures(candidateId: string) {
 
     const fetchSignatures = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidate(id: "${candidateId}") {
-                  versions {
-                    content {
-                      contentSignatures {
-                        signer {
-                          id
-                        }
-                        reason
-                        expirationTimestamp
-                        canceled
-                      }
-                    }
-                  }
+        const data = await querySubgraph(`{
+          proposalCandidate(id: "${candidateId}") {
+            versions {
+              content {
+                contentSignatures {
+                  signer { id }
+                  reason
+                  expirationTimestamp
+                  canceled
                 }
               }
-            `,
-            }),
-          },
-        )
+            }
+          }
+        }`)
 
-        const data = await response.json()
-        const candidate = data?.data?.proposalCandidate
+        const candidate = data?.proposalCandidate
 
         if (candidate?.versions) {
           const sigsList: any[] = []
