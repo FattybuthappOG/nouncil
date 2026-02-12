@@ -122,95 +122,20 @@ const PROPOSAL_STATE_NAMES = [
   "Vetoed",
 ]
 
-// Fallback: fetch proposals directly from the Nouns Governor contract via RPC
-async function fetchProposalIdsFromContract(
+// Fallback: fetch proposals via server-side API route (which reads directly from the contract)
+async function fetchProposalIdsFromAPI(
   limit: number,
   statusFilter: "all" | "active" | "executed" | "defeated" | "vetoed" | "canceled",
 ): Promise<{ ids: number[]; total: number }> {
-  const RPC_URLS = [
-    "https://eth.llamarpc.com",
-    "https://cloudflare-eth.com",
-    "https://rpc.ankr.com/eth",
-    "https://eth.public-rpc.com",
-  ]
-
-  const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
-  const proposalCountSig = "0xda35c664" // proposalCount()
-  const stateSig = "0x3e4f49e6" // state(uint256)
-
-  // Try each RPC until one works
-  let rpcUrl = RPC_URLS[0]
-  for (const url of RPC_URLS) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
-      })
-      if (res.ok) { rpcUrl = url; break }
-    } catch { continue }
+  const response = await fetch(`/api/nouns/proposals?limit=${limit}&status=${statusFilter}`)
+  if (!response.ok) throw new Error(`API route failed: ${response.status}`)
+  const data = await response.json()
+  
+  if (data.proposals) {
+    const ids = data.proposals.map((p: any) => p.id)
+    return { ids, total: data.totalCount || ids.length }
   }
-
-  // Get proposal count
-  const countRes = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      method: "eth_call",
-      params: [{ to: NOUNS_GOVERNOR, data: proposalCountSig }, "latest"],
-      id: 1,
-    }),
-  })
-  const countData = await countRes.json()
-  const totalCount = Number.parseInt(countData.result, 16)
-
-  if (totalCount === 0) return { ids: [], total: 0 }
-
-  // If filtering by status, we need to check state for each proposal
-  if (statusFilter !== "all") {
-    const stateMap: Record<string, number[]> = {
-      active: [0, 1, 5], // Pending, Active, Queued
-      executed: [7],
-      defeated: [3],
-      vetoed: [8],
-      canceled: [2],
-    }
-    const allowedStates = stateMap[statusFilter] || []
-    const filteredIds: number[] = []
-
-    // Check proposals from newest to oldest, in batches
-    for (let i = totalCount; i >= 1 && filteredIds.length < limit; i--) {
-      const paddedId = i.toString(16).padStart(64, "0")
-      try {
-        const stateRes = await fetch(rpcUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "eth_call",
-            params: [{ to: NOUNS_GOVERNOR, data: stateSig + paddedId }, "latest"],
-            id: i,
-          }),
-        })
-        const stateData = await stateRes.json()
-        const state = Number.parseInt(stateData.result, 16)
-        if (allowedStates.includes(state)) {
-          filteredIds.push(i)
-        }
-      } catch {
-        // Skip proposals that fail
-      }
-    }
-    return { ids: filteredIds, total: filteredIds.length }
-  }
-
-  // No filter - just return newest IDs
-  const ids: number[] = []
-  for (let i = totalCount; i >= 1 && ids.length < limit; i--) {
-    ids.push(i)
-  }
-  return { ids, total: totalCount }
+  return { ids: [], total: 0 }
 }
 
 export function useProposalIds(
@@ -285,13 +210,13 @@ export function useProposalIds(
           throw new Error("No proposals in subgraph response")
         }
       } catch (error) {
-        console.error("Subgraph failed, falling back to contract:", error)
+        console.error("Subgraph failed, falling back to API route:", error)
         try {
-          const result = await fetchProposalIdsFromContract(limit, statusFilter)
+          const result = await fetchProposalIdsFromAPI(limit, statusFilter)
           setProposalIds(result.ids)
           setTotalCount(result.total)
         } catch (fallbackError) {
-          console.error("Contract fallback also failed:", fallbackError)
+          console.error("API route fallback also failed:", fallbackError)
         }
       } finally {
         setIsLoading(false)
@@ -304,82 +229,38 @@ export function useProposalIds(
   return { proposalIds, totalCount, isLoading }
 }
 
-// Fallback: fetch a single proposal directly from the Nouns Governor contract
-async function fetchProposalFromContractFallback(
+// Fallback: fetch a single proposal via the server-side API route (reads from contract with event log descriptions)
+async function fetchProposalFromAPIFallback(
   proposalId: number,
   stateData: any,
   setProposalData: (fn: (prev: any) => any) => void,
 ) {
-  const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
-  const RPC_URL = "https://eth.llamarpc.com"
+  const response = await fetch(`/api/nouns/proposals?id=${proposalId}`)
+  if (!response.ok) throw new Error(`API route failed: ${response.status}`)
+  const proposal = await response.json()
+  
+  if (!proposal || !proposal.id) throw new Error("No proposal data from API")
 
-  // proposals(uint256) function selector: 0x013cf08b
-  const paddedId = proposalId.toString(16).padStart(64, "0")
-  const proposalsSig = "0x013cf08b" + paddedId
-
-  // state(uint256) function selector: 0x3e4f49e6
-  const stateSig = "0x3e4f49e6" + paddedId
-
-  // getActions(uint256) function selector: 0x328dd982
-  const getActionsSig = "0x328dd982" + paddedId
-
-  const rpcCall = async (data: string) => {
-    const res = await fetch(RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "eth_call",
-        params: [{ to: NOUNS_GOVERNOR, data }, "latest"],
-        id: 1,
-      }),
-    })
-    const json = await res.json()
-    if (json.error) throw new Error(json.error.message)
-    return json.result as string
-  }
-
-  const [proposalResult, stateResult] = await Promise.all([
-    rpcCall(proposalsSig),
-    stateData !== undefined ? Promise.resolve(null) : rpcCall(stateSig),
-  ])
-
-  // Decode proposals() return: id, proposer, eta, startBlock, endBlock, forVotes, againstVotes, abstainVotes, canceled, executed
-  // Each value is 32 bytes (64 hex chars)
-  const hex = proposalResult.slice(2)
-  const decode = (offset: number) => hex.slice(offset * 64, (offset + 1) * 64)
-  const decodeAddr = (offset: number) => "0x" + decode(offset).slice(24)
-  const decodeBigInt = (offset: number) => BigInt("0x" + decode(offset))
-  const decodeBool = (offset: number) => Number.parseInt(decode(offset), 16) !== 0
-
-  const proposer = decodeAddr(1) as `0x${string}`
-  const startBlock = decodeBigInt(3)
-  const endBlock = decodeBigInt(4)
-  const forVotes = decodeBigInt(5)
-  const againstVotes = decodeBigInt(6)
-  const abstainVotes = decodeBigInt(7)
-
-  const stateNum = stateData !== undefined
-    ? Number(stateData)
-    : stateResult
-      ? Number.parseInt(stateResult, 16)
-      : 1
+  const desc = proposal.description || `Proposal ${proposalId}`
+  const title = desc.split("\n")[0].replace(/^#+\s*/, "").trim() || `Proposal ${proposalId}`
+  
+  const stateNum = stateData !== undefined ? Number(stateData) : (proposal.stateNumber ?? 1)
   const stateName = PROPOSAL_STATE_NAMES[stateNum] || "Pending"
 
   setProposalData(() => ({
     id: proposalId,
-    proposer,
+    proposer: (proposal.proposer || "0x0000000000000000000000000000000000000000") as `0x${string}`,
     sponsors: [],
-    forVotes,
-    againstVotes,
-    abstainVotes,
+    forVotes: BigInt(proposal.forVotes || 0),
+    againstVotes: BigInt(proposal.againstVotes || 0),
+    abstainVotes: BigInt(proposal.abstainVotes || 0),
     state: stateNum,
     stateName,
-    quorum: BigInt(72),
-    description: `Proposal ${proposalId}`,
-    fullDescription: `Nouns DAO Proposal ${proposalId}`,
-    startBlock,
-    endBlock,
+    quorum: BigInt(proposal.quorumVotes || 72),
+    description: title,
+    fullDescription: desc,
+    startBlock: BigInt(proposal.startBlock || 0),
+    endBlock: BigInt(proposal.endBlock || 0),
     transactionHash: "",
     targets: [],
     values: [],
@@ -552,11 +433,11 @@ export function useProposalData(proposalId: number) {
           throw new Error("No proposal data in subgraph response")
         }
       } catch (error) {
-        console.error("Subgraph failed for proposal, falling back to contract:", error)
+        console.error("Subgraph failed for proposal, falling back to API route:", error)
         try {
-          await fetchProposalFromContractFallback(proposalId, stateData, setProposalData)
+          await fetchProposalFromAPIFallback(proposalId, stateData, setProposalData)
         } catch (fallbackError) {
-          console.error("Contract fallback also failed:", fallbackError)
+          console.error("API route fallback also failed:", fallbackError)
           setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       }
