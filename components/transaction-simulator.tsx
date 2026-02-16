@@ -374,28 +374,39 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
 
     const fetchTransactionData = async () => {
       try {
-        const response = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposal(id: "${proposalId}") {
-                  targets
-                  values
-                  signatures
-                  calldatas
-                }
-              }
-            `,
-            }),
-          },
-        )
+        // Try API route first for proposal transaction data
+        let proposal: any = null
+        try {
+          const apiRes = await fetch(`/api/nouns/proposals?id=${proposalId}`)
+          if (apiRes.ok) {
+            const apiData = await apiRes.json()
+            if (apiData?.targets?.length > 0) proposal = apiData
+          }
+        } catch { /* fall through to subgraph */ }
 
-        const data = await response.json()
-        const proposal = data?.data?.proposal
+        if (!proposal) {
+          const SUBGRAPH_URLS = [
+            "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+            "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+          ]
+          for (const url of SUBGRAPH_URLS) {
+            try {
+              const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  query: `{ proposal(id: "${proposalId}") { targets values signatures calldatas } }`,
+                }),
+              })
+              if (!response.ok) continue
+              const json = await response.json()
+              if (json?.data?.proposal?.targets?.length > 0) {
+                proposal = json.data.proposal
+                break
+              }
+            } catch { continue }
+          }
+        }
 
         if (proposal && proposal.targets && proposal.targets.length > 0) {
           const txs: TransactionData[] = proposal.targets.map((target: string, index: number) => {

@@ -1,54 +1,94 @@
 import { NextResponse } from "next/server"
 
-// Multiple subgraph endpoints with fallback
-const SUBGRAPH_URLS = [
-  "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-  "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph",
-]
-
 const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
 
+// RPC endpoints - ordered by reliability. Use env var if available.
 const RPC_URLS = [
+  process.env.ETH_RPC_URL,
   "https://ethereum-rpc.publicnode.com",
   "https://cloudflare-eth.com",
   "https://eth.llamarpc.com",
   "https://1rpc.io/eth",
-]
+].filter(Boolean) as string[]
 
 const PROPOSAL_STATES = [
   "Pending", "Active", "Canceled", "Defeated", "Succeeded", "Queued", "Expired", "Executed", "Vetoed",
 ]
 
-// Query subgraph with automatic fallback across endpoints
-async function querySubgraph(query: string): Promise<any> {
-  for (const url of SUBGRAPH_URLS) {
+// In-memory cache to avoid repeated RPC calls
+const cache: { proposals?: { data: any; timestamp: number }; single: Record<string, { data: any; timestamp: number }> } = { single: {} }
+const CACHE_TTL_LIST = 60_000 // 1 minute for list
+const CACHE_TTL_SINGLE = 120_000 // 2 minutes for single proposal
+
+// Batch JSON-RPC: send multiple calls in a SINGLE HTTP request
+// Falls back to sequential calls if batch is not supported
+async function batchRpcCall(calls: { method: string; params: any[] }[]): Promise<any[]> {
+  const batch = calls.map((c, i) => ({
+    jsonrpc: "2.0",
+    method: c.method,
+    params: c.params,
+    id: i + 1,
+  }))
+
+  // Try batch first
+  for (const url of RPC_URLS) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 8000)
-      const response = await fetch(url, {
+      const timeout = setTimeout(() => controller.abort(), 12000)
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify(batch),
         signal: controller.signal,
       })
       clearTimeout(timeout)
-      if (!response.ok) continue
-      const json = await response.json()
-      if (json.errors || !json.data) continue
-      return json.data
+      if (!res.ok) continue
+      const results = await res.json()
+      if (!Array.isArray(results)) continue
+      results.sort((a: any, b: any) => a.id - b.id)
+      const successes = results.filter((r: any) => !r.error && r.result)
+      if (successes.length >= calls.length * 0.5) {
+        return results.map((r: any) => r.result || null)
+      }
     } catch {
       continue
     }
   }
-  return null
+
+  // Fallback: sequential calls with first working RPC
+  for (const url of RPC_URLS) {
+    try {
+      const results: (any | null)[] = []
+      let failed = false
+      for (const call of calls) {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 6000)
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", method: call.method, params: call.params, id: 1 }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeout)
+        if (!res.ok) { failed = true; break }
+        const json = await res.json()
+        results.push(json.error ? null : json.result)
+      }
+      if (!failed && results.length === calls.length) return results
+    } catch {
+      continue
+    }
+  }
+
+  throw new Error("All RPC endpoints failed for batch call")
 }
 
-// Single RPC call with fallback (only used for individual proposal lookups)
+// Single RPC call
 async function rpcCall(method: string, params: any[]): Promise<any> {
   for (const url of RPC_URLS) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
+      const timeout = setTimeout(() => controller.abort(), 8000)
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,150 +125,138 @@ function decodeAddress(hex: string, slot: number): string {
   return "0x" + hex.slice(start + 24, start + 64)
 }
 
-function decodeBool(hex: string, slot: number): boolean {
-  return decodeSlot(hex, slot) !== 0n
-}
-
-// Fetch proposal list via subgraph (efficient single query)
-async function fetchProposalsFromSubgraph(limit: number, statusFilter: string) {
-  // Build filter
-  let statusWhere = ""
-  if (statusFilter === "active") statusWhere = ', where: { status_in: ["ACTIVE", "PENDING", "QUEUED"] }'
-  else if (statusFilter === "executed") statusWhere = ', where: { status: "EXECUTED" }'
-  else if (statusFilter === "defeated") statusWhere = ', where: { status: "DEFEATED" }'
-  else if (statusFilter === "vetoed") statusWhere = ', where: { status: "VETOED" }'
-  else if (statusFilter === "canceled") statusWhere = ', where: { status: "CANCELLED" }'
-
-  const data = await querySubgraph(`{
-    proposals(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc${statusWhere}) {
-      id
-      description
-      proposer { id }
-      signers { id }
-      forVotes
-      againstVotes
-      abstainVotes
-      quorumVotes
-      status
-      createdTimestamp
-      createdBlock
-      startBlock
-      endBlock
-      createdTransactionHash
-      targets
-      values
-      signatures
-      calldatas
+// Fetch proposal list using batch RPC (2 HTTP requests total: 1 for count, 1 batch for all proposal data)
+async function fetchProposalList(limit: number, statusFilter: string) {
+  // Check cache
+  if (cache.proposals && Date.now() - cache.proposals.timestamp < CACHE_TTL_LIST) {
+    const cached = cache.proposals.data
+    if (statusFilter === "all") {
+      return { proposals: cached.proposals.slice(0, limit), totalCount: cached.totalCount }
     }
-  }`)
-
-  if (!data?.proposals) return null
-
-  const totalData = await querySubgraph(`{
-    proposals(first: 1000${statusWhere}) { id }
-  }`)
-  const totalCount = totalData?.proposals?.length || data.proposals.length
-
-  return {
-    proposals: data.proposals.map((p: any) => ({
-      id: Number(p.id),
-      proposer: p.proposer?.id || "0x0",
-      signers: p.signers?.map((s: any) => s.id) || [],
-      description: p.description || `Proposal ${p.id}`,
-      forVotes: p.forVotes || "0",
-      againstVotes: p.againstVotes || "0",
-      abstainVotes: p.abstainVotes || "0",
-      quorumVotes: p.quorumVotes || "0",
-      status: p.status || "UNKNOWN",
-      stateNumber: statusToStateNumber(p.status),
-      startBlock: p.startBlock || "0",
-      endBlock: p.endBlock || "0",
-      createdTimestamp: p.createdTimestamp,
-      createdBlock: p.createdBlock,
-      createdTransactionHash: p.createdTransactionHash,
-      targets: p.targets || [],
-      values: p.values || [],
-      signatures: p.signatures || [],
-      calldatas: p.calldatas || [],
-    })),
-    totalCount,
+    const filtered = cached.proposals.filter((p: any) => {
+      if (statusFilter === "active") return [0, 1, 5].includes(p.stateNumber)
+      if (statusFilter === "executed") return p.stateNumber === 7
+      if (statusFilter === "defeated") return p.stateNumber === 3
+      if (statusFilter === "vetoed") return p.stateNumber === 8
+      if (statusFilter === "canceled") return p.stateNumber === 2
+      return true
+    })
+    return { proposals: filtered.slice(0, limit), totalCount: filtered.length }
   }
-}
 
-// Fetch single proposal via subgraph
-async function fetchSingleProposalFromSubgraph(id: number) {
-  const data = await querySubgraph(`{
-    proposal(id: "${id}") {
-      id
-      description
-      proposer { id }
-      signers { id }
-      forVotes
-      againstVotes
-      abstainVotes
-      quorumVotes
-      status
-      createdTimestamp
-      createdBlock
-      startBlock
-      endBlock
-      createdTransactionHash
-      targets
-      values
-      signatures
-      calldatas
-    }
-  }`)
+  // Step 1: Get proposal count (single call)
+  const PROPOSAL_COUNT_SEL = "0xda35c664"
+  const countResult = await rpcCall("eth_call", [
+    { to: NOUNS_GOVERNOR, data: PROPOSAL_COUNT_SEL },
+    "latest",
+  ])
+  const totalCount = Number(BigInt(countResult))
+  if (totalCount === 0) return { proposals: [], totalCount: 0 }
 
-  if (!data?.proposal) return null
-
-  const p = data.proposal
-  return {
-    id: Number(p.id),
-    proposer: p.proposer?.id || "0x0",
-    signers: p.signers?.map((s: any) => s.id) || [],
-    description: p.description || `Proposal ${p.id}`,
-    forVotes: p.forVotes || "0",
-    againstVotes: p.againstVotes || "0",
-    abstainVotes: p.abstainVotes || "0",
-    quorumVotes: p.quorumVotes || "0",
-    status: p.status || "UNKNOWN",
-    stateNumber: statusToStateNumber(p.status),
-    startBlock: p.startBlock || "0",
-    endBlock: p.endBlock || "0",
-    createdTimestamp: p.createdTimestamp,
-    createdBlock: p.createdBlock,
-    createdTransactionHash: p.createdTransactionHash,
-    targets: p.targets || [],
-    values: p.values || [],
-    signatures: p.signatures || [],
-    calldatas: p.calldatas || [],
+  // Step 2: Batch fetch proposals + states (2 calls per proposal, all in ONE HTTP request)
+  // Fetch the most recent proposals (up to 25 to have enough after filtering)
+  const fetchCount = Math.min(totalCount, 25)
+  const ids: number[] = []
+  for (let i = totalCount; i >= 1 && ids.length < fetchCount; i--) {
+    ids.push(i)
   }
-}
 
-function statusToStateNumber(status: string): number {
-  const map: Record<string, number> = {
-    PENDING: 0, ACTIVE: 1, CANCELLED: 2, DEFEATED: 3,
-    SUCCEEDED: 4, QUEUED: 5, EXPIRED: 6, EXECUTED: 7, VETOED: 8,
-  }
-  return map[status] ?? 1
-}
-
-// Fetch single proposal from RPC (last resort fallback - only 2-3 calls)
-async function fetchSingleProposalFromRPC(id: number) {
   const PROPOSALS_SEL = "0x013cf08b"
   const STATE_SEL = "0x3e4f49e6"
 
-  const [proposalResult, stateResult] = await Promise.all([
-    rpcCall("eth_call", [
-      { to: NOUNS_GOVERNOR, data: encodeFunctionCall(PROPOSALS_SEL, BigInt(id)) },
-      "latest",
-    ]),
-    rpcCall("eth_call", [
-      { to: NOUNS_GOVERNOR, data: encodeFunctionCall(STATE_SEL, BigInt(id)) },
-      "latest",
-    ]),
+  const batchCalls = ids.flatMap(id => [
+    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(PROPOSALS_SEL, BigInt(id)) }, "latest"] },
+    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(STATE_SEL, BigInt(id)) }, "latest"] },
   ])
+
+  const results = await batchRpcCall(batchCalls)
+
+  const proposals = ids.map((id, idx) => {
+    const propResult = results[idx * 2]
+    const stateResult = results[idx * 2 + 1]
+
+    if (!propResult || !stateResult) {
+      return {
+        id,
+        description: `Proposal ${id}`,
+        proposer: "0x0",
+        forVotes: "0",
+        againstVotes: "0",
+        abstainVotes: "0",
+        quorumVotes: "0",
+        status: "UNKNOWN",
+        stateNumber: 1,
+        startBlock: "0",
+        endBlock: "0",
+      }
+    }
+
+    const proposer = decodeAddress(propResult, 1)
+    const startBlock = decodeSlot(propResult, 5)
+    const endBlock = decodeSlot(propResult, 6)
+    const forVotes = decodeSlot(propResult, 7)
+    const againstVotes = decodeSlot(propResult, 8)
+    const abstainVotes = decodeSlot(propResult, 9)
+    const stateNumber = Number(BigInt(stateResult))
+    const stateName = PROPOSAL_STATES[stateNumber] || "Unknown"
+
+    return {
+      id,
+      description: `Proposal ${id}`,
+      proposer,
+      forVotes: forVotes.toString(),
+      againstVotes: againstVotes.toString(),
+      abstainVotes: abstainVotes.toString(),
+      quorumVotes: "0",
+      status: stateName.toUpperCase(),
+      stateNumber,
+      startBlock: startBlock.toString(),
+      endBlock: endBlock.toString(),
+    }
+  })
+
+  // Cache all proposals
+  cache.proposals = { data: { proposals, totalCount }, timestamp: Date.now() }
+
+  // Filter if needed
+  if (statusFilter !== "all") {
+    const filtered = proposals.filter((p: any) => {
+      if (statusFilter === "active") return [0, 1, 5].includes(p.stateNumber)
+      if (statusFilter === "executed") return p.stateNumber === 7
+      if (statusFilter === "defeated") return p.stateNumber === 3
+      if (statusFilter === "vetoed") return p.stateNumber === 8
+      if (statusFilter === "canceled") return p.stateNumber === 2
+      return true
+    })
+    return { proposals: filtered.slice(0, limit), totalCount: filtered.length }
+  }
+
+  return { proposals: proposals.slice(0, limit), totalCount }
+}
+
+// Fetch a single proposal (3 RPC calls max, with event log for description)
+async function fetchSingleProposal(id: number) {
+  // Check cache
+  const cacheKey = String(id)
+  if (cache.single[cacheKey] && Date.now() - cache.single[cacheKey].timestamp < CACHE_TTL_SINGLE) {
+    return cache.single[cacheKey].data
+  }
+
+  const PROPOSALS_SEL = "0x013cf08b"
+  const STATE_SEL = "0x3e4f49e6"
+
+  // Batch: proposal data + state in ONE request
+  const results = await batchRpcCall([
+    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(PROPOSALS_SEL, BigInt(id)) }, "latest"] },
+    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(STATE_SEL, BigInt(id)) }, "latest"] },
+  ])
+
+  const proposalResult = results[0]
+  const stateResult = results[1]
+
+  if (!proposalResult || !stateResult) {
+    throw new Error("Failed to read proposal from contract")
+  }
 
   const proposer = decodeAddress(proposalResult, 1)
   const startBlock = decodeSlot(proposalResult, 5)
@@ -239,8 +267,8 @@ async function fetchSingleProposalFromRPC(id: number) {
   const creationBlock = decodeSlot(proposalResult, 14)
   const stateNumber = Number(BigInt(stateResult))
 
-  // Try to get description from event logs (single RPC call)
-  let description = `Nouns DAO Proposal ${id}`
+  // Try to get description from ProposalCreated event log (1 additional RPC call)
+  let description = `# Proposal ${id}\n\nNouns DAO Proposal ${id}`
   try {
     const eventTopic = "0x7d84a6263ae0d98d3329bd7b46bb4e8d6f98cd35a7adb45c274c8b7fd5ebd5e0"
     const blockHex = "0x" + creationBlock.toString(16)
@@ -272,7 +300,7 @@ async function fetchSingleProposalFromRPC(id: number) {
     }
   } catch { /* description stays as fallback */ }
 
-  return {
+  const result = {
     id,
     proposer,
     signers: [],
@@ -281,17 +309,18 @@ async function fetchSingleProposalFromRPC(id: number) {
     againstVotes: againstVotes.toString(),
     abstainVotes: abstainVotes.toString(),
     quorumVotes: "0",
-    status: PROPOSAL_STATES[stateNumber] || "Unknown",
+    status: (PROPOSAL_STATES[stateNumber] || "Unknown").toUpperCase(),
     stateNumber,
     startBlock: startBlock.toString(),
     endBlock: endBlock.toString(),
     creationBlock: creationBlock.toString(),
     createdTransactionHash: "",
-    targets: [],
-    values: [],
-    signatures: [],
-    calldatas: [],
   }
+
+  // Cache it
+  cache.single[cacheKey] = { data: result, timestamp: Date.now() }
+
+  return result
 }
 
 export async function GET(request: Request) {
@@ -302,51 +331,11 @@ export async function GET(request: Request) {
 
   try {
     if (proposalId) {
-      // Single proposal - try subgraph first, then RPC
-      const subgraphResult = await fetchSingleProposalFromSubgraph(parseInt(proposalId))
-      if (subgraphResult) {
-        return NextResponse.json(subgraphResult)
-      }
-      // RPC fallback (only 2-3 calls for a single proposal)
-      const rpcResult = await fetchSingleProposalFromRPC(parseInt(proposalId))
-      return NextResponse.json(rpcResult)
+      const result = await fetchSingleProposal(parseInt(proposalId))
+      return NextResponse.json(result)
     } else {
-      // Proposal list - try subgraph first
-      const subgraphResult = await fetchProposalsFromSubgraph(limit, statusFilter)
-      if (subgraphResult) {
-        return NextResponse.json(subgraphResult)
-      }
-
-      // RPC fallback - only get IDs and basic state (minimal calls)
-      const PROPOSAL_COUNT_SEL = "0xda35c664"
-      const countResult = await rpcCall("eth_call", [
-        { to: NOUNS_GOVERNOR, data: PROPOSAL_COUNT_SEL },
-        "latest",
-      ])
-      const totalCount = Number(BigInt(countResult))
-
-      // Just return IDs without full data to avoid rate limiting
-      const ids: number[] = []
-      for (let i = totalCount; i >= 1 && ids.length < limit; i--) {
-        ids.push(i)
-      }
-
-      return NextResponse.json({
-        proposals: ids.map(id => ({
-          id,
-          description: `Proposal ${id}`,
-          proposer: "0x0",
-          forVotes: "0",
-          againstVotes: "0",
-          abstainVotes: "0",
-          quorumVotes: "0",
-          status: "UNKNOWN",
-          stateNumber: 1,
-          startBlock: "0",
-          endBlock: "0",
-        })),
-        totalCount,
-      })
+      const result = await fetchProposalList(limit, statusFilter)
+      return NextResponse.json(result)
     }
   } catch (error: any) {
     console.error("Error fetching Nouns proposals:", error?.message || error)
