@@ -15,6 +15,8 @@ export function getConfig() {
             walletConnect({
               projectId,
               showQrModal: true,
+              // Disable telemetry to avoid origin header issues in preview environments
+              enableAnalytics: false,
               qrModalOptions: {
                 themeMode: "dark",
                 enableExplorer: true,
