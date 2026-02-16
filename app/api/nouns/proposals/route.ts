@@ -178,7 +178,7 @@ async function fetchProposalList(limit: number, statusFilter: string) {
     if (!propResult || !stateResult) {
       return {
         id,
-        description: `Proposal ${id}`,
+        description: "", // Empty to signal real description needs to be fetched
         proposer: "0x0",
         forVotes: "0",
         againstVotes: "0",
@@ -200,19 +200,19 @@ async function fetchProposalList(limit: number, statusFilter: string) {
     const stateNumber = Number(BigInt(stateResult))
     const stateName = PROPOSAL_STATES[stateNumber] || "Unknown"
 
-    return {
-      id,
-      description: `Proposal ${id}`,
-      proposer,
-      forVotes: forVotes.toString(),
-      againstVotes: againstVotes.toString(),
-      abstainVotes: abstainVotes.toString(),
-      quorumVotes: "0",
-      status: stateName.toUpperCase(),
-      stateNumber,
-      startBlock: startBlock.toString(),
-      endBlock: endBlock.toString(),
-    }
+      return {
+        id,
+        description: "", // Return empty to signal client to keep loading for real description
+        proposer,
+        forVotes: forVotes.toString(),
+        againstVotes: againstVotes.toString(),
+        abstainVotes: abstainVotes.toString(),
+        quorumVotes: "0",
+        status: stateName.toUpperCase(),
+        stateNumber,
+        startBlock: startBlock.toString(),
+        endBlock: endBlock.toString(),
+      }
   })
 
   // Cache all proposals

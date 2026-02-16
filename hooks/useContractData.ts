@@ -286,7 +286,7 @@ export function useProposalData(proposalId: number) {
     state: 1,
     stateName: "Active",
     quorum: BigInt(72),
-    description: `Proposal ${proposalId}`,
+    description: "",
     fullDescription: "",
     startBlock: BigInt(0),
     endBlock: BigInt(0),
@@ -344,11 +344,15 @@ export function useProposalData(proposalId: number) {
     const fetchProposalFromAPI = async () => {
       // Helper to apply proposal data from any source
       const applyProposal = (proposal: any, source: string) => {
-        const desc = proposal.description || `Proposal ${proposalId}`
-        const title = desc.split("\n")[0].replace(/^#+\s*/, "").trim() || `Proposal ${proposalId}`
+        const desc = proposal.description || ""
+        // Only use title if we have actual description content (not empty)
+        const title = desc ? desc.split("\n")[0].replace(/^#+\s*/, "").trim() : ""
         const stateNum = stateData !== undefined ? Number(stateData) : (proposal.stateNumber ?? 1)
         const stateName = PROPOSAL_STATE_NAMES[stateNum] || "Pending"
         const sponsorsList = (proposal.signers || proposal.sponsors || []).map((s: any) => ((typeof s === 'string' ? s : s.id) as `0x${string}`))
+
+        // Only mark as not loading if we have description content
+        const hasData = desc && desc.length > 0 && desc !== `Proposal ${proposalId}`
 
         setProposalData({
           id: proposalId,
@@ -369,7 +373,7 @@ export function useProposalData(proposalId: number) {
           values: proposal.values || [],
           signatures: proposal.signatures || [],
           calldatas: proposal.calldatas || [],
-          isLoading: false,
+          isLoading: !hasData,
           error: false,
         })
       }

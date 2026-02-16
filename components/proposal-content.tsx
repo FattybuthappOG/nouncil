@@ -101,20 +101,6 @@ function ProposalContentInner({
   const votes = useProposalVotes(Number(proposalId))
   const feedback = useProposalFeedback(Number(proposalId))
 
-  if (proposal.isLoading) {
-    return (
-      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
-        <div className="max-w-4xl mx-auto w-full">
-          <div className="animate-pulse space-y-4">
-            <div className={`h-8 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-3/4`} />
-            <div className={`h-4 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-1/2`} />
-            <div className={`h-64 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded`} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (proposal.error || !proposal.id) {
     return (
       <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
@@ -135,6 +121,21 @@ function ProposalContentInner({
 
   const { title, body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
   const stateLabel = proposal.stateName || getProposalStateLabel(proposal.state?.toString() || "1")
+
+  // Show loading if we don't have a title yet (real description not loaded)
+  if (proposal.isLoading || !title) {
+    return (
+      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
+        <div className="max-w-4xl mx-auto w-full">
+          <div className="animate-pulse space-y-4">
+            <div className={`h-8 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-3/4`} />
+            <div className={`h-4 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-1/2`} />
+            <div className={`h-64 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded`} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const forVotes = Number(proposal.forVotes || 0)
   const againstVotes = Number(proposal.againstVotes || 0)
