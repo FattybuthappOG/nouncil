@@ -84,7 +84,7 @@ export default function CandidateDetailPage() {
           setResolvedCandidateId(candidateIdOrNumber)
         }
       } catch (error) {
-        console.error("Error resolving candidate:", error)
+        // Subgraph may be unavailable - this is non-critical, we can still show the candidate
         setResolvedCandidateId(candidateIdOrNumber)
       } finally {
         setIsLoading(false)

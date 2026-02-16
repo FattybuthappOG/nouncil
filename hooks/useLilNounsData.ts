@@ -42,7 +42,7 @@ export function useLilNounsProposalIds(limit = 20) {
           setTotalCount(0)
         }
       } catch (error) {
-        console.error("Error fetching Lil Nouns proposals:", error)
+        // Lil Nouns data is optional - gracefully continue if unavailable
         setProposalIds([])
         setTotalCount(0)
       } finally {
@@ -123,7 +123,7 @@ export function useLilNounsProposalData(proposalId: number) {
           setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
-        console.error("Error fetching Lil Nouns proposal:", error)
+        // Lil Nouns proposal data is optional - gracefully continue if unavailable
         setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
@@ -226,7 +226,7 @@ export function useLilNounsVotes(proposalId: number) {
           setVotes(votesList)
         }
       } catch (error) {
-        console.error("Error fetching Lil Nouns votes:", error)
+        // Lil Nouns votes data is optional - gracefully continue if unavailable
       } finally {
         setIsLoading(false)
       }

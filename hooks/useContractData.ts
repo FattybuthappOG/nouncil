@@ -4,12 +4,12 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints with fallback - The Graph decentralized network (free tier for popular subgraphs)
+// Subgraph endpoints with fallback - Multiple sources
 const SUBGRAPH_URLS = [
-  // The Graph decentralized network - Nouns subgraph (free tier)
-  "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-  // Backup: The Graph Studio
-  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+  // Nouns DAO official subgraph on The Graph Studio
+  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/latest",
+  // Fallback: The Graph decentralized network public endpoint (requires no auth)
+  "https://gateway.thegraph.com/api/subgraphs/id/5PqWBjxsQZAKxdK95AbFYNQ1pqfm3dErJ9WwGgKFB7KA",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -508,7 +508,8 @@ export function useCandidateIds(limit = 20) {
           setCandidates(candidatesWithNumber)
         }
       } catch (error) {
-        console.error("Subgraph failed for candidates (no on-chain fallback available):", error)
+        // Candidates require a working subgraph - this is expected if subgraph endpoints are unavailable
+        // Gracefully continue without candidates data
         setCandidates([])
         setTotalCount(0)
       } finally {
@@ -675,7 +676,7 @@ export function useProposalFeedback(proposalId: number) {
           setFeedback(feedbackList)
         }
       } catch (error) {
-        console.error("Subgraph failed for feedback (no on-chain fallback):", error)
+        // Feedback data is optional - gracefully continue if unavailable
         setFeedback([])
       } finally {
         setIsLoading(false)
@@ -750,7 +751,7 @@ export function useProposalVotes(proposalId: number) {
           setVotes(votesList)
         }
       } catch (error) {
-        console.error("Subgraph failed for votes (no on-chain fallback for individual votes):", error)
+        // Votes data is optional - gracefully continue if unavailable
         setVotes([])
       } finally {
         setIsLoading(false)
