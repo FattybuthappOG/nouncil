@@ -508,7 +508,7 @@ export default function LilNounsDashboard() {
                 ))
               )}
               {hasMoreProposals && (
-                <div className="col-span-2 flex justify-center mt-8">
+                <div className="col-span-2 flex justify-center mt-8 w-full">
                   <button
                     onClick={loadMoreProposals}
                     className="px-6 py-3 rounded-lg font-medium transition-colors bg-pink-600 hover:bg-pink-700 text-white"
@@ -545,12 +545,12 @@ export default function LilNounsDashboard() {
                     ))}
                   </div>
                   {hasMoreCandidates && (
-                    <div className="flex justify-center mt-8">
+                    <div className="flex justify-center mt-8 w-full">
                       <button
                         onClick={loadMoreCandidates}
                         className="px-6 py-3 rounded-lg font-medium transition-colors bg-pink-600 hover:bg-pink-700 text-white"
                       >
-                        {t("loadMore")} (20 more)
+                        {t("loadMore")}
                       </button>
                     </div>
                   )}
