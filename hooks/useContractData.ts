@@ -14,8 +14,10 @@ const SUBGRAPH_URLS = [
 
 // Query subgraph with automatic fallback across multiple endpoints
 async function querySubgraph(query: string): Promise<any> {
+  console.log("[v0] Querying subgraph with:", query.substring(0, 100))
   for (const url of SUBGRAPH_URLS) {
     try {
+      console.log("[v0] Trying subgraph endpoint:", url)
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 6000)
       const response = await fetch(url, {
@@ -25,11 +27,18 @@ async function querySubgraph(query: string): Promise<any> {
         signal: controller.signal,
       })
       clearTimeout(timeout)
+      console.log("[v0] Response status:", response.status)
       if (!response.ok) continue
       const json = await response.json()
-      if (json.errors || !json.data) continue
+      console.log("[v0] Response JSON:", json)
+      if (json.errors || !json.data) {
+        console.log("[v0] Response has errors or no data")
+        continue
+      }
+      console.log("[v0] Successfully got data from:", url)
       return json.data
-    } catch {
+    } catch (error) {
+      console.log("[v0] Endpoint failed:", url, error)
       continue
     }
   }
@@ -469,9 +478,11 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
+        console.log("[v0] Fetching candidates with limit:", limit)
         const countData = await querySubgraph(`{
           proposalCandidates(first: 1000, where: { canceled: false }) { id }
         }`)
+        console.log("[v0] Candidates count data:", countData)
         const allCandidatesCount = countData?.proposalCandidates?.length || 0
         setTotalCount(allCandidatesCount)
 
@@ -497,6 +508,7 @@ export function useCandidateIds(limit = 20) {
             }
           }
         }`)
+        console.log("[v0] Candidates data received:", data)
 
         if (data?.proposalCandidates) {
           const candidatesWithNumber = data.proposalCandidates.map((c: any, index: number) => ({
@@ -505,9 +517,13 @@ export function useCandidateIds(limit = 20) {
             title: c.latestVersion?.content?.title || "",
             description: c.latestVersion?.content?.description || "",
           }))
+          console.log("[v0] Processed candidates:", candidatesWithNumber.length)
           setCandidates(candidatesWithNumber)
+        } else {
+          console.log("[v0] No proposalCandidates in response")
         }
       } catch (error) {
+        console.log("[v0] Candidates fetch error:", error)
         // Candidates require a working subgraph - this is expected if subgraph endpoints are unavailable
         // Gracefully continue without candidates data
         setCandidates([])
