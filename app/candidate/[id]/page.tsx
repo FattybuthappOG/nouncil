@@ -53,14 +53,25 @@ export default function CandidateDetailPage() {
 
       try {
         // First get total count
-        const { querySubgraph } = await import("@/lib/subgraph")
-        const countData = await querySubgraph(`{
-          proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) {
-            id
-          }
-        }`)
+        const countResponse = await fetch(
+          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `
+              query {
+                proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) {
+                  id
+                }
+              }
+            `,
+            }),
+          },
+        )
 
-        const allCandidates = countData?.proposalCandidates || []
+        const countData = await countResponse.json()
+        const allCandidates = countData?.data?.proposalCandidates || []
 
         // Candidate number 1 is the first created (index 0), number N is index N-1
         const index = candidateNumber - 1

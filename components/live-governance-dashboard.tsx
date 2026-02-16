@@ -513,13 +513,21 @@ function LiveGovernanceDashboardContent() {
             }
           }
 
-          const { querySubgraph } = await import("@/lib/subgraph")
-          const data = await querySubgraph(query)
+          const response = await fetch(
+            "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query }),
+            },
+          )
+
+          const data = await response.json()
           if (searchType === "proposals") {
-            const results = isNumber && data?.proposal ? [data.proposal] : data?.proposals || []
+            const results = isNumber && data?.data?.proposal ? [data.data.proposal] : data?.data?.proposals || []
             setSearchResults(results)
           } else {
-            let candidates = data?.proposalCandidates || []
+            let candidates = data?.data?.proposalCandidates || []
             if (isNumber) {
               const searchNumber = Number.parseInt(debouncedSearch)
               const index = totalCandidates - searchNumber
