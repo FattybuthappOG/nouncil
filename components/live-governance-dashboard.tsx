@@ -957,7 +957,7 @@ function LiveGovernanceDashboardContent() {
                 ))
               )}
               {hasMoreProposals && (
-                <div className="flex justify-center mt-8">
+                <div className="col-span-1 md:col-span-2 flex justify-center mt-8 w-full">
                   <button
                     onClick={loadMoreProposals}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors ${
