@@ -502,7 +502,7 @@ export function useCandidateIds(limit = 20) {
           const candidatesWithNumber = data.proposalCandidates.map((c: any, index: number) => ({
             ...c,
             candidateNumber: allCandidatesCount - index,
-            title: c.latestVersion?.content?.title || `Candidate`,
+            title: c.latestVersion?.content?.title || "",
             description: c.latestVersion?.content?.description || "",
           }))
           setCandidates(candidatesWithNumber)

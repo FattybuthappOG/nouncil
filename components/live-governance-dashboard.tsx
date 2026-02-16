@@ -998,7 +998,7 @@ function LiveGovernanceDashboardContent() {
                     ))}
                   </div>
                   {hasMoreCandidates && (
-                    <div className="flex justify-center mt-8">
+                    <div className="flex justify-center mt-8 w-full">
                       <button
                         onClick={loadMoreCandidates}
                         className={`px-6 py-3 rounded-lg font-medium transition-colors ${
@@ -1007,7 +1007,7 @@ function LiveGovernanceDashboardContent() {
                             : "bg-blue-500 hover:bg-blue-600 text-white"
                         }`}
                       >
-                        {t("loadMore")} (20 more)
+                        {t("loadMore")}
                       </button>
                     </div>
                   )}
