@@ -52,26 +52,28 @@ export default function CandidateDetailPage() {
       const candidateNumber = Number.parseInt(candidateIdOrNumber, 10)
 
       try {
-        // First get total count
-        const countResponse = await fetch(
-          "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `
-              query {
-                proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) {
-                  id
-                }
-              }
-            `,
-            }),
-          },
-        )
-
-        const countData = await countResponse.json()
-        const allCandidates = countData?.data?.proposalCandidates || []
+        // First get total count via subgraph
+        const SUBGRAPH_URLS = [
+          "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+          "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+        ]
+        let allCandidates: any[] = []
+        for (const url of SUBGRAPH_URLS) {
+          try {
+            const countResponse = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query: `{ proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) { id } }`,
+              }),
+            })
+            const countData = await countResponse.json()
+            if (countData?.data?.proposalCandidates) {
+              allCandidates = countData.data.proposalCandidates
+              break
+            }
+          } catch { continue }
+        }
 
         // Candidate number 1 is the first created (index 0), number N is index N-1
         const index = candidateNumber - 1
@@ -82,7 +84,7 @@ export default function CandidateDetailPage() {
           setResolvedCandidateId(candidateIdOrNumber)
         }
       } catch (error) {
-        console.error("Error resolving candidate:", error)
+        // Subgraph may be unavailable - this is non-critical, we can still show the candidate
         setResolvedCandidateId(candidateIdOrNumber)
       } finally {
         setIsLoading(false)

@@ -513,21 +513,31 @@ function LiveGovernanceDashboardContent() {
             }
           }
 
-          const response = await fetch(
-            "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query }),
-            },
-          )
+          const SUBGRAPH_URLS = [
+            "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+            "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+          ]
+          let data: any = null
+          for (const url of SUBGRAPH_URLS) {
+            try {
+              const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query }),
+              })
+              if (!response.ok) continue
+              const json = await response.json()
+              if (json.errors || !json.data) continue
+              data = json.data
+              break
+            } catch { continue }
+          }
 
-          const data = await response.json()
           if (searchType === "proposals") {
-            const results = isNumber && data?.data?.proposal ? [data.data.proposal] : data?.data?.proposals || []
+            const results = isNumber && data?.proposal ? [data.proposal] : data?.proposals || []
             setSearchResults(results)
           } else {
-            let candidates = data?.data?.proposalCandidates || []
+            let candidates = data?.proposalCandidates || []
             if (isNumber) {
               const searchNumber = Number.parseInt(debouncedSearch)
               const index = totalCandidates - searchNumber

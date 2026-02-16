@@ -97,7 +97,24 @@ function LilNounsProposalCardContent({
   })
   const currentBlock = currentBlockData ? Number(currentBlockData) : null
 
-  const { title, media } = parseProposalDescription(proposal.description || `Proposal ${proposalId}`)
+  const { title, media } = parseProposalDescription(proposal.description || "")
+
+  // Show loading skeleton if title is not loaded yet
+  if (!title) {
+    return (
+      <Card className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 space-y-3 animate-pulse">
+              <div className={`h-6 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded w-24`} />
+              <div className={`h-5 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded w-3/4`} />
+              <div className={`h-4 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded w-1/2`} />
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    )
+  }
 
   const votingIsActive = proposal.state === 1 || proposal.state === 0
   const showTiming = currentBlock !== null && !blockError

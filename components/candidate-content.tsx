@@ -132,8 +132,9 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                       </span>
                     ),
                     a: ({ href, children }) => {
-                      // Check if it's a YouTube link
-                      const youtubeMatch = href?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+                      // Check if it's a YouTube link (supports youtube.com/watch?v=, youtu.be/, youtube.com/embed/)
+                      const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/
+                      const youtubeMatch = href?.match(youtubeRegex)
                       if (youtubeMatch) {
                         return (
                           <span className="block my-4">

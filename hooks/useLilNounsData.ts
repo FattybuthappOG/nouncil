@@ -42,7 +42,7 @@ export function useLilNounsProposalIds(limit = 20) {
           setTotalCount(0)
         }
       } catch (error) {
-        console.error("Error fetching Lil Nouns proposals:", error)
+        // Lil Nouns data is optional - gracefully continue if unavailable
         setProposalIds([])
         setTotalCount(0)
       } finally {
@@ -123,7 +123,7 @@ export function useLilNounsProposalData(proposalId: number) {
           setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
         }
       } catch (error) {
-        console.error("Error fetching Lil Nouns proposal:", error)
+        // Lil Nouns proposal data is optional - gracefully continue if unavailable
         setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
@@ -136,7 +136,6 @@ export function useLilNounsProposalData(proposalId: number) {
 
 // Hook to fetch all candidates (placeholder - requires subgraph)
 export function useLilNounsCandidateIds(limit = 20) {
-  // Candidates require a subgraph to enumerate - return empty
   return {
     candidates: [] as { id: string; slug: string; proposer: string }[],
     totalCount: 0,
@@ -161,7 +160,7 @@ export function useLilNounsCandidateData(candidateId: string) {
     calldatas: [] as string[],
     canceled: false,
     isLoading: false,
-    error: true, // Always error since we can't fetch without subgraph
+    error: true,
   }
 }
 
@@ -198,7 +197,6 @@ export function useLilNounsVotes(proposalId: number) {
         const proposal = await response.json()
 
         if (proposal) {
-          // Return aggregated votes since we don't have individual voter data
           const votesList = [
             {
               voter: "Total For Votes",
@@ -228,7 +226,7 @@ export function useLilNounsVotes(proposalId: number) {
           setVotes(votesList)
         }
       } catch (error) {
-        console.error("Error fetching Lil Nouns votes:", error)
+        // Lil Nouns votes data is optional - gracefully continue if unavailable
       } finally {
         setIsLoading(false)
       }

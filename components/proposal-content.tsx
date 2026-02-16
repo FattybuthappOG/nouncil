@@ -101,20 +101,6 @@ function ProposalContentInner({
   const votes = useProposalVotes(Number(proposalId))
   const feedback = useProposalFeedback(Number(proposalId))
 
-  if (proposal.isLoading) {
-    return (
-      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
-        <div className="max-w-4xl mx-auto w-full">
-          <div className="animate-pulse space-y-4">
-            <div className={`h-8 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-3/4`} />
-            <div className={`h-4 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-1/2`} />
-            <div className={`h-64 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded`} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (proposal.error || !proposal.id) {
     return (
       <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
@@ -135,6 +121,21 @@ function ProposalContentInner({
 
   const { title, body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
   const stateLabel = proposal.stateName || getProposalStateLabel(proposal.state?.toString() || "1")
+
+  // Show loading if we don't have a title yet (real description not loaded)
+  if (proposal.isLoading || !title) {
+    return (
+      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
+        <div className="max-w-4xl mx-auto w-full">
+          <div className="animate-pulse space-y-4">
+            <div className={`h-8 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-3/4`} />
+            <div className={`h-4 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-1/2`} />
+            <div className={`h-64 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded`} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const forVotes = Number(proposal.forVotes || 0)
   const againstVotes = Number(proposal.againstVotes || 0)
@@ -269,6 +270,40 @@ function ProposalContentInner({
                       <img src={src || "/placeholder.svg"} alt={alt || ""} className="rounded-lg max-w-full h-auto border border-border" loading="lazy" />
                     </span>
                   ),
+                  a: ({ href, children }) => {
+                    // Check if link is a YouTube URL
+                    if (!href) return <a className="text-blue-400 hover:text-blue-300">{children}</a>
+                    
+                    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+                    const match = href.match(youtubeRegex)
+                    
+                    if (match) {
+                      const videoId = match[1]
+                      return (
+                        <div className="my-4 relative w-full aspect-video rounded-lg overflow-hidden border border-border">
+                          <iframe
+                            src={`https://www.youtube.com/embed/${videoId}`}
+                            title="YouTube video"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="absolute inset-0 w-full h-full"
+                          />
+                        </div>
+                      )
+                    }
+                    
+                    // Regular link
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 break-words"
+                      >
+                        {children}
+                      </a>
+                    )
+                  },
                   p: ({ children }) => <div className="mb-4">{children}</div>,
                   table: ({ children }) => (
                     <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
