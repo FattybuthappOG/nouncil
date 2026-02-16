@@ -270,6 +270,40 @@ function ProposalContentInner({
                       <img src={src || "/placeholder.svg"} alt={alt || ""} className="rounded-lg max-w-full h-auto border border-border" loading="lazy" />
                     </span>
                   ),
+                  a: ({ href, children }) => {
+                    // Check if link is a YouTube URL
+                    if (!href) return <a className="text-blue-400 hover:text-blue-300">{children}</a>
+                    
+                    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+                    const match = href.match(youtubeRegex)
+                    
+                    if (match) {
+                      const videoId = match[1]
+                      return (
+                        <div className="my-4 relative w-full aspect-video rounded-lg overflow-hidden border border-border">
+                          <iframe
+                            src={`https://www.youtube.com/embed/${videoId}`}
+                            title="YouTube video"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="absolute inset-0 w-full h-full"
+                          />
+                        </div>
+                      )
+                    }
+                    
+                    // Regular link
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 break-words"
+                      >
+                        {children}
+                      </a>
+                    )
+                  },
                   p: ({ children }) => <div className="mb-4">{children}</div>,
                   table: ({ children }) => (
                     <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">

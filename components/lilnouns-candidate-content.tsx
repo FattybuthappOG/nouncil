@@ -120,7 +120,8 @@ function LilNounsCandidateContentInner({ candidateId, isDarkMode }: { candidateI
                     h1: () => null,
                     img: ({ src, alt }) => <MediaContentRenderer content={`![${alt}](${src})`} />,
                     a: ({ href, children }) => {
-                      const youtubeMatch = href?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+                      const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/
+                      const youtubeMatch = href?.match(youtubeRegex)
                       if (youtubeMatch) {
                         return (
                           <div className="my-4">
