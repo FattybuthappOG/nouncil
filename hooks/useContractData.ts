@@ -478,54 +478,18 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
-        console.log("[v0] Fetching candidates with limit:", limit)
-        const countData = await querySubgraph(`{
-          proposalCandidates(first: 1000, where: { canceled: false }) { id }
-        }`)
-        console.log("[v0] Candidates count data:", countData)
-        const allCandidatesCount = countData?.proposalCandidates?.length || 0
-        setTotalCount(allCandidatesCount)
+        const res = await fetch(`/api/nouns/candidates?limit=${limit}`)
+        if (!res.ok) throw new Error("API request failed")
+        const data = await res.json()
 
-        const data = await querySubgraph(`{
-          proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
-            id
-            slug
-            proposer
-            createdTimestamp
-            createdTransactionHash
-            canceled
-            canceledTimestamp
-            latestVersion {
-              id
-              content {
-                title
-                description
-                targets
-                values
-                signatures
-                calldatas
-              }
-            }
-          }
-        }`)
-        console.log("[v0] Candidates data received:", data)
-
-        if (data?.proposalCandidates) {
-          const candidatesWithNumber = data.proposalCandidates.map((c: any, index: number) => ({
-            ...c,
-            candidateNumber: allCandidatesCount - index,
-            title: c.latestVersion?.content?.title || "",
-            description: c.latestVersion?.content?.description || "",
-          }))
-          console.log("[v0] Processed candidates:", candidatesWithNumber.length)
-          setCandidates(candidatesWithNumber)
+        if (data?.candidates && data.candidates.length > 0) {
+          setCandidates(data.candidates)
+          setTotalCount(data.total || data.candidates.length)
         } else {
-          console.log("[v0] No proposalCandidates in response")
+          setCandidates([])
+          setTotalCount(0)
         }
-      } catch (error) {
-        console.log("[v0] Candidates fetch error:", error)
-        // Candidates require a working subgraph - this is expected if subgraph endpoints are unavailable
-        // Gracefully continue without candidates data
+      } catch {
         setCandidates([])
         setTotalCount(0)
       } finally {
