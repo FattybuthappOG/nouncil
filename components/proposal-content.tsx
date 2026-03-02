@@ -263,6 +263,7 @@ function ProposalContentInner({
             <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-400">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                skipHtml={true}
                 components={{
                   h1: () => null,
                   img: ({ src, alt }) => (
