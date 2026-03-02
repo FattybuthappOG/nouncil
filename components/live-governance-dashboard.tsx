@@ -974,8 +974,7 @@ function LiveGovernanceDashboardContent() {
             </div>
           )}
 
-          {/* Candidates section temporarily disabled - data source being fixed */}
-          {/* {activeTab === "candidates" && (
+          {activeTab === "candidates" && (
             <>
               {candidateIdsData?.isLoading ? (
                 <div className="text-center py-12">
@@ -1002,7 +1001,7 @@ function LiveGovernanceDashboardContent() {
                   {hasMoreCandidates && (
                     <div className="flex justify-center mt-8 w-full">
                       <button
-                        onClick={loadMoreCandidates}
+                        onClick={() => setDisplayedCandidates(displayedCandidates + 20)}
                         className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                           isDarkMode
                             ? "bg-blue-600 hover:bg-blue-700 text-white"
@@ -1016,7 +1015,7 @@ function LiveGovernanceDashboardContent() {
                 </>
               )}
             </>
-          )} */}
+          )}
         </div>
       </div>
 

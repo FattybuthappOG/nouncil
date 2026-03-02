@@ -4,12 +4,10 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints with fallback - Multiple sources
+// Subgraph endpoints - Multiple sources with fallbacks
 const SUBGRAPH_URLS = [
-  // Try various known endpoints for Nouns subgraph
   "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph",
   "https://subgraph.satsuma-prod.com/3b2ced13c8d91/nouns/nouns-subgraph/api",
-  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -469,57 +467,17 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
-        // Try API route first (uses RPC fallback)
         const res = await fetch(`/api/nouns/candidates?limit=${limit}`, {
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(15000),
         })
         
         if (res.ok) {
           const data = await res.json()
           setCandidates(data.candidates || [])
           setTotalCount(data.total || 0)
-          setIsLoading(false)
-          return
-        }
-
-        // Fallback: try querying subgraph directly if API fails
-        const countData = await querySubgraph(`{
-          proposalCandidates(first: 1000, where: { canceled: false }) { id }
-        }`)
-        const allCandidatesCount = countData?.proposalCandidates?.length || 0
-        setTotalCount(allCandidatesCount)
-
-        const data = await querySubgraph(`{
-          proposalCandidates(first: ${limit}, orderBy: lastUpdatedTimestamp, orderDirection: desc, where: { canceled: false }) {
-            id
-            slug
-            proposer
-            lastUpdatedTimestamp
-            createdTransactionHash
-            canceled
-            latestVersion {
-              content {
-                title
-                description
-                targets
-                values
-                signatures
-                calldatas
-              }
-            }
-          }
-        }`)
-
-        if (data?.proposalCandidates) {
-          const candidatesWithNumber = data.proposalCandidates.map((c: any, index: number) => ({
-            ...c,
-            candidateNumber: allCandidatesCount - index,
-            title: c.latestVersion?.content?.title || "",
-            description: c.latestVersion?.content?.description || "",
-          }))
-          setCandidates(candidatesWithNumber)
         } else {
           setCandidates([])
+          setTotalCount(0)
         }
       } catch {
         setCandidates([])
