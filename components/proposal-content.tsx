@@ -263,9 +263,9 @@ function ProposalContentInner({
             <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-400">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                skipHtml={true}
                 components={{
                   h1: () => null,
+                  script: () => null,
                   img: ({ src, alt }) => (
                     <span className="block my-4">
                       <img src={src || "/placeholder.svg"} alt={alt || ""} className="rounded-lg max-w-full h-auto border border-border" loading="lazy" />
