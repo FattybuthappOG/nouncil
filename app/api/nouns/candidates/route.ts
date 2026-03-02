@@ -16,7 +16,7 @@ const RPC_URLS = [
 // ProposalCandidateCreated(address indexed msgSender, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, string description, string slug, bytes32 encodedProposalHash)
 const CANDIDATE_CREATED_TOPIC = "0x39f6ee14d478e1f642b4ee25f54d4b4b83b5eb2a287299aaa0826b4b3e31bb51"
 // ProposalCandidateCanceled(address indexed msgSender, string slug)
-const CANDIDATE_CANCELED_TOPIC = "0xa]1acbc5d5efd41ae6f23ae1ab4efcee843b741c0a12ce84d1ec6a4b7830e08ef2"
+const CANDIDATE_CANCELED_TOPIC = "0xa1acbc5d5efd41ae6f23ae1ab4efcee843b741c0a12ce84d1ec6a4b7830e08ef2"
 
 // Cache
 let cache: { data: any; timestamp: number } | null = null

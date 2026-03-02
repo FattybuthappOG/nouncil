@@ -1,14 +1,14 @@
 "use client"
 
 import { http, createConfig } from "wagmi"
-import { mainnet } from "wagmi/chains"
+import { mainnet, base, sepolia } from "wagmi/chains"
 import { walletConnect, injected } from "wagmi/connectors"
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || ""
 
 export function getConfig() {
   return createConfig({
-    chains: [mainnet],
+    chains: [mainnet, base, sepolia],
     connectors: [
       ...(typeof window !== "undefined" && projectId
         ? [
@@ -34,6 +34,8 @@ export function getConfig() {
     ],
     transports: {
       [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
+      [base.id]: http("https://developer-access-mainnet.base.org"),
+      [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
     },
     ssr: true,
   })

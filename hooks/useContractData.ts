@@ -14,10 +14,8 @@ const SUBGRAPH_URLS = [
 
 // Query subgraph with automatic fallback across multiple endpoints
 async function querySubgraph(query: string): Promise<any> {
-  console.log("[v0] Querying subgraph with:", query.substring(0, 100))
   for (const url of SUBGRAPH_URLS) {
     try {
-      console.log("[v0] Trying subgraph endpoint:", url)
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 6000)
       const response = await fetch(url, {
@@ -27,18 +25,11 @@ async function querySubgraph(query: string): Promise<any> {
         signal: controller.signal,
       })
       clearTimeout(timeout)
-      console.log("[v0] Response status:", response.status)
       if (!response.ok) continue
       const json = await response.json()
-      console.log("[v0] Response JSON:", json)
-      if (json.errors || !json.data) {
-        console.log("[v0] Response has errors or no data")
-        continue
-      }
-      console.log("[v0] Successfully got data from:", url)
+      if (json.errors || !json.data) continue
       return json.data
-    } catch (error) {
-      console.log("[v0] Endpoint failed:", url, error)
+    } catch {
       continue
     }
   }
@@ -517,7 +508,7 @@ export function useCandidateData(candidateId: string) {
       expirationTimestamp: bigint
       canceled: boolean
     }>,
-    description: `Candidate ${candidateId}`,
+    description: "",
     fullDescription: "",
     createdTimestamp: 0,
     transactionHash: "",
@@ -563,7 +554,7 @@ export function useCandidateData(candidateId: string) {
 
         if (candidate) {
           const content = candidate.latestVersion?.content || {}
-          const title = content.title || `Candidate ${candidateId}`
+          const title = content.title || ""
           const description = content.description || ""
 
           setCandidateData({

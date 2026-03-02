@@ -728,9 +728,9 @@ function AuctionContentInner() {
           </div>
 
           {/* Right column - Noun artwork */}
-          <div className="flex flex-col items-center justify-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0">
+          <div className="flex flex-col items-center justify-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0 md:overflow-hidden">
             <div
-              className={`w-full aspect-square max-w-[320px] md:max-w-[500px] md:max-h-[calc(100vh-200px)] rounded-2xl overflow-hidden ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
+              className={`w-full max-w-[320px] md:max-w-none md:max-h-[calc(100vh-200px)] rounded-2xl overflow-hidden flex items-center justify-center ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
             >
               {nounId !== null ? (
                 <Image
@@ -738,7 +738,7 @@ function AuctionContentInner() {
                   alt={`Noun ${nounId}`}
                   width={500}
                   height={500}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   priority
                 />
               ) : (
@@ -747,7 +747,7 @@ function AuctionContentInner() {
                   alt="Loading Noun..."
                   width={500}
                   height={500}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   unoptimized
                 />
               )}
