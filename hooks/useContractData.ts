@@ -6,8 +6,8 @@ import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
 // Subgraph endpoints - Multiple sources with fallbacks
 const SUBGRAPH_URLS = [
-  "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph",
-  "https://subgraph.satsuma-prod.com/3b2ced13c8d91/nouns/nouns-subgraph/api",
+  "https://api.thegraph.com/subgraphs/name/nounsDAO/nouns",
+  "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph-mainnet",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -467,25 +467,19 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
-        console.log("[v0] Fetching candidates from API...")
         const res = await fetch(`/api/nouns/candidates?limit=${limit}`, {
           signal: AbortSignal.timeout(15000),
         })
         
-        console.log("[v0] Candidates API response status:", res.status)
-        
         if (res.ok) {
           const data = await res.json()
-          console.log("[v0] Candidates data:", data)
           setCandidates(data.candidates || [])
           setTotalCount(data.total || 0)
         } else {
-          console.log("[v0] Candidates API failed with status:", res.status)
           setCandidates([])
           setTotalCount(0)
         }
-      } catch (error) {
-        console.log("[v0] Candidates fetch error:", error)
+      } catch {
         setCandidates([])
         setTotalCount(0)
       } finally {

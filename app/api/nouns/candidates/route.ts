@@ -6,13 +6,13 @@ const CACHE_TTL = 180_000 // 3 minutes
 
 async function fetchFromSubgraph(query: string) {
   const endpoints = [
-    "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph",
-    "https://subgraph.satsuma-prod.com/3b2ced13c8d91/nouns/nouns-subgraph/api",
+    // Try the correct hosted service endpoint names
+    "https://api.thegraph.com/subgraphs/name/nounsDAO/nouns",
+    "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph-mainnet",
   ]
 
   for (const endpoint of endpoints) {
     try {
-      console.log("[v0] Trying endpoint:", endpoint)
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
 
@@ -25,34 +25,25 @@ async function fetchFromSubgraph(query: string) {
 
       clearTimeout(timeout)
 
-      console.log("[v0] Response status from", endpoint, ":", response.status)
-      
       if (!response.ok) {
-        console.log("[v0] Response not OK, skipping")
         continue
       }
 
       const json = await response.json()
-      console.log("[v0] Got JSON response, errors?", !!json.errors, "data?", !!json.data)
-      
+
       if (json.errors) {
-        console.log("[v0] GraphQL errors:", json.errors)
         continue
       }
       if (!json.data) {
-        console.log("[v0] No data field in response")
         continue
       }
 
-      console.log("[v0] Successfully got data from", endpoint)
       return json.data
-    } catch (error) {
-      console.log("[v0] Fetch failed for", endpoint, ":", error)
+    } catch {
       continue
     }
   }
 
-  console.log("[v0] All endpoints failed")
   return null
 }
 
@@ -63,15 +54,12 @@ export async function GET(request: Request) {
 
     // Check cache
     if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
-      console.log("[v0] Returning cached candidates:", cache.data.length)
       return NextResponse.json({
         candidates: cache.data.slice(0, limit),
         total: cache.data.length,
       })
     }
 
-    console.log("[v0] Fetching candidates from subgraph...")
-    
     // Query candidates
     const query = `{
       proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
@@ -95,7 +83,6 @@ export async function GET(request: Request) {
     }`
 
     const data = await fetchFromSubgraph(query)
-    console.log("[v0] Subgraph response:", data?.proposalCandidates?.length || 0, "candidates")
 
     let candidates: any[] = []
     
@@ -119,16 +106,13 @@ export async function GET(request: Request) {
 
       // Cache the results
       cache = { data: candidates, timestamp: Date.now() }
-      console.log("[v0] Cached", candidates.length, "candidates")
     }
 
-    console.log("[v0] Returning", candidates.length, "candidates to client")
     return NextResponse.json({
       candidates: candidates.slice(0, limit),
       total: candidates.length,
     })
-  } catch (error) {
-    console.error("[v0] Candidates API error:", error)
+  } catch {
     return NextResponse.json({
       candidates: [],
       total: 0,
