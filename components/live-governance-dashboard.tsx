@@ -957,7 +957,7 @@ function LiveGovernanceDashboardContent() {
                 ))
               )}
               {hasMoreProposals && (
-                <div className="flex justify-center mt-8">
+                <div className="flex justify-center mt-8 w-full">
                   <button
                     onClick={loadMoreProposals}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors ${
@@ -998,16 +998,16 @@ function LiveGovernanceDashboardContent() {
                     ))}
                   </div>
                   {hasMoreCandidates && (
-                    <div className="flex justify-center mt-8">
+                    <div className="flex justify-center mt-8 w-full">
                       <button
-                        onClick={loadMoreCandidates}
+                        onClick={() => setDisplayedCandidates(displayedCandidates + 20)}
                         className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                           isDarkMode
                             ? "bg-blue-600 hover:bg-blue-700 text-white"
                             : "bg-blue-500 hover:bg-blue-600 text-white"
                         }`}
                       >
-                        {t("loadMore")} (20 more)
+                        {t("loadMore")}
                       </button>
                     </div>
                   )}

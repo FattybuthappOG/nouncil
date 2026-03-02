@@ -4,12 +4,10 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints with fallback - Multiple sources
+// Subgraph endpoints - Multiple sources with fallbacks
 const SUBGRAPH_URLS = [
-  // Nouns DAO official subgraph on The Graph Studio
-  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/latest",
-  // Fallback: The Graph decentralized network public endpoint (requires no auth)
-  "https://gateway.thegraph.com/api/subgraphs/id/5PqWBjxsQZAKxdK95AbFYNQ1pqfm3dErJ9WwGgKFB7KA",
+  "https://api.thegraph.com/subgraphs/name/nounsDAO/nouns",
+  "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph-mainnet",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -469,47 +467,19 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
-        const countData = await querySubgraph(`{
-          proposalCandidates(first: 1000, where: { canceled: false }) { id }
-        }`)
-        const allCandidatesCount = countData?.proposalCandidates?.length || 0
-        setTotalCount(allCandidatesCount)
-
-        const data = await querySubgraph(`{
-          proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
-            id
-            slug
-            proposer
-            createdTimestamp
-            createdTransactionHash
-            canceled
-            canceledTimestamp
-            latestVersion {
-              id
-              content {
-                title
-                description
-                targets
-                values
-                signatures
-                calldatas
-              }
-            }
-          }
-        }`)
-
-        if (data?.proposalCandidates) {
-          const candidatesWithNumber = data.proposalCandidates.map((c: any, index: number) => ({
-            ...c,
-            candidateNumber: allCandidatesCount - index,
-            title: c.latestVersion?.content?.title || `Candidate`,
-            description: c.latestVersion?.content?.description || "",
-          }))
-          setCandidates(candidatesWithNumber)
+        const res = await fetch(`/api/nouns/candidates?limit=${limit}`, {
+          signal: AbortSignal.timeout(15000),
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          setCandidates(data.candidates || [])
+          setTotalCount(data.total || 0)
+        } else {
+          setCandidates([])
+          setTotalCount(0)
         }
-      } catch (error) {
-        // Candidates require a working subgraph - this is expected if subgraph endpoints are unavailable
-        // Gracefully continue without candidates data
+      } catch {
         setCandidates([])
         setTotalCount(0)
       } finally {
@@ -537,7 +507,7 @@ export function useCandidateData(candidateId: string) {
       expirationTimestamp: bigint
       canceled: boolean
     }>,
-    description: `Candidate ${candidateId}`,
+    description: "",
     fullDescription: "",
     createdTimestamp: 0,
     transactionHash: "",
@@ -583,7 +553,7 @@ export function useCandidateData(candidateId: string) {
 
         if (candidate) {
           const content = candidate.latestVersion?.content || {}
-          const title = content.title || `Candidate ${candidateId}`
+          const title = content.title || ""
           const description = content.description || ""
 
           setCandidateData({

@@ -79,6 +79,22 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber, candid
 
   const { media } = parseProposalDescription(candidateData.description || "")
 
+  // Show loading skeleton if title is not loaded yet
+  if (!candidateData.title) {
+    return (
+      <Card className={`p-4 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <div className="space-y-3 animate-pulse">
+          <div className="flex items-center gap-2">
+            <div className={`h-6 w-12 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded`} />
+            <div className={`h-5 flex-1 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded`} />
+          </div>
+          <div className={`h-4 w-3/4 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded`} />
+          <div className={`h-4 w-1/2 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded`} />
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <Card
       onClick={handleClick}
@@ -97,7 +113,7 @@ export function CandidateCard({ candidateId, isDarkMode, candidateNumber, candid
                 </Badge>
               )}
               <h3 className={`font-semibold text-base truncate ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
-                {candidateData.title || `Candidate #${candidateNumber}`}
+                {candidateData.title}
               </h3>
             </div>
 
