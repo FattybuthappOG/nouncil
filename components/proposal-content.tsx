@@ -103,13 +103,13 @@ function ProposalContentInner({
 
   if (proposal.error || !proposal.id) {
     return (
-      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
+      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
         <div className="max-w-4xl mx-auto w-full">
           <Button variant="ghost" className="mb-6 gap-2" onClick={() => router.push("/")}>
             <ArrowLeft className="h-4 w-4" />
             {t.back}
           </Button>
-          <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+          <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
             <CardContent className="pt-6">
               <p className="text-destructive">Error loading proposal data. Please try again.</p>
             </CardContent>
@@ -125,12 +125,12 @@ function ProposalContentInner({
   // Show loading if we don't have a title yet (real description not loaded)
   if (proposal.isLoading || !title) {
     return (
-      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
+      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
         <div className="max-w-4xl mx-auto w-full">
           <div className="animate-pulse space-y-4">
-            <div className={`h-8 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-3/4`} />
-            <div className={`h-4 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-1/2`} />
-            <div className={`h-64 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded`} />
+            <div className={`h-8 ${isDarkMode ? "bg-gray-800" : "bg-muted"} rounded w-3/4`} />
+            <div className={`h-4 ${isDarkMode ? "bg-gray-800" : "bg-muted"} rounded w-1/2`} />
+            <div className={`h-64 ${isDarkMode ? "bg-gray-800" : "bg-muted"} rounded`} />
           </div>
         </div>
       </div>
@@ -147,8 +147,8 @@ function ProposalContentInner({
   const quorumPercentage = dynamicQuorum > 0 ? Math.min((forVotes / dynamicQuorum) * 100, 100) : 0
 
   return (
-    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"}`}>
-      <div className="sticky top-0 z-50 bg-[#1a1a2e]/95 backdrop-blur-sm border-b border-[#3a3a5a]">
+    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+      <div className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between w-full">
           <Button
             variant="ghost"
@@ -163,7 +163,7 @@ function ProposalContentInner({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 w-full">
-        <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge
@@ -177,7 +177,7 @@ function ProposalContentInner({
               >
                 {stateLabel}
               </Badge>
-              <Badge variant="outline" className={isDarkMode ? "border-[#3a3a5a] text-gray-300" : ""}>
+              <Badge variant="outline" className={isDarkMode ? "border-gray-700 text-gray-300" : ""}>
                 #{proposalId}
               </Badge>
             </div>
@@ -199,7 +199,7 @@ function ProposalContentInner({
           </CardContent>
         </Card>
 
-        <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
           <CardContent className="pt-6 space-y-4">
             <h2 className="text-lg font-semibold">{t.votingResults}</h2>
 
@@ -211,7 +211,7 @@ function ProposalContentInner({
                 </div>
                 <span className="font-mono">{forVotes}</span>
               </div>
-              <Progress value={totalVotes > 0 ? (forVotes / totalVotes) * 100 : 0} className="h-2 bg-[#3a3a5a]" />
+              <Progress value={totalVotes > 0 ? (forVotes / totalVotes) * 100 : 0} className="h-2 bg-gray-700" />
 
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ function ProposalContentInner({
                 </div>
                 <span className="font-mono">{againstVotes}</span>
               </div>
-              <Progress value={totalVotes > 0 ? (againstVotes / totalVotes) * 100 : 0} className="h-2 bg-[#3a3a5a]" />
+              <Progress value={totalVotes > 0 ? (againstVotes / totalVotes) * 100 : 0} className="h-2 bg-gray-700" />
 
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -229,10 +229,10 @@ function ProposalContentInner({
                 </div>
                 <span className="font-mono">{abstainVotes}</span>
               </div>
-              <Progress value={totalVotes > 0 ? (abstainVotes / totalVotes) * 100 : 0} className="h-2 bg-[#3a3a5a]" />
+              <Progress value={totalVotes > 0 ? (abstainVotes / totalVotes) * 100 : 0} className="h-2 bg-gray-700" />
             </div>
 
-            <div className="pt-4 border-t border-[#3a3a5a]">
+            <div className="pt-4 border-t border-gray-700">
               <div className="flex justify-between items-center mb-2">
                 <div className="flex flex-col">
                   <span className="text-sm text-muted-foreground">{t.quorumProgress}</span>
@@ -247,7 +247,7 @@ function ProposalContentInner({
                   {quorumMet && <Badge className="bg-green-500/20 text-green-300 text-xs mt-1">Quorum Met</Badge>}
                 </div>
               </div>
-              <Progress value={quorumPercentage} className={`h-2 ${quorumMet ? "bg-green-500/30" : "bg-[#3a3a5a]"}`} />
+              <Progress value={quorumPercentage} className={`h-2 ${quorumMet ? "bg-green-500/30" : "bg-gray-700"}`} />
               {againstVotes > 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
                   Quorum threshold increased by {againstVotes} Against votes
@@ -257,7 +257,7 @@ function ProposalContentInner({
           </CardContent>
         </Card>
 
-        <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
           <CardContent className="pt-6">
             <h2 className="text-lg font-semibold mb-4">{t.description}</h2>
             <div className="prose prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-400">
@@ -306,26 +306,26 @@ function ProposalContentInner({
                   },
                   p: ({ children }) => <div className="mb-4">{children}</div>,
                   table: ({ children }) => (
-                    <div className="overflow-x-auto my-4 rounded-lg border border-[#3a3a5a]">
-                      <table className="min-w-full divide-y divide-[#3a3a5a] text-sm table-auto">
+                    <div className="overflow-x-auto my-4 rounded-lg border border-gray-700">
+                      <table className="min-w-full divide-y divide-gray-700 text-sm table-auto">
                         {children}
                       </table>
                     </div>
                   ),
                   thead: ({ children }) => (
-                    <thead className="bg-[#1a1a2e]">{children}</thead>
+                    <thead className="bg-gray-900">{children}</thead>
                   ),
                   tbody: ({ children }) => (
-                    <tbody className="divide-y divide-[#3a3a5a] bg-[#252540]">{children}</tbody>
+                    <tbody className="divide-y divide-gray-700 bg-gray-800">{children}</tbody>
                   ),
                   tr: ({ children }) => (
-                    <tr className="hover:bg-[#2a2a4a] transition-colors">{children}</tr>
+                    <tr className="hover:bg-gray-700 transition-colors">{children}</tr>
                   ),
                   th: ({ children }) => (
-                    <th className="px-4 py-3 text-left font-semibold text-gray-200 border-r border-[#3a3a5a] last:border-r-0">{children}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-200 border-r border-gray-700 last:border-r-0">{children}</th>
                   ),
                   td: ({ children }) => (
-                    <td className="px-4 py-3 text-gray-300 border-r border-[#3a3a5a] last:border-r-0">{children}</td>
+                    <td className="px-4 py-3 text-gray-300 border-r border-gray-700 last:border-r-0">{children}</td>
                   ),
                 }}
               >
@@ -336,7 +336,7 @@ function ProposalContentInner({
         </Card>
 
         {proposal.targets && proposal.targets.length > 0 && (
-          <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+          <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
             <CardContent className="pt-6">
               <h2 className="text-lg font-semibold mb-4">{t.transactionSimulator}</h2>
               <TransactionSimulator proposalId={Number(proposalId)} />
@@ -344,7 +344,7 @@ function ProposalContentInner({
           </Card>
         )}
 
-        <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">{t.activity}</h2>
@@ -363,7 +363,7 @@ function ProposalContentInner({
                     vote: { voter: string; support: number; supportLabel: string; votes: string; reason?: string },
                     index: number,
                   ) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-[#1a1a2e]">
+                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-700">
                       <div className="flex items-center gap-2">
                         {vote.support === 1 ? (
                           <ThumbsUp className="h-4 w-4 text-green-400" />
@@ -427,12 +427,12 @@ export default function ProposalContent({
 
   if (!mounted) {
     return (
-      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
+      <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
         <div className="max-w-4xl mx-auto w-full">
           <div className="animate-pulse space-y-4">
-            <div className={`h-8 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-3/4`} />
-            <div className={`h-4 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded w-1/2`} />
-            <div className={`h-64 ${isDarkMode ? "bg-[#252540]" : "bg-muted"} rounded`} />
+            <div className={`h-8 ${isDarkMode ? "bg-gray-800" : "bg-muted"} rounded w-3/4`} />
+            <div className={`h-4 ${isDarkMode ? "bg-gray-800" : "bg-muted"} rounded w-1/2`} />
+            <div className={`h-64 ${isDarkMode ? "bg-gray-800" : "bg-muted"} rounded`} />
           </div>
         </div>
       </div>
