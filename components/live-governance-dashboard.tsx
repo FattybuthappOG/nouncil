@@ -909,7 +909,8 @@ function LiveGovernanceDashboardContent() {
             >
               {t("proposals")} <span className="text-[10px] sm:text-xs md:text-sm">({totalCount})</span>
             </button>
-            <button
+            {/* Candidates tab temporarily disabled - data source being fixed */}
+            {/* <button
               onClick={() => setActiveTab("candidates")}
               className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm md:text-base ${
                 activeTab === "candidates"
@@ -922,7 +923,7 @@ function LiveGovernanceDashboardContent() {
               }`}
             >
               {t("candidates")} <span className="text-[10px] sm:text-xs md:text-sm">({totalCandidates})</span>
-            </button>
+            </button> */}
           </div>
 
           {activeTab === "proposals" && (
@@ -973,7 +974,8 @@ function LiveGovernanceDashboardContent() {
             </div>
           )}
 
-          {activeTab === "candidates" && (
+          {/* Candidates section temporarily disabled - data source being fixed */}
+          {/* {activeTab === "candidates" && (
             <>
               {candidateIdsData?.isLoading ? (
                 <div className="text-center py-12">
@@ -1014,7 +1016,7 @@ function LiveGovernanceDashboardContent() {
                 </>
               )}
             </>
-          )}
+          )} */}
         </div>
       </div>
 
