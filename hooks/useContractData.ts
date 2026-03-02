@@ -467,19 +467,25 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
+        console.log("[v0] Fetching candidates from API...")
         const res = await fetch(`/api/nouns/candidates?limit=${limit}`, {
           signal: AbortSignal.timeout(15000),
         })
         
+        console.log("[v0] Candidates API response status:", res.status)
+        
         if (res.ok) {
           const data = await res.json()
+          console.log("[v0] Candidates data:", data)
           setCandidates(data.candidates || [])
           setTotalCount(data.total || 0)
         } else {
+          console.log("[v0] Candidates API failed with status:", res.status)
           setCandidates([])
           setTotalCount(0)
         }
-      } catch {
+      } catch (error) {
+        console.log("[v0] Candidates fetch error:", error)
         setCandidates([])
         setTotalCount(0)
       } finally {
