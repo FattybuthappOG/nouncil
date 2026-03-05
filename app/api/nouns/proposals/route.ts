@@ -25,48 +25,16 @@ const cache: {
 } = { single: {} }
 const CACHE_TTL_LIST = 60_000 // 1 minute for list
 const CACHE_TTL_SINGLE = 120_000 // 2 minutes for single proposal
-const CACHE_TTL_QUORUM = 300_000 // 5 minutes for quorum data
+const CACHE_TTL_QUORUM = 86400_000 // 24 hours for quorum data (stable governance params)
 
-// Get quorumVotesBPS from governor contract
-async function getQuorumBPS(): Promise<bigint> {
-  if (cache.quorumBPS && Date.now() - cache.quorumBPS.timestamp < CACHE_TTL_QUORUM) {
-    return cache.quorumBPS.data
-  }
-  
-  // quorumVotesBPS() selector
-  const selector = "0x69b3a010"
-  const result = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data: selector }, "latest"])
-  const bps = BigInt(result)
-  
-  cache.quorumBPS = { data: bps, timestamp: Date.now() }
-  return bps
-}
-
-// Get total Noun supply
-async function getNounsTotalSupply(): Promise<bigint> {
-  if (cache.nounsCount && Date.now() - cache.nounsCount.timestamp < CACHE_TTL_QUORUM) {
-    return cache.nounsCount.data
-  }
-  
-  // totalSupply() selector
-  const selector = "0x18160ddd"
-  const result = await rpcCall("eth_call", [{ to: NOUNS_TOKEN, data: selector }, "latest"])
-  const supply = BigInt(result)
-  
-  cache.nounsCount = { data: supply, timestamp: Date.now() }
-  return supply
-}
-
-// Calculate base quorum: quorumVotesBPS * totalSupply / 10000
-async function calculateBaseQuorum(): Promise<bigint> {
-  const bps = await getQuorumBPS()
-  const supply = await getNounsTotalSupply()
-  return (bps * supply) / 10000n
-}
+// Nouns DAO quorum: 10% (1000 BPS) of total supply
+// Current approximate Nouns in circulation: ~1100
+// Therefore base quorum is approximately 110 Nouns
+const NOUNS_BASE_QUORUM = 110n // Hardcoded to avoid rate limiting RPC calls
 
 // Calculate dynamic quorum: baseQuorum + againstVotes
-function calculateDynamicQuorum(baseQuorum: bigint, againstVotes: bigint): bigint {
-  return baseQuorum + againstVotes
+function calculateDynamicQuorum(againstVotes: bigint): bigint {
+  return NOUNS_BASE_QUORUM + againstVotes
 }
 
 // Batch JSON-RPC: send multiple calls in a SINGLE HTTP request
@@ -349,22 +317,9 @@ async function fetchSingleProposal(id: number) {
     }
   } catch { /* description stays as fallback */ }
 
-  // Calculate dynamic quorum
-  let quorumVotes = "0"
-  try {
-    const baseQuorum = await calculateBaseQuorum()
-    const dynamicQuorum = calculateDynamicQuorum(baseQuorum, againstVotes)
-    quorumVotes = dynamicQuorum.toString()
-  } catch (e) {
-    console.error("Failed to calculate quorum:", e)
-    // Fallback to base quorum only
-    try {
-      const baseQuorum = await calculateBaseQuorum()
-      quorumVotes = baseQuorum.toString()
-    } catch {
-      quorumVotes = "0"
-    }
-  }
+  // Calculate dynamic quorum: base quorum + against votes
+  const dynamicQuorum = calculateDynamicQuorum(againstVotes)
+  const quorumVotes = dynamicQuorum.toString()
 
   const result = {
     id,
