@@ -352,6 +352,8 @@ export function useProposalData(proposalId: number) {
         // Only mark as not loading if we have description content
         const hasData = desc && desc.length > 0 && desc !== `Proposal ${proposalId}`
 
+        const quorumValue = proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? proposal.quorumVotes : 72
+        console.log("[v0] Setting quorum:", { quorumValue, quorumVotes: proposal.quorumVotes, source })
         setProposalData({
           id: proposalId,
           proposer: (proposal.proposer?.id || proposal.proposer || "0x0000000000000000000000000000000000000000") as `0x${string}`,
@@ -361,7 +363,7 @@ export function useProposalData(proposalId: number) {
           abstainVotes: BigInt(proposal.abstainVotes || 0),
           state: stateNum,
           stateName,
-          quorum: BigInt(proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? proposal.quorumVotes : 72),
+          quorum: BigInt(quorumValue),
           description: title,
           fullDescription: desc,
           startBlock: BigInt(proposal.startBlock || 0),
@@ -381,6 +383,7 @@ export function useProposalData(proposalId: number) {
         const response = await fetch(`/api/nouns/proposals?id=${proposalId}`)
         if (!response.ok) throw new Error(`API route returned ${response.status}`)
         const apiData = await response.json()
+        console.log("[v0] API quorum data:", { quorumVotes: apiData?.quorumVotes, againstVotes: apiData?.againstVotes })
         if (apiData?.id) {
           applyProposal(apiData, "api")
           return
