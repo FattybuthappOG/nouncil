@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
+const NOUNS_TOKEN = "0x9C8fF314C9B9B91F60f4d9A12eAf51B0C1ABc08e"
 
 // RPC endpoints - ordered by reliability. Use env var if available.
 const RPC_URLS = [
@@ -16,9 +17,57 @@ const PROPOSAL_STATES = [
 ]
 
 // In-memory cache to avoid repeated RPC calls
-const cache: { proposals?: { data: any; timestamp: number }; single: Record<string, { data: any; timestamp: number }> } = { single: {} }
+const cache: { 
+  proposals?: { data: any; timestamp: number }
+  single: Record<string, { data: any; timestamp: number }>
+  quorumBPS?: { data: bigint; timestamp: number }
+  nounsCount?: { data: bigint; timestamp: number }
+} = { single: {} }
 const CACHE_TTL_LIST = 60_000 // 1 minute for list
 const CACHE_TTL_SINGLE = 120_000 // 2 minutes for single proposal
+const CACHE_TTL_QUORUM = 300_000 // 5 minutes for quorum data
+
+// Get quorumVotesBPS from governor contract
+async function getQuorumBPS(): Promise<bigint> {
+  if (cache.quorumBPS && Date.now() - cache.quorumBPS.timestamp < CACHE_TTL_QUORUM) {
+    return cache.quorumBPS.data
+  }
+  
+  // quorumVotesBPS() selector
+  const selector = "0x69b3a010"
+  const result = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data: selector }, "latest"])
+  const bps = BigInt(result)
+  
+  cache.quorumBPS = { data: bps, timestamp: Date.now() }
+  return bps
+}
+
+// Get total Noun supply
+async function getNounsTotalSupply(): Promise<bigint> {
+  if (cache.nounsCount && Date.now() - cache.nounsCount.timestamp < CACHE_TTL_QUORUM) {
+    return cache.nounsCount.data
+  }
+  
+  // totalSupply() selector
+  const selector = "0x18160ddd"
+  const result = await rpcCall("eth_call", [{ to: NOUNS_TOKEN, data: selector }, "latest"])
+  const supply = BigInt(result)
+  
+  cache.nounsCount = { data: supply, timestamp: Date.now() }
+  return supply
+}
+
+// Calculate base quorum: quorumVotesBPS * totalSupply / 10000
+async function calculateBaseQuorum(): Promise<bigint> {
+  const bps = await getQuorumBPS()
+  const supply = await getNounsTotalSupply()
+  return (bps * supply) / 10000n
+}
+
+// Calculate dynamic quorum: baseQuorum + againstVotes
+function calculateDynamicQuorum(baseQuorum: bigint, againstVotes: bigint): bigint {
+  return baseQuorum + againstVotes
+}
 
 // Batch JSON-RPC: send multiple calls in a SINGLE HTTP request
 // Falls back to sequential calls if batch is not supported
@@ -300,6 +349,23 @@ async function fetchSingleProposal(id: number) {
     }
   } catch { /* description stays as fallback */ }
 
+  // Calculate dynamic quorum
+  let quorumVotes = "0"
+  try {
+    const baseQuorum = await calculateBaseQuorum()
+    const dynamicQuorum = calculateDynamicQuorum(baseQuorum, againstVotes)
+    quorumVotes = dynamicQuorum.toString()
+  } catch (e) {
+    console.error("Failed to calculate quorum:", e)
+    // Fallback to base quorum only
+    try {
+      const baseQuorum = await calculateBaseQuorum()
+      quorumVotes = baseQuorum.toString()
+    } catch {
+      quorumVotes = "0"
+    }
+  }
+
   const result = {
     id,
     proposer,
@@ -308,7 +374,7 @@ async function fetchSingleProposal(id: number) {
     forVotes: forVotes.toString(),
     againstVotes: againstVotes.toString(),
     abstainVotes: abstainVotes.toString(),
-    quorumVotes: "0",
+    quorumVotes,
     status: (PROPOSAL_STATES[stateNumber] || "Unknown").toUpperCase(),
     stateNumber,
     startBlock: startBlock.toString(),

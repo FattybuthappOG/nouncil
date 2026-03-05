@@ -142,10 +142,8 @@ function ProposalContentInner({
   const abstainVotes = Number(proposal.abstainVotes || 0)
   const totalVotes = forVotes + againstVotes + abstainVotes
 
-  // Dynamic quorum calculation: base quorum + (1 × against votes)
-  // Base quorum is taken from proposal.quorum (stored value from creation)
-  const baseQuorum = Number(proposal.quorum || 0)
-  const dynamicQuorum = baseQuorum + againstVotes
+  // Quorum is dynamically calculated and returned from API: base quorum + against votes
+  const dynamicQuorum = Number(proposal.quorum || 0)
   const quorumMet = forVotes >= dynamicQuorum
   const quorumPercentage = dynamicQuorum > 0 ? Math.min((forVotes / dynamicQuorum) * 100, 100) : 0
 
@@ -240,7 +238,7 @@ function ProposalContentInner({
                 <div className="flex flex-col">
                   <span className="text-sm text-muted-foreground">{t.quorumProgress}</span>
                   <span className="text-xs text-muted-foreground">
-                    Base quorum: {baseQuorum} + Against votes: {againstVotes} = {dynamicQuorum} needed
+                    Quorum increases by 1 vote per Against vote
                   </span>
                 </div>
                 <div className="flex flex-col items-end">
