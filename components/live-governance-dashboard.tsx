@@ -810,7 +810,8 @@ function LiveGovernanceDashboardContent() {
                     )}
                   </div>
 
-                  {/* Lil Nouns */}
+                  {/* HIDDEN: Lil Nouns - To re-enable, uncomment this section */}
+                  {/* 
                   <Link
                     href="/lilnouns"
                     onClick={() => setShowMenu(false)}
@@ -823,6 +824,7 @@ function LiveGovernanceDashboardContent() {
                     <img src="/images/lilnouns-logo.png" alt="Lil Nouns" className="h-6 w-auto" />
                     <span className="font-medium">Governance</span>
                   </Link>
+                  */}
 
                   {/* Dark Mode Toggle */}
                   <button
