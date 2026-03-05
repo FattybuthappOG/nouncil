@@ -255,8 +255,6 @@ function ProposalContentInner({
             </div>
             <div className="pt-2 text-xs text-muted-foreground">
               Each Against vote increases quorum requirement by 1 vote
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
