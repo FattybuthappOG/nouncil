@@ -152,21 +152,7 @@ const PROPOSAL_STATE_NAMES = [
   "Vetoed",
 ]
 
-// Fallback: fetch proposals via server-side API route (which reads directly from the contract)
-async function fetchProposalIdsFromAPI(
-  limit: number,
-  statusFilter: "all" | "active" | "executed" | "defeated" | "vetoed" | "canceled",
-): Promise<{ ids: number[]; total: number }> {
-  const response = await fetch(`/api/nouns/proposals?limit=${limit}&status=${statusFilter}`)
-  if (!response.ok) throw new Error(`API route failed: ${response.status}`)
-  const data = await response.json()
-  
-  if (data.proposals) {
-    const ids = data.proposals.map((p: any) => p.id)
-    return { ids, total: data.totalCount || ids.length }
-  }
-  return { ids: [], total: 0 }
-}
+
 
 export function useProposalIds(
   limit = 20,
@@ -185,38 +171,31 @@ export function useProposalIds(
     if (!mounted) return
 
     const fetchProposalIds = async () => {
-      // Strategy: API route first (server-side RPC with batch + caching), then subgraph fallback
+      // Use subgraph directly (no API route to avoid RPC costs)
       try {
-        const result = await fetchProposalIdsFromAPI(limit, statusFilter)
-        setProposalIds(result.ids)
-        setTotalCount(result.total)
-      } catch (apiError) {
-        console.error("API route failed, trying subgraph:", apiError)
-        try {
-          const data = await querySubgraph(`{
-            proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
-              id
-              status
-            }
-          }`)
-
-          if (data?.proposals) {
-            let filtered = data.proposals
-            if (statusFilter === "active") {
-              filtered = data.proposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED")
-            } else if (statusFilter === "executed") {
-              filtered = data.proposals.filter((p: any) => p.status === "EXECUTED")
-            } else if (statusFilter === "vetoed") {
-              filtered = data.proposals.filter((p: any) => p.status === "VETOED")
-            } else if (statusFilter === "canceled") {
-              filtered = data.proposals.filter((p: any) => p.status === "CANCELLED")
-            }
-            setTotalCount(filtered.length)
-            setProposalIds(filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id)))
+        const data = await querySubgraph(`{
+          proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
+            id
+            status
           }
-        } catch (subgraphError) {
-          console.error("Both API route and subgraph failed:", subgraphError)
+        }`)
+
+        if (data?.proposals) {
+          let filtered = data.proposals
+          if (statusFilter === "active") {
+            filtered = data.proposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED")
+          } else if (statusFilter === "executed") {
+            filtered = data.proposals.filter((p: any) => p.status === "EXECUTED")
+          } else if (statusFilter === "vetoed") {
+            filtered = data.proposals.filter((p: any) => p.status === "VETOED")
+          } else if (statusFilter === "canceled") {
+            filtered = data.proposals.filter((p: any) => p.status === "CANCELLED")
+          }
+          setTotalCount(filtered.length)
+          setProposalIds(filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id)))
         }
+      } catch (subgraphError) {
+        console.error("Subgraph failed:", subgraphError)
       } finally {
         setIsLoading(false)
       }
@@ -228,47 +207,7 @@ export function useProposalIds(
   return { proposalIds, totalCount, isLoading }
 }
 
-// Fallback: fetch a single proposal via the server-side API route (reads from contract with event log descriptions)
-async function fetchProposalFromAPIFallback(
-  proposalId: number,
-  stateData: any,
-  setProposalData: (fn: (prev: any) => any) => void,
-) {
-  const response = await fetch(`/api/nouns/proposals?id=${proposalId}`)
-  if (!response.ok) throw new Error(`API route failed: ${response.status}`)
-  const proposal = await response.json()
-  
-  if (!proposal || !proposal.id) throw new Error("No proposal data from API")
 
-  const desc = proposal.description || `Proposal ${proposalId}`
-  const title = desc.split("\n")[0].replace(/^#+\s*/, "").trim() || `Proposal ${proposalId}`
-  
-  const stateNum = stateData !== undefined ? Number(stateData) : (proposal.stateNumber ?? 1)
-  const stateName = PROPOSAL_STATE_NAMES[stateNum] || "Pending"
-
-  setProposalData(() => ({
-    id: proposalId,
-    proposer: (proposal.proposer || "0x0000000000000000000000000000000000000000") as `0x${string}`,
-    sponsors: [],
-    forVotes: BigInt(proposal.forVotes || 0),
-    againstVotes: BigInt(proposal.againstVotes || 0),
-    abstainVotes: BigInt(proposal.abstainVotes || 0),
-    state: stateNum,
-    stateName,
-    quorum: BigInt(proposal.quorumVotes || 72),
-    description: title,
-    fullDescription: desc,
-    startBlock: BigInt(proposal.startBlock || 0),
-    endBlock: BigInt(proposal.endBlock || 0),
-    transactionHash: "",
-    targets: [],
-    values: [],
-    signatures: [],
-    calldatas: [],
-    isLoading: false,
-    error: false,
-  }))
-}
 
 export function useProposalData(proposalId: number) {
   const [mounted, setMounted] = useState(false)
@@ -283,7 +222,7 @@ export function useProposalData(proposalId: number) {
     abstainVotes: BigInt(0),
     state: 1,
     stateName: "Active",
-    quorum: BigInt(72),
+    quorum: BigInt(0),
     description: "",
     fullDescription: "",
     startBlock: BigInt(0),
@@ -352,8 +291,7 @@ export function useProposalData(proposalId: number) {
         // Only mark as not loading if we have description content
         const hasData = desc && desc.length > 0 && desc !== `Proposal ${proposalId}`
 
-        const quorumValue = proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? proposal.quorumVotes : 72
-        console.log("[v0] Setting quorum:", { quorumValue, quorumVotes: proposal.quorumVotes, source })
+        const quorumValue = proposal.quorumVotes && Number(proposal.quorumVotes) > 0 ? proposal.quorumVotes : 0
         setProposalData({
           id: proposalId,
           proposer: (proposal.proposer?.id || proposal.proposer || "0x0000000000000000000000000000000000000000") as `0x${string}`,
@@ -378,34 +316,23 @@ export function useProposalData(proposalId: number) {
         })
       }
 
-      // Strategy: API route first (efficient server-side batch RPC), then subgraph fallback
+      // Strategy: Use subgraph directly (has correct quorumVotes field)
       try {
-        const response = await fetch(`/api/nouns/proposals?id=${proposalId}`)
-        if (!response.ok) throw new Error(`API route returned ${response.status}`)
-        const apiData = await response.json()
-        console.log("[v0] API quorum data:", { quorumVotes: apiData?.quorumVotes, againstVotes: apiData?.againstVotes })
-        if (apiData?.id) {
-          applyProposal(apiData, "api")
+        const data = await querySubgraph(`{
+          proposal(id: "${proposalId}") {
+            id description proposer { id } signers { id }
+            forVotes againstVotes abstainVotes quorumVotes status
+            createdTimestamp createdBlock startBlock endBlock
+            createdTransactionHash targets values signatures calldatas
+          }
+        }`)
+        if (data?.proposal) {
+          applyProposal(data.proposal, "subgraph")
           return
         }
-        throw new Error("No data from API route")
-      } catch (apiError) {
-        // Fallback to subgraph
-        try {
-          const data = await querySubgraph(`{
-            proposal(id: "${proposalId}") {
-              id description proposer { id } signers { id }
-              forVotes againstVotes abstainVotes quorumVotes status
-              createdTimestamp createdBlock startBlock endBlock
-              createdTransactionHash targets values signatures calldatas
-            }
-          }`)
-          if (data?.proposal) {
-            applyProposal(data.proposal, "subgraph")
-            return
-          }
-        } catch { /* subgraph also failed */ }
-        console.error("Both API route and subgraph failed for proposal", proposalId)
+        throw new Error("No data from subgraph")
+      } catch (subgraphError) {
+        console.error("Subgraph failed for proposal", proposalId, subgraphError)
         setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
@@ -430,18 +357,19 @@ export function useBatchProposals(proposalIds: number[]) {
     setIsLoading(true)
     const fetchProposals = async () => {
       try {
-        // Try the API route which returns all proposals with data
-        const response = await fetch(`/api/nouns/proposals?limit=${proposalIds.length}`)
-        if (response.ok) {
-          const data = await response.json()
-          if (data?.proposals) {
-            // Map API results to match IDs
-            const idSet = new Set(proposalIds)
-            const matched = data.proposals.filter((p: any) => idSet.has(p.id))
-            setProposals(matched.length > 0 ? matched : proposalIds.map(id => ({ id, loading: false })))
-            setIsLoading(false)
-            return
+        // Use subgraph directly for batch proposals
+        const idsStr = proposalIds.map(id => `"${id}"`).join(",")
+        const data = await querySubgraph(`{
+          proposals(where: { id_in: [${idsStr}] }, orderBy: createdTimestamp, orderDirection: desc) {
+            id description proposer { id } signers { id }
+            forVotes againstVotes abstainVotes quorumVotes status
+            createdTimestamp createdBlock startBlock endBlock
           }
+        }`)
+        if (data?.proposals) {
+          setProposals(data.proposals)
+          setIsLoading(false)
+          return
         }
       } catch { /* fall through */ }
       // Fallback: just provide basic structure
