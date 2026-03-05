@@ -4,34 +4,43 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints - nounishdata.com (Ponder-based) and The Graph
-const SUBGRAPH_URLS = [
-  "https://api.nounishdata.com",
-  "https://api.studio.thegraph.com/query/49498/nouns-v3-mainnet/version/latest",
-]
+// REST API for Nouns data (api.nouns.biz)
+const NOUNS_API_BASE = "https://api.nouns.biz"
 
-// Query subgraph with automatic fallback across multiple endpoints
-async function querySubgraph(query: string): Promise<any> {
-  for (const url of SUBGRAPH_URLS) {
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 6000)
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeout)
-      if (!response.ok) continue
-      const json = await response.json()
-      if (json.errors || !json.data) continue
-      return json.data
-    } catch {
-      continue
-    }
+// Fetch all proposals from REST API
+async function fetchAllProposals(): Promise<any[]> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  try {
+    const response = await fetch(`${NOUNS_API_BASE}/proposal/all`, {
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (!response.ok) throw new Error(`API error: ${response.status}`)
+    const data = await response.json()
+    return data || []
+  } catch (e) {
+    clearTimeout(timeout)
+    throw e
   }
-  throw new Error("All subgraph endpoints failed")
+}
+
+// Fetch a single proposal from REST API
+async function fetchProposalById(id: number): Promise<any> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  try {
+    const response = await fetch(`${NOUNS_API_BASE}/proposal/${id}`, {
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (!response.ok) throw new Error(`API error: ${response.status}`)
+    const data = await response.json()
+    return data
+  } catch (e) {
+    clearTimeout(timeout)
+    throw e
+  }
 }
 
 // Governor contract hooks
@@ -171,31 +180,32 @@ export function useProposalIds(
     if (!mounted) return
 
     const fetchProposalIds = async () => {
-      // Use subgraph directly (no API route to avoid RPC costs)
+      // Use REST API (api.nouns.biz)
       try {
-        const data = await querySubgraph(`{
-          proposals(first: 1000, orderBy: createdTimestamp, orderDirection: desc) {
-            id
-            status
-          }
-        }`)
+        const proposals = await fetchAllProposals()
 
-        if (data?.proposals) {
-          let filtered = data.proposals
+        if (proposals && proposals.length > 0) {
+          // Sort by ID descending (most recent first)
+          const sorted = [...proposals].sort((a, b) => Number(b.id) - Number(a.id))
+          
+          let filtered = sorted
           if (statusFilter === "active") {
-            filtered = data.proposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED")
+            filtered = sorted.filter((p: any) => 
+              p.status === "Active" || p.status === "Pending" || p.status === "Queued" ||
+              p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED"
+            )
           } else if (statusFilter === "executed") {
-            filtered = data.proposals.filter((p: any) => p.status === "EXECUTED")
+            filtered = sorted.filter((p: any) => p.status === "Executed" || p.status === "EXECUTED")
           } else if (statusFilter === "vetoed") {
-            filtered = data.proposals.filter((p: any) => p.status === "VETOED")
+            filtered = sorted.filter((p: any) => p.status === "Vetoed" || p.status === "VETOED")
           } else if (statusFilter === "canceled") {
-            filtered = data.proposals.filter((p: any) => p.status === "CANCELLED")
+            filtered = sorted.filter((p: any) => p.status === "Canceled" || p.status === "CANCELLED")
           }
           setTotalCount(filtered.length)
-          setProposalIds(filtered.slice(0, limit).map((p: any) => Number.parseInt(p.id)))
+          setProposalIds(filtered.slice(0, limit).map((p: any) => Number(p.id)))
         }
-      } catch (subgraphError) {
-        console.error("Subgraph failed:", subgraphError)
+      } catch (apiError) {
+        console.error("API failed:", apiError)
       } finally {
         setIsLoading(false)
       }
@@ -316,23 +326,16 @@ export function useProposalData(proposalId: number) {
         })
       }
 
-      // Strategy: Use subgraph directly (has correct quorumVotes field)
+      // Strategy: Use REST API (api.nouns.biz)
       try {
-        const data = await querySubgraph(`{
-          proposal(id: "${proposalId}") {
-            id description proposer { id } signers { id }
-            forVotes againstVotes abstainVotes quorumVotes status
-            createdTimestamp createdBlock startBlock endBlock
-            createdTransactionHash targets values signatures calldatas
-          }
-        }`)
-        if (data?.proposal) {
-          applyProposal(data.proposal, "subgraph")
+        const proposal = await fetchProposalById(proposalId)
+        if (proposal) {
+          applyProposal(proposal, "api")
           return
         }
-        throw new Error("No data from subgraph")
-      } catch (subgraphError) {
-        console.error("Subgraph failed for proposal", proposalId, subgraphError)
+        throw new Error("No data from API")
+      } catch (apiError) {
+        console.error("API failed for proposal", proposalId, apiError)
         setProposalData((prev) => ({ ...prev, isLoading: false, error: true }))
       }
     }
@@ -357,20 +360,15 @@ export function useBatchProposals(proposalIds: number[]) {
     setIsLoading(true)
     const fetchProposals = async () => {
       try {
-        // Use subgraph directly for batch proposals
-        const idsStr = proposalIds.map(id => `"${id}"`).join(",")
-        const data = await querySubgraph(`{
-          proposals(where: { id_in: [${idsStr}] }, orderBy: createdTimestamp, orderDirection: desc) {
-            id description proposer { id } signers { id }
-            forVotes againstVotes abstainVotes quorumVotes status
-            createdTimestamp createdBlock startBlock endBlock
-          }
-        }`)
-        if (data?.proposals) {
-          setProposals(data.proposals)
-          setIsLoading(false)
-          return
-        }
+        // Use REST API to fetch all proposals then filter
+        const allProposals = await fetchAllProposals()
+        const idSet = new Set(proposalIds)
+        const matched = allProposals
+          .filter((p: any) => idSet.has(Number(p.id)))
+          .sort((a: any, b: any) => Number(b.id) - Number(a.id))
+        setProposals(matched)
+        setIsLoading(false)
+        return
       } catch { /* fall through */ }
       // Fallback: just provide basic structure
       setProposals(proposalIds.map(id => ({ id, loading: false })))
