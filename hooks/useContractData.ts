@@ -4,10 +4,10 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints - Multiple sources with fallbacks
+// Subgraph endpoints - The Graph decentralized network
 const SUBGRAPH_URLS = [
-  "https://api.thegraph.com/subgraphs/name/nounsDAO/nouns",
-  "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph-mainnet",
+  "https://gateway.thegraph.com/api/subgraphs/id/5qcR6rAfDMZCVGuZ6DDois7y4zyXqsyqvaqhE6NRRraW",
+  "https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/prod/gn",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
