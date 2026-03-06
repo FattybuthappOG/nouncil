@@ -6,16 +6,26 @@ import { walletConnect, injected } from "wagmi/connectors"
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || ""
 
+// WalletConnect requires Worker support — some sandboxed environments lack it
+function isWorkerAvailable() {
+  try {
+    return typeof window !== "undefined" && typeof Worker !== "undefined"
+  } catch {
+    return false
+  }
+}
+
 export function getConfig() {
+  const canUseWalletConnect = !!projectId && isWorkerAvailable()
+
   return createConfig({
     chains: [mainnet, base, sepolia],
     connectors: [
-      ...(typeof window !== "undefined" && projectId
+      ...(canUseWalletConnect
         ? [
             walletConnect({
               projectId,
               showQrModal: true,
-              // Disable telemetry to avoid origin header issues in preview environments
               enableAnalytics: false,
               qrModalOptions: {
                 themeMode: "dark",
