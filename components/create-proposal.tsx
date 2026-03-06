@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import { parseEther, parseUnits, encodeFunctionData, parseAbi, isAddress } from "viem"
 import {
@@ -145,12 +145,79 @@ function ToolbarBtn({ active, onClick, title, children }: { active?: boolean; on
   )
 }
 
+// --- Link dialog ---
+function LinkDialog({ onConfirm, onClose, initialText }: {
+  onConfirm: (text: string, url: string) => void
+  onClose: () => void
+  initialText: string
+}) {
+  const [text, setText] = useState(initialText)
+  const [url, setUrl]   = useState("")
+  const urlRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { urlRef.current?.focus() }, [])
+
+  const submit = () => {
+    if (!url.trim()) return
+    const href = url.startsWith("http") ? url : `https://${url}`
+    onConfirm(text, href)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-card border border-border rounded-xl shadow-xl p-5 w-full max-w-sm flex flex-col gap-3"
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="text-sm font-semibold text-foreground">Insert Link</p>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Display text</label>
+          <input
+            type="text"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="e.g. Click here"
+            className="px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">URL</label>
+          <input
+            ref={urlRef}
+            type="url"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") submit() }}
+            placeholder="https://nouns.wtf"
+            className="px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!url.trim()}
+            className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            Insert
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // --- Rich text editor ---
 function RichEditor({ onChange }: { onChange: (html: string) => void }) {
+  const [linkDialog, setLinkDialog] = useState<{ open: boolean; selectedText: string }>({ open: false, selectedText: "" })
+
   const editor = useEditor({
     extensions: [
       StarterKit,
-      TiptapLink.configure({ openOnClick: false }),
+      TiptapLink.configure({ openOnClick: true, autolink: true, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } }),
       TiptapImage,
       Placeholder.configure({ placeholder: "Describe your proposal — motivation, specification, benefits..." }),
     ],
@@ -162,10 +229,31 @@ function RichEditor({ onChange }: { onChange: (html: string) => void }) {
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
 
-  const addLink = useCallback(() => {
-    const url = window.prompt("URL")
-    if (!url || !editor) return
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run()
+  const openLinkDialog = useCallback(() => {
+    if (!editor) return
+    const selected = editor.state.doc.textBetween(
+      editor.state.selection.from,
+      editor.state.selection.to,
+      ""
+    )
+    setLinkDialog({ open: true, selectedText: selected })
+  }, [editor])
+
+  const handleLinkConfirm = useCallback((text: string, url: string) => {
+    if (!editor) return
+    setLinkDialog({ open: false, selectedText: "" })
+    const { from, to } = editor.state.selection
+    const hasSelection = from !== to
+
+    if (hasSelection) {
+      // Wrap existing selection as a link
+      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run()
+    } else {
+      // Insert new text with link
+      editor.chain().focus()
+        .insertContent(`<a href="${url}" target="_blank" rel="noopener noreferrer">${text || url}</a>`)
+        .run()
+    }
   }, [editor])
 
   const addImage = useCallback(() => {
@@ -177,51 +265,60 @@ function RichEditor({ onChange }: { onChange: (html: string) => void }) {
   if (!editor) return null
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/30">
-        <ToolbarBtn active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold">
-          <Bold className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic">
-          <Italic className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <div className="w-px h-4 bg-border mx-1" />
-        <ToolbarBtn active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1">
-          <Heading1 className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2">
-          <Heading2 className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Heading 3">
-          <Heading3 className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <div className="w-px h-4 bg-border mx-1" />
-        <ToolbarBtn active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">
-          <List className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list">
-          <ListOrdered className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">
-          <Quote className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} title="Inline code">
-          <Code2 className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <div className="w-px h-4 bg-border mx-1" />
-        <ToolbarBtn active={editor.isActive("link")} onClick={addLink} title="Add link">
-          <Link2 className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={false} onClick={addImage} title="Add image">
-          <Image className="w-3.5 h-3.5" />
-        </ToolbarBtn>
-        <ToolbarBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
-          <Minus className="w-3.5 h-3.5" />
-        </ToolbarBtn>
+    <>
+      {linkDialog.open && (
+        <LinkDialog
+          initialText={linkDialog.selectedText}
+          onConfirm={handleLinkConfirm}
+          onClose={() => setLinkDialog({ open: false, selectedText: "" })}
+        />
+      )}
+      <div className="border border-border rounded-lg overflow-hidden bg-card">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/30">
+          <ToolbarBtn active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold">
+            <Bold className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic">
+            <Italic className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <div className="w-px h-4 bg-border mx-1" />
+          <ToolbarBtn active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1">
+            <Heading1 className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2">
+            <Heading2 className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Heading 3">
+            <Heading3 className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <div className="w-px h-4 bg-border mx-1" />
+          <ToolbarBtn active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">
+            <List className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list">
+            <ListOrdered className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">
+            <Quote className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} title="Inline code">
+            <Code2 className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <div className="w-px h-4 bg-border mx-1" />
+          <ToolbarBtn active={editor.isActive("link")} onClick={openLinkDialog} title="Add link">
+            <Link2 className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={false} onClick={addImage} title="Add image">
+            <Image className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
+            <Minus className="w-3.5 h-3.5" />
+          </ToolbarBtn>
+        </div>
+        <EditorContent editor={editor} />
       </div>
-      <EditorContent editor={editor} />
-    </div>
+    </>
   )
 }
 
@@ -437,31 +534,33 @@ export default function CreateProposal() {
     <div className="min-h-screen bg-background">
       {/* Sticky header */}
       <header className="sticky top-0 z-10 border-b border-border bg-card/90 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm hidden sm:inline">Back</span>
-            </Link>
-            <div className="w-px h-4 bg-border shrink-0" />
-            <input
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Proposal title..."
-              className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none"
-            />
-          </div>
-
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm hidden sm:inline">Back</span>
+          </Link>
+          <div className="w-px h-4 bg-border shrink-0" />
+          <span className="text-sm font-medium text-foreground">Create Proposal</span>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-5">
-        {title && (
-          <p className="text-xs text-muted-foreground -mt-2">
-            Slug: <code className="bg-muted px-1 rounded">{slugify(title)}</code>
-          </p>
-        )}
+      <main className="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+        {/* Prominent title input */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Give your proposal a clear, descriptive title..."
+            className="w-full bg-transparent text-2xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none border-b border-border pb-2 focus:border-primary transition-colors"
+          />
+          {title && (
+            <p className="text-xs text-muted-foreground">
+              Slug: <code className="bg-muted px-1 rounded">{slugify(title)}</code>
+            </p>
+          )}
+        </div>
 
         {/* Rich-text editor */}
         <div className="flex flex-col gap-2">
