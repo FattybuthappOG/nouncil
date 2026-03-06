@@ -1,6 +1,6 @@
 Nouncil Governance Client for Nouns NFT collection
 
-https://imgur.com/WQ7Zlco
+[https://imgur.com/WQ7Zlco](https://github.com/FattybuthappOG/nouncil/blob/a6b46247b3a1752ca06c9f34406da88adb014d87/Nouncil.jpeg)
 
 ## Overview
 
