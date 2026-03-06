@@ -4,10 +4,10 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints - Multiple sources with fallbacks
+// Subgraph endpoints - decentralized network + studio fallback
 const SUBGRAPH_URLS = [
-  "https://api.thegraph.com/subgraphs/name/nounsDAO/nouns",
-  "https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph-mainnet",
+  "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -532,47 +532,37 @@ export function useCandidateData(candidateId: string) {
 
     const fetchCandidateFromAPI = async () => {
       try {
-        const data = await querySubgraph(`{
-          proposalCandidate(id: "${candidateId}") {
-            id
-            slug
-            proposer
-            createdTimestamp
-            createdTransactionHash
-            latestVersion {
-              content {
-                title
-                description
-                targets
-                values
-                signatures
-                calldatas
-              }
-            }
-            canceledTimestamp
+        // Fetch all candidates from API and find the one matching this ID
+        const res = await fetch(`/api/nouns/candidates?limit=100`, {
+          signal: AbortSignal.timeout(15000),
+        })
+        if (!res.ok) throw new Error("API failed")
+        const data = await res.json()
+        
+        // candidateId could be a number (candidateNumber) or slug-based id
+        const candidateNum = parseInt(candidateId)
+        const candidate = data.candidates?.find((c: any) => {
+          if (!isNaN(candidateNum)) {
+            return c.candidateNumber === candidateNum
           }
-        }`)
-        const candidate = data?.proposalCandidate
+          return c.id === candidateId || c.slug === candidateId
+        })
 
         if (candidate) {
-          const content = candidate.latestVersion?.content || {}
-          const title = content.title || ""
-          const description = content.description || ""
-
           setCandidateData({
-            id: candidateId,
+            id: candidate.id || candidateId,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
             sponsors: [],
-            description: title,
-            fullDescription: description,
-            createdTimestamp: Number.parseInt(candidate.createdTimestamp || "0"),
+            description: candidate.title || "",
+            fullDescription: candidate.description || "",
+            createdTimestamp: candidate.createdTimestamp || 0,
             transactionHash: candidate.createdTransactionHash || "",
-            targets: content.targets || [],
-            values: content.values || [],
-            signatures: content.signatures || [],
-            calldatas: content.calldatas || [],
-            canceled: !!candidate.canceledTimestamp,
+            targets: candidate.targets || [],
+            values: candidate.values || [],
+            signatures: candidate.signatures || [],
+            calldatas: candidate.calldatas || [],
+            canceled: candidate.canceled || false,
             isLoading: false,
             error: false,
           })

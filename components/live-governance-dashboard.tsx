@@ -363,7 +363,7 @@ const translations = {
 }
 
 type LanguageCode = keyof typeof translations
-type SearchResult = { id: string; description?: string; slug?: string; latestVersion?: { content: { title: string } } }
+type SearchResult = { id: string; description?: string; slug?: string; title?: string; candidateNumber?: number; latestVersion?: { content: { title: string } } }
 
 export default function LiveGovernanceDashboard() {
   const [mounted, setMounted] = useState(false)
@@ -473,90 +473,58 @@ function LiveGovernanceDashboardContent() {
           const searchType = activeTab === "proposals" ? "proposals" : "candidates"
           const isNumber = /^\d+$/.test(debouncedSearch)
 
-          let query
           if (searchType === "proposals") {
-            if (isNumber) {
-              query = `query { proposal(id: "${debouncedSearch}") { id description } }`
-            } else {
-              query = `query { proposals(first: 10, where: { description_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id description } }`
-            }
-          } else {
-            // For candidates, search in both slug and title
-            if (isNumber) {
-              query = `query { 
-                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc) { 
-                  id 
-                  slug 
-                  latestVersion { 
-                    content { 
-                      title 
-                    } 
-                  } 
-                } 
-              }`
-            } else {
-              query = `query { 
-                proposalCandidates(
-                  first: 1000, 
-                  orderBy: createdTimestamp, 
-                  orderDirection: desc
-                ) { 
-                  id 
-                  slug 
-                  latestVersion { 
-                    content { 
-                      title 
-                    } 
-                  } 
-                } 
-              }`
-            }
-          }
+            // Proposals still use subgraph
+            const query = isNumber
+              ? `query { proposal(id: "${debouncedSearch}") { id description } }`
+              : `query { proposals(first: 10, where: { description_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id description } }`
 
-          const SUBGRAPH_URLS = [
-            "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-            "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
-          ]
-          let data: any = null
-          for (const url of SUBGRAPH_URLS) {
-            try {
-              const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query }),
-              })
-              if (!response.ok) continue
-              const json = await response.json()
-              if (json.errors || !json.data) continue
-              data = json.data
-              break
-            } catch { continue }
-          }
-
-          if (searchType === "proposals") {
+            const SUBGRAPH_URLS = [
+              "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+              "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+            ]
+            let data: any = null
+            for (const url of SUBGRAPH_URLS) {
+              try {
+                const response = await fetch(url, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ query }),
+                })
+                if (!response.ok) continue
+                const json = await response.json()
+                if (json.errors || !json.data) continue
+                data = json.data
+                break
+              } catch { continue }
+            }
             const results = isNumber && data?.proposal ? [data.proposal] : data?.proposals || []
             setSearchResults(results)
           } else {
-            let candidates = data?.proposalCandidates || []
-            if (isNumber) {
-              const searchNumber = Number.parseInt(debouncedSearch)
-              const index = totalCandidates - searchNumber
-              if (index >= 0 && index < candidates.length) {
-                candidates = [candidates[index]]
+            // Candidates use our API route (subgraph is dead)
+            try {
+              const res = await fetch(`/api/nouns/candidates?limit=100`)
+              if (!res.ok) throw new Error("API failed")
+              const data = await res.json()
+              let candidates = data.candidates || []
+
+              if (isNumber) {
+                const searchNumber = Number.parseInt(debouncedSearch)
+                candidates = candidates.filter((c: any) => c.candidateNumber === searchNumber)
               } else {
-                candidates = []
+                const searchLower = debouncedSearch.toLowerCase()
+                candidates = candidates
+                  .filter((c: any) => {
+                    const slug = c.slug?.toLowerCase() || ""
+                    const title = c.title?.toLowerCase() || ""
+                    return slug.includes(searchLower) || title.includes(searchLower)
+                  })
+                  .slice(0, 10)
               }
-            } else {
-              candidates = candidates
-                .filter((candidate: any) => {
-                  const slug = candidate.slug?.toLowerCase() || ""
-                  const title = candidate.latestVersion?.content?.title?.toLowerCase() || ""
-                  const searchLower = debouncedSearch.toLowerCase()
-                  return slug.includes(searchLower) || title.includes(searchLower)
-                })
-                .slice(0, 10) // Limit to 10 results
+              setSearchResults(candidates)
+            } catch {
+              setSearchResults([])
             }
-            setSearchResults(candidates)
           }
         } catch (error) {
           setSearchResults([])
@@ -582,13 +550,25 @@ function LiveGovernanceDashboardContent() {
   }
 
   const handleSelectCandidate = (id: string) => {
-    const candidateIndex = safeCandidates.findIndex((c) => c.id === id)
-    if (candidateIndex !== -1) {
-      const candidateNumber = totalCandidates - candidateIndex
-      router.push(`/candidate/${candidateNumber}`)
+  // First check search results (which have candidateNumber from API)
+  const searchResult = searchResults.find((r) => r.id === id)
+  if (searchResult?.candidateNumber) {
+    router.push(`/candidate/${searchResult.candidateNumber}`)
+  } else {
+    // Fallback to safeCandidates list
+    const candidate = safeCandidates.find((c) => c.id === id)
+    if (candidate?.candidateNumber) {
+      router.push(`/candidate/${candidate.candidateNumber}`)
+    } else {
+      const candidateIndex = safeCandidates.findIndex((c) => c.id === id)
+      if (candidateIndex !== -1) {
+        const candidateNumber = totalCandidates - candidateIndex
+        router.push(`/candidate/${candidateNumber}`)
+      }
     }
-    setSearchQuery("")
-    setSearchResults([])
+  }
+  setSearchQuery("")
+  setSearchResults([])
   }
 
   const loadMoreCandidates = () => {
@@ -881,10 +861,10 @@ function LiveGovernanceDashboardContent() {
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm text-blue-500">
-                        {activeTab === "proposals" ? `#${result.id}` : `#${totalCandidates - index}`}
+                        {activeTab === "proposals" ? `#${result.id}` : `#${result.candidateNumber || totalCandidates - index}`}
                       </span>
                       <span className="text-sm truncate">
-                        {result.description || result.latestVersion?.content?.title || result.slug || result.id}
+                        {result.title || result.description || result.latestVersion?.content?.title || result.slug || result.id}
                       </span>
                     </div>
                   </button>
