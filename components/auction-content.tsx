@@ -461,7 +461,6 @@ function AuctionContentInner() {
   }
 
   const nounId = auctionData?.[0] !== undefined ? Number(auctionData[0]) : null
-  console.log("[v0] Auction data:", { auctionData, nounId })
   const currentBid = auctionData ? formatEther(auctionData[1]) : "0"
   const currentBidder = auctionData ? auctionData[4] : "0x0000000000000000000000000000000000000000"
 
@@ -739,7 +738,7 @@ function AuctionContentInner() {
                   alt={`Noun ${nounId}`}
                   width={500}
                   height={500}
-                  className="w-full h-full object-contain rounded-2xl"
+                  className="w-full h-full object-contain"
                   priority
                 />
               ) : (
@@ -748,7 +747,7 @@ function AuctionContentInner() {
                   alt="Loading Noun..."
                   width={500}
                   height={500}
-                  className="w-full h-full object-contain rounded-2xl"
+                  className="w-full h-full object-contain"
                   unoptimized
                 />
               )}

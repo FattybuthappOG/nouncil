@@ -145,8 +145,6 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100)
 
-  console.log("[v0] Candidates API called, returning", STATIC_CANDIDATES.length, "candidates")
-  
   // Return static data - already sorted by candidateNumber descending
   return NextResponse.json({
     candidates: STATIC_CANDIDATES.slice(0, limit),
