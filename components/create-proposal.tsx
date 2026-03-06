@@ -304,9 +304,6 @@ function RichEditor({ onChange }: { onChange: (html: string) => void }) {
           <ToolbarBtn active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">
             <Quote className="w-3.5 h-3.5" />
           </ToolbarBtn>
-          <ToolbarBtn active={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} title="Inline code">
-            <Code2 className="w-3.5 h-3.5" />
-          </ToolbarBtn>
           <div className="w-px h-4 bg-border mx-1" />
           <ToolbarBtn active={editor.isActive("link")} onClick={openLinkDialog} title="Add link">
             <Link2 className="w-3.5 h-3.5" />
@@ -698,8 +695,8 @@ export default function CreateProposal() {
                       !title.trim()
                         ? "bg-muted text-muted-foreground cursor-not-allowed"
                         : isPending || isConfirming
-                        ? "bg-primary/70 text-primary-foreground cursor-wait"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
+                        ? "bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] opacity-70 cursor-wait"
+                        : "bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
                     }`}
                   >
                     <Send className="w-3.5 h-3.5" />
@@ -716,8 +713,8 @@ export default function CreateProposal() {
                     !isConnected || !title.trim()
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : isPending || isConfirming
-                      ? "bg-primary/70 text-primary-foreground cursor-wait"
-                      : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
+                      ? "bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] opacity-70 cursor-wait"
+                      : "bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
                   }`}
                 >
                   <Send className="w-3.5 h-3.5" />
