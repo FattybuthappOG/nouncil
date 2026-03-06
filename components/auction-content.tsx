@@ -730,7 +730,7 @@ function AuctionContentInner() {
           {/* Right column - Noun artwork */}
           <div className="flex flex-col items-center justify-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0 md:overflow-hidden">
             <div
-              className={`w-full max-w-[320px] md:max-w-none md:max-h-[calc(100vh-200px)] rounded-2xl overflow-hidden flex items-center justify-center ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
+              className={`w-full max-w-[320px] md:max-w-[500px] aspect-square rounded-2xl overflow-hidden flex items-center justify-center ${isDarkMode ? "bg-card border-border" : "bg-card border-border"}`}
             >
               {nounId !== null ? (
                 <Image
