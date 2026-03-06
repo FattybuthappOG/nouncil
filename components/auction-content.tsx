@@ -729,7 +729,7 @@ function AuctionContentInner() {
 
           {/* Right column - Noun artwork */}
           <div className="flex flex-col items-center justify-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0">
-            <div className="w-full max-w-[320px] md:max-w-[280px] rounded-2xl overflow-hidden">
+            <div className="w-full max-w-[320px] md:max-w-[350px] rounded-2xl overflow-hidden">
               {nounId !== null ? (
                 <Image
                   src={`https://noun.pics/${nounId}`}
