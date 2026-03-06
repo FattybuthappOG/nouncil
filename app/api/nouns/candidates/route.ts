@@ -10,192 +10,155 @@ interface CandidateData {
   slug: string
 }
 
-const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365"
-const INFURA_RPC_URL = `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`
+// NounsDAOData proxy contract (confirmed from nouns-camp source)
+const NOUNS_DAO_DATA = "0xf790a5f59678dd733fb3de93493a91f472ca1365"
 
-// ProposalCandidateCreated event topic hash
-const EVENT_TOPIC = "0x3c0007e34e38bfe9b9f14dc8c1e96db9e6b8354d4f87d5fd42f1d24f5eebd1b9"
+// keccak256("ProposalCandidateCreated(address,address[],uint256[],string[],bytes[],string,string,uint256,bytes32)")
+// Verified from NounsDAODataEvents.sol in nouns-monorepo
+const CANDIDATE_CREATED_TOPIC = "0x3c0007e34e38bfe9b9f14dc8c1e96db9e6b8354d4f87d5fd42f1d24f5eebd1b9"
 
-const cache: { [key: string]: { data: any; timestamp: number } } = {}
-const CACHE_TTL = 60 * 60 * 1000 // 1 hour - minimize RPC calls due to rate limits
+// Deployment block of NounsDAOData contract (Aug 2023)
+const DEPLOY_BLOCK = 17812145
 
-async function fetchLogs(fromBlock: number, toBlock: number, retryCount: number = 0): Promise<any[]> {
-  const payload = {
-    jsonrpc: "2.0",
-    method: "eth_getLogs",
-    params: [
-      {
-        address: NOUNS_DAO_DATA,
-        topics: [EVENT_TOPIC],
-        fromBlock: `0x${fromBlock.toString(16)}`,
-        toBlock: `0x${toBlock.toString(16)}`,
-      },
-    ],
-    id: 1,
+// 1 hour cache to minimize RPC calls
+const cache: Record<string, { data: any; ts: number }> = {}
+const CACHE_TTL = 60 * 60 * 1000
+
+function getInfuraUrl() {
+  const key = process.env.INFURA_API_KEY
+  if (!key) throw new Error("INFURA_API_KEY not set")
+  return `https://mainnet.infura.io/v3/${key}`
+}
+
+async function rpcCall(method: string, params: any[]) {
+  const url = getInfuraUrl()
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    signal: AbortSignal.timeout(20000),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Infura ${res.status}: ${text.substring(0, 100)}`)
   }
+  const json = await res.json()
+  if (json.error) throw new Error(`RPC error: ${json.error.message}`)
+  return json.result
+}
 
+// Decode ABI string from log data at a given offset (in 32-byte words)
+function decodeAbiString(data: string, wordOffset: number): string {
   try {
-    const response = await fetch(INFURA_RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30000),
-    })
-
-    if (response.status === 429) {
-      // Rate limited - retry with exponential backoff
-      if (retryCount < 2) {
-        const delay = Math.pow(2, retryCount) * 2000 // 2s, 4s
-        console.log(`[v0] Rate limited, retrying after ${delay}ms...`)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        return fetchLogs(fromBlock, toBlock, retryCount + 1)
-      }
-      console.error("[v0] Rate limited after retries, returning empty")
-      return []
-    }
-
-    if (!response.ok) {
-      console.error("[v0] Infura RPC error:", response.status)
-      return []
-    }
-
-    const data = await response.json()
-
-    if (data.error) {
-      console.error("[v0] Infura RPC error:", data.error.message)
-      return []
-    }
-
-    return data.result || []
-  } catch (err) {
-    console.error("[v0] Fetch logs error:", err instanceof Error ? err.message : err)
-    return []
+    // Each word is 64 hex chars. data starts after "0x"
+    const hex = data.slice(2)
+    // The wordOffset points to the offset of the string
+    const offsetHex = hex.slice(wordOffset * 64, wordOffset * 64 + 64)
+    const strOffset = parseInt(offsetHex, 16) * 2 // in hex chars
+    const lenHex = hex.slice(strOffset, strOffset + 64)
+    const strLen = parseInt(lenHex, 16) * 2 // in hex chars
+    const strHex = hex.slice(strOffset + 64, strOffset + 64 + strLen)
+    return Buffer.from(strHex, "hex").toString("utf8")
+  } catch {
+    return ""
   }
 }
 
-function decodeCandidateEvent(log: any): Partial<CandidateData> | null {
+function parseLog(log: any, index: number): CandidateData | null {
   try {
-    // Extract data from the log
-    const data = log.data
-    const topics = log.topics
-
-    // Proposer is in topics[1] (indexed)
-    const proposer = `0x${topics[1].slice(26)}`
-
-    // Decode data: targets[], values[], signatures[], calldatas[], description, slug, proposalIdToUpdate, encodedProposalHash
-    // For now, extract description and slug from the data field
-    // The data is ABI-encoded, we need to decode it properly
-
-    // Get block number for timestamp (we'll use blockNumber as a proxy for candidateNumber)
+    const proposer = `0x${log.topics[1].slice(26)}`
     const blockNumber = parseInt(log.blockNumber, 16)
 
-    // Extract from transactionHash to get a unique ID
-    const id = `${proposer}-${blockNumber}`
+    // The non-indexed params in log.data are ABI-encoded as:
+    // [0] targets offset
+    // [1] values offset
+    // [2] signatures offset
+    // [3] calldatas offset
+    // [4] description offset
+    // [5] slug offset
+    // [6] proposalIdToUpdate (uint256)
+    // [7] encodedProposalHash (bytes32)
+    // Then the actual arrays/strings follow
 
-    // Try to extract slug from data if available
-    // For simplicity, use block number as candidate number
-    const candidateNumber = blockNumber
+    const description = decodeAbiString(log.data, 4)
+    const slug = decodeAbiString(log.data, 5)
+
+    // Extract title from markdown description (first line after #)
+    let title = slug || `Candidate by ${proposer.slice(0, 8)}`
+    if (description) {
+      const firstLine = description.split("\n")[0].replace(/^#+\s*/, "").trim()
+      if (firstLine.length > 0) title = firstLine
+    }
+
+    // Use a running index for candidateNumber (will be set from total later)
+    const id = `${proposer.toLowerCase()}-${slug || blockNumber}`
 
     return {
       id,
-      candidateNumber,
+      candidateNumber: index + 1,
       proposer,
-      title: `Proposal Candidate ${candidateNumber}`,
-      description: "Real candidate from blockchain",
-      createdTimestamp: Math.floor(Date.now() / 1000),
-      slug: `candidate-${candidateNumber}`,
+      title: title.length > 120 ? title.slice(0, 120) + "…" : title,
+      description,
+      createdTimestamp: blockNumber, // block number as proxy; no extra RPC needed
+      slug: slug || id,
     }
   } catch (err) {
-    console.error("[v0] Decode error:", err)
     return null
   }
 }
 
-async function getRealCandidates(limit: number): Promise<{ candidates: CandidateData[]; total: number }> {
-  try {
-    // Get current block number
-    const blockPayload = {
-      jsonrpc: "2.0",
-      method: "eth_blockNumber",
-      params: [],
-      id: 1,
-    }
+async function fetchCandidates(limit: number): Promise<{ candidates: CandidateData[]; total: number }> {
+  // Step 1: get current block
+  const currentBlockHex: string = await rpcCall("eth_blockNumber", [])
+  const currentBlock = parseInt(currentBlockHex, 16)
 
-    const blockResponse = await fetch(INFURA_RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(blockPayload),
-      signal: AbortSignal.timeout(15000),
-    })
+  // Step 2: single eth_getLogs call — Infura returns up to 10,000 results
+  // Query the FULL range; Infura will return the most recent 10k results
+  const logs: any[] = await rpcCall("eth_getLogs", [{
+    address: NOUNS_DAO_DATA,
+    topics: [CANDIDATE_CREATED_TOPIC],
+    fromBlock: `0x${DEPLOY_BLOCK.toString(16)}`,
+    toBlock: `0x${currentBlock.toString(16)}`,
+  }])
 
-    const blockData = await blockResponse.json()
-    const currentBlock = parseInt(blockData.result, 16)
-    // Only query last 50k blocks (recent candidates) to minimize RPC load
-    const fromBlock = Math.max(currentBlock - 50000, 17812145) // NounsDAOData deployment block
-
-    console.log("[v0] Fetching candidates from block", fromBlock, "to", currentBlock)
-
-    // Single RPC call for recent candidates (50k blocks)
-    const logs = await fetchLogs(fromBlock, currentBlock)
-    console.log("[v0] Fetched", logs.length, "candidate events")
-
-    // Decode and sort candidates (most recent first)
-    const candidates: CandidateData[] = []
-    for (const log of logs) {
-      const decoded = decodeCandidateEvent(log)
-      if (decoded) {
-        candidates.push(decoded as CandidateData)
-      }
-    }
-
-    candidates.sort((a, b) => b.createdTimestamp - a.createdTimestamp)
-
-    const total = candidates.length
-    const result = candidates.slice(0, limit)
-
-    console.log("[v0] Found", total, "recent candidates, returning", result.length)
-
-    return { candidates: result, total }
-  } catch (err) {
-    console.error("[v0] Get real candidates error:", err)
-    return { candidates: [], total: 0 }
+  if (!Array.isArray(logs)) {
+    throw new Error("eth_getLogs did not return an array")
   }
+
+  const total = logs.length
+
+  // Take the last `limit` logs (most recent events are at end of array)
+  const recentLogs = logs.slice(-limit).reverse()
+
+  const candidates: CandidateData[] = []
+  let candidateNumber = total
+  for (const log of recentLogs) {
+    const c = parseLog(log, 0)
+    if (c) {
+      c.candidateNumber = candidateNumber--
+      candidates.push(c)
+    }
+  }
+
+  return { candidates, total }
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100)
-
   const cacheKey = `candidates_${limit}`
-  if (cache[cacheKey] && Date.now() - cache[cacheKey].timestamp < CACHE_TTL) {
+
+  if (cache[cacheKey] && Date.now() - cache[cacheKey].ts < CACHE_TTL) {
     return NextResponse.json(cache[cacheKey].data)
   }
 
   try {
-    if (!process.env.INFURA_API_KEY) {
-      throw new Error("INFURA_API_KEY not configured")
-    }
-
-    const { candidates, total } = await getRealCandidates(limit)
-
-    const result = {
-      candidates,
-      total: Math.max(total, 100), // Ensure we report at least 100 candidates
-      source: "infura-rpc",
-    }
-
-    cache[cacheKey] = { data: result, timestamp: Date.now() }
+    const { candidates, total } = await fetchCandidates(limit)
+    const result = { candidates, total, source: "infura-rpc" }
+    cache[cacheKey] = { data: result, ts: Date.now() }
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error("[v0] Candidates API error:", error?.message || error)
-    return NextResponse.json(
-      {
-        candidates: [],
-        total: 0,
-        error: error?.message || "Failed to fetch candidates",
-        source: "error",
-      },
-      { status: 500 },
-    )
+    console.error("[v0] Candidates fetch error:", error?.message)
+    return NextResponse.json({ candidates: [], total: 0, error: error?.message }, { status: 500 })
   }
 }
