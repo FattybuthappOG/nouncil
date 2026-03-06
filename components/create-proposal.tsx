@@ -202,8 +202,7 @@ export default function CreateProposal() {
           {proposalType === "candidate" ? (
             <>
               <strong className="text-foreground">Proposal Candidate</strong> — Submit a draft for community feedback via NounsDAOData contract. Costs{" "}
-              <strong className="text-foreground">0.01 ETH</strong>. Registered under client ID{" "}
-              <strong className="text-foreground">#{CLIENT_ID}</strong> (Nouncil) for DAO rewards.
+              <strong className="text-foreground">0.01 ETH</strong>.
             </>
           ) : (
             <>
