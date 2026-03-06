@@ -667,7 +667,7 @@ export default function CreateProposal() {
             }
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               {/* If user holds 1+ Nouns, show both options side by side at submit time */}
               {isConnected && nounsOwned >= 1 ? (
                 <>
