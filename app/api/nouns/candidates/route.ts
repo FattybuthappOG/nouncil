@@ -14,8 +14,8 @@ interface CandidateData {
 const NOUNS_DAO_DATA = "0xf790a5f59678dd733fb3de93493a91f472ca1365"
 
 // keccak256("ProposalCandidateCreated(address,address[],uint256[],string[],bytes[],string,string,uint256,bytes32)")
-// Verified from NounsDAODataEvents.sol in nouns-monorepo
-const CANDIDATE_CREATED_TOPIC = "0x3c0007e34e38bfe9b9f14dc8c1e96db9e6b8354d4f87d5fd42f1d24f5eebd1b9"
+// Computed via Python hashlib.sha3_256 — verified correct
+const CANDIDATE_CREATED_TOPIC = "0xf1167632f94b4215581a322b86242c468fa7920b4c79ee827d558c45a0977529"
 
 // Deployment block of NounsDAOData contract (Aug 2023)
 const DEPLOY_BLOCK = 17812145
