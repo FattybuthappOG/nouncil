@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef } from "react"
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import { parseEther, parseUnits, encodeFunctionData, parseAbi, isAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
@@ -51,6 +51,25 @@ const NOUNS_GOVERNOR_ABI = [
       { name: "description", type: "string" },
     ],
     outputs: [{ name: "", type: "uint256" }],
+  },
+] as const
+
+// Nouns token contract for balance/voting power checks
+const NOUNS_TOKEN = "0x9C8fF314C9Bc7F6e59A9d9225Fb22946427eDC03" as const
+const NOUNS_TOKEN_ABI = [
+  {
+    name: "balanceOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "getCurrentVotes",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint96" }],
   },
 ] as const
 
@@ -342,6 +361,28 @@ export default function CreateProposal() {
   const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
 
+  // Check Noun balance and voting power (delegations)
+  const { data: nounBalance } = useReadContract({
+    address: NOUNS_TOKEN,
+    abi: NOUNS_TOKEN_ABI,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  })
+  const { data: votingPower } = useReadContract({
+    address: NOUNS_TOKEN,
+    abi: NOUNS_TOKEN_ABI,
+    functionName: "getCurrentVotes",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  })
+
+  const nounsOwned = nounBalance ? Number(nounBalance) : 0
+  const delegatedVotes = votingPower ? Number(votingPower) : 0
+  // Fee is waived if user holds at least 1 Noun or has at least 1 delegated vote
+  const hasFeeWaiver = nounsOwned >= 1 || delegatedVotes >= 1
+  const candidateFee = hasFeeWaiver ? 0n : parseEther("0.01")
+
   const addAction = (type: ActionType = "eth") => {
     setActions(prev => [...prev, { type, recipient: "", amount: "" }])
     setShowActions(true)
@@ -377,7 +418,7 @@ export default function CreateProposal() {
           abi: NOUNS_DAO_DATA_ABI,
           functionName: "createProposalCandidate",
           args: [targets, values, sigs, datas, fullDescription, slug, BigInt(CLIENT_ID)],
-          value: parseEther("0.01"),
+          value: candidateFee,
         })
       } else {
         writeContract({
@@ -431,11 +472,30 @@ export default function CreateProposal() {
 
       <main className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-5">
         {/* Info banner */}
-        <div className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-          {proposalType === "candidate"
-            ? <><strong className="text-foreground">Proposal Candidate</strong> — Community draft via NounsDAOData. Fee: <strong className="text-foreground">0.01 ETH</strong>.</>
-            : <><strong className="text-foreground">On-Chain Proposal</strong> — Direct submission to Nouns Governor. Requires sponsorship or 1+ Noun.</>
-          }
+        <div className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground flex flex-col gap-1">
+          {proposalType === "candidate" ? (
+            <span>
+              <strong className="text-foreground">Proposal Candidate</strong> — Community draft via NounsDAOData.{" "}
+              {isConnected && hasFeeWaiver
+                ? <span className="text-green-600 dark:text-green-400 font-medium">Fee waived — you hold {nounsOwned > 0 ? `${nounsOwned} Noun${nounsOwned > 1 ? "s" : ""}` : `${delegatedVotes} delegated vote${delegatedVotes > 1 ? "s" : ""}`}.</span>
+                : isConnected
+                ? <span>Requires a <strong className="text-foreground">0.01 ETH</strong> fee for wallets without Nouns.</span>
+                : <span>Fee is waived if you hold or have delegated Nouns.</span>
+              }
+            </span>
+          ) : (
+            <span>
+              <strong className="text-foreground">On-Chain Proposal</strong> — Direct submission to Nouns Governor. Requires at least 1 Noun or sponsorship.
+            </span>
+          )}
+          {isConnected && nounsOwned >= 1 && (
+            <span className="text-foreground/60">
+              You hold <strong className="text-foreground">{nounsOwned} Noun{nounsOwned > 1 ? "s" : ""}</strong> — you can also submit directly{" "}
+              <button type="button" onClick={() => setProposalType("onchain")} className="underline hover:no-underline text-primary font-medium">
+                as an on-chain proposal
+              </button>.
+            </span>
+          )}
         </div>
 
         {title && (
@@ -560,7 +620,16 @@ export default function CreateProposal() {
             }`}
           >
             <Send className="w-3.5 h-3.5" />
-            {isPending ? "Confirm in wallet..." : isConfirming ? "Confirming..." : proposalType === "candidate" ? "Submit Candidate (0.01 ETH)" : "Submit On-Chain"}
+            {isPending
+              ? "Confirm in wallet..."
+              : isConfirming
+              ? "Confirming..."
+              : proposalType === "candidate"
+              ? hasFeeWaiver
+                ? "Submit Candidate"
+                : "Submit Candidate (0.01 ETH)"
+              : "Submit On-Chain"
+            }
           </button>
         </div>
       </main>
