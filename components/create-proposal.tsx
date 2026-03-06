@@ -549,13 +549,13 @@ export default function CreateProposal() {
         {/* Prominent title input */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Give your proposal a clear, descriptive title..."
-            className="w-full bg-transparent text-2xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none border-b border-border pb-2 focus:border-primary transition-colors"
-          />
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Give your proposal a clear, descriptive title..."
+              className="w-full bg-transparent text-lg sm:text-2xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none border-b border-border pb-2 focus:border-primary transition-colors"
+            />
           {title && (
             <p className="text-xs text-muted-foreground">
               Slug: <code className="bg-muted px-1 rounded">{slugify(title)}</code>
@@ -659,16 +659,15 @@ export default function CreateProposal() {
         )}
 
         {/* Submit row */}
-        <div className="flex flex-col gap-2 pt-2 border-t border-border">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs text-muted-foreground">
-              {isConnected
-                ? <span>Connected: <code className="bg-muted px-1 rounded">{address?.slice(0, 6)}...{address?.slice(-4)}</code></span>
-                : <span className="text-destructive">Connect wallet to submit</span>
-              }
-            </div>
+        <div className="flex flex-col gap-3 pt-2 border-t border-border">
+          <div className="text-xs text-muted-foreground">
+            {isConnected
+              ? <span>Connected: <code className="bg-muted px-1 rounded">{address?.slice(0, 6)}...{address?.slice(-4)}</code></span>
+              : <span className="text-destructive">Connect wallet to submit</span>
+            }
+          </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
               {/* If user holds 1+ Nouns, show both options side by side at submit time */}
               {isConnected && nounsOwned >= 1 ? (
                 <>
@@ -676,7 +675,7 @@ export default function CreateProposal() {
                     type="button"
                     onClick={() => { setProposalType("candidate"); handleSubmit() }}
                     disabled={isPending || isConfirming || !title.trim()}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-border transition-all ${
+                    className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium border border-border transition-all flex-1 sm:flex-none ${
                       !title.trim()
                         ? "bg-muted text-muted-foreground cursor-not-allowed"
                         : isPending || isConfirming
@@ -685,13 +684,14 @@ export default function CreateProposal() {
                     }`}
                   >
                     <Send className="w-3.5 h-3.5" />
-                    Submit as Candidate
+                    <span className="hidden xs:inline">Submit as Candidate</span>
+                    <span className="inline xs:hidden">Candidate</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => { setProposalType("onchain"); handleSubmit() }}
                     disabled={isPending || isConfirming || !title.trim()}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
                       !title.trim()
                         ? "bg-muted text-muted-foreground cursor-not-allowed"
                         : isPending || isConfirming
@@ -700,7 +700,8 @@ export default function CreateProposal() {
                     }`}
                   >
                     <Send className="w-3.5 h-3.5" />
-                    Submit On-Chain
+                    <span className="hidden xs:inline">Submit On-Chain</span>
+                    <span className="inline xs:hidden">On-Chain</span>
                   </button>
                 </>
               ) : (
@@ -709,7 +710,7 @@ export default function CreateProposal() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={!isConnected || isPending || isConfirming || !title.trim()}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 ${
                     !isConnected || !title.trim()
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : isPending || isConfirming
@@ -730,7 +731,6 @@ export default function CreateProposal() {
               )}
             </div>
           </div>
-        </div>
       </main>
     </div>
   )

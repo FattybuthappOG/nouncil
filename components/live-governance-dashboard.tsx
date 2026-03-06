@@ -923,11 +923,7 @@ function LiveGovernanceDashboardContent() {
               </Select>
               <Link
                 href="/create"
-                className={`flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md border text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-                  isDarkMode
-                    ? "border-border bg-card hover:bg-muted text-foreground"
-                    : "border-border bg-card hover:bg-muted text-foreground"
-                }`}
+                className="flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
               >
                 <PenLine className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Create</span>
