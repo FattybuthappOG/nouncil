@@ -251,7 +251,7 @@ async function fetchProposalList(limit: number, statusFilter: string) {
   return { proposals: proposals.slice(0, limit), totalCount }
 }
 
-// Fetch a single proposal (3 RPC calls max, with event log for description)
+// Fetch a single proposal - with subgraph fallback
 async function fetchSingleProposal(id: number) {
   // Check cache
   const cacheKey = String(id)
@@ -262,17 +262,73 @@ async function fetchSingleProposal(id: number) {
   const PROPOSALS_SEL = "0x013cf08b"
   const STATE_SEL = "0x3e4f49e6"
 
-  // Batch: proposal data + state in ONE request
-  const results = await batchRpcCall([
-    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(PROPOSALS_SEL, BigInt(id)) }, "latest"] },
-    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(STATE_SEL, BigInt(id)) }, "latest"] },
-  ])
+  // Try RPC first
+  let proposalResult: string | null = null
+  let stateResult: string | null = null
+  
+  try {
+    const results = await batchRpcCall([
+      { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(PROPOSALS_SEL, BigInt(id)) }, "latest"] },
+      { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(STATE_SEL, BigInt(id)) }, "latest"] },
+    ])
+    proposalResult = results[0]
+    stateResult = results[1]
+  } catch (err) {
+    console.error("[v0] RPC call failed for proposal", id, "trying subgraph fallback")
+  }
 
-  const proposalResult = results[0]
-  const stateResult = results[1]
-
+  // Fallback to subgraph if RPC fails
   if (!proposalResult || !stateResult) {
-    throw new Error("Failed to read proposal from contract")
+    try {
+      const subgraphUrl = "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest"
+      const query = `{
+        proposal(id: "${id}") {
+          id
+          proposer { id }
+          startBlock
+          endBlock
+          forVotes
+          againstVotes
+          abstainVotes
+          state
+          createdBlock
+          description
+        }
+      }`
+      const response = await fetch(subgraphUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      })
+      const json = await response.json()
+      
+      if (json.data?.proposal) {
+        const p = json.data.proposal
+        const result = {
+          id: Number(p.id),
+          proposer: p.proposer?.id || "0x0000000000000000000000000000000000000000",
+          signers: [],
+          description: p.description || `# Proposal ${id}`,
+          forVotes: p.forVotes || "0",
+          againstVotes: p.againstVotes || "0",
+          abstainVotes: p.abstainVotes || "0",
+          quorumVotes: (BigInt(p.againstVotes || "0") / BigInt(4) * BigInt(100) + BigInt(72)).toString(),
+          status: (PROPOSAL_STATES[Number(p.state)] || "Unknown").toUpperCase(),
+          stateNumber: Number(p.state) || 0,
+          startBlock: p.startBlock || "0",
+          endBlock: p.endBlock || "0",
+          creationBlock: p.createdBlock || "0",
+          createdTransactionHash: "",
+        }
+        cache.single[cacheKey] = { data: result, timestamp: Date.now() }
+        return result
+      }
+    } catch (err) {
+      console.error("[v0] Subgraph fallback failed for proposal", id)
+    }
+    
+    // If both fail, throw error
+    throw new Error(`Failed to read proposal ${id} from RPC and subgraph`)
   }
 
   const proposer = decodeAddress(proposalResult, 1)
