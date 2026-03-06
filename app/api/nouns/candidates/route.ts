@@ -17,9 +17,9 @@ const INFURA_RPC_URL = `https://mainnet.infura.io/v3/${process.env.INFURA_API_KE
 const EVENT_TOPIC = "0x3c0007e34e38bfe9b9f14dc8c1e96db9e6b8354d4f87d5fd42f1d24f5eebd1b9"
 
 const cache: { [key: string]: { data: any; timestamp: number } } = {}
-const CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+const CACHE_TTL = 60 * 60 * 1000 // 1 hour - minimize RPC calls due to rate limits
 
-async function fetchLogs(fromBlock: number, toBlock: number): Promise<any[]> {
+async function fetchLogs(fromBlock: number, toBlock: number, retryCount: number = 0): Promise<any[]> {
   const payload = {
     jsonrpc: "2.0",
     method: "eth_getLogs",
@@ -41,6 +41,18 @@ async function fetchLogs(fromBlock: number, toBlock: number): Promise<any[]> {
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(30000),
     })
+
+    if (response.status === 429) {
+      // Rate limited - retry with exponential backoff
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 2000 // 2s, 4s
+        console.log(`[v0] Rate limited, retrying after ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return fetchLogs(fromBlock, toBlock, retryCount + 1)
+      }
+      console.error("[v0] Rate limited after retries, returning empty")
+      return []
+    }
 
     if (!response.ok) {
       console.error("[v0] Infura RPC error:", response.status)
@@ -118,24 +130,18 @@ async function getRealCandidates(limit: number): Promise<{ candidates: Candidate
 
     const blockData = await blockResponse.json()
     const currentBlock = parseInt(blockData.result, 16)
-    const fromBlock = Math.max(currentBlock - 500000, 17812145) // NounsDAOData deployment block
+    // Only query last 50k blocks (recent candidates) to minimize RPC load
+    const fromBlock = Math.max(currentBlock - 50000, 17812145) // NounsDAOData deployment block
 
     console.log("[v0] Fetching candidates from block", fromBlock, "to", currentBlock)
 
-    // Fetch logs in chunks to avoid rate limiting
-    const allLogs: any[] = []
-    const chunkSize = 100000
-
-    for (let i = fromBlock; i <= currentBlock; i += chunkSize) {
-      const to = Math.min(i + chunkSize - 1, currentBlock)
-      const logs = await fetchLogs(i, to)
-      allLogs.push(...logs)
-      console.log("[v0] Fetched", logs.length, "logs from block", i, "to", to)
-    }
+    // Single RPC call for recent candidates (50k blocks)
+    const logs = await fetchLogs(fromBlock, currentBlock)
+    console.log("[v0] Fetched", logs.length, "candidate events")
 
     // Decode and sort candidates (most recent first)
     const candidates: CandidateData[] = []
-    for (const log of allLogs) {
+    for (const log of logs) {
       const decoded = decodeCandidateEvent(log)
       if (decoded) {
         candidates.push(decoded as CandidateData)
@@ -147,7 +153,7 @@ async function getRealCandidates(limit: number): Promise<{ candidates: Candidate
     const total = candidates.length
     const result = candidates.slice(0, limit)
 
-    console.log("[v0] Found", total, "total candidates, returning", result.length)
+    console.log("[v0] Found", total, "recent candidates, returning", result.length)
 
     return { candidates: result, total }
   } catch (err) {
