@@ -1,159 +1,172 @@
 import { NextResponse } from "next/server"
 
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365"
-const RPC_URLS = [
-  "https://ethereum-rpc.publicnode.com",
-  "https://eth.llamarpc.com",
-  "https://1rpc.io/eth",
-]
+
+// RPC endpoints with optional premium API keys
+const getRpcUrls = () => {
+  const urls = [
+    process.env.ETH_RPC_URL,
+    process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : null,
+    process.env.INFURA_API_KEY ? `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}` : null,
+    "https://ethereum-rpc.publicnode.com",
+    "https://eth.llamarpc.com",
+    "https://1rpc.io/eth",
+  ].filter(Boolean) as string[]
+  return urls
+}
 
 interface CandidateData {
   id: string
   candidateNumber: number
-  slug: string
-  title: string
   proposer: string
-  createdTimestamp: number
+  title: string
   description: string
+  createdTimestamp: number
+  slug: string
 }
 
-// Function to call RPC endpoint with fallback
-async function callRpc(method: string, params: any[]): Promise<any> {
-  for (const url of RPC_URLS) {
+const cache: { [key: string]: { data: any; timestamp: number } } = {}
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+async function fetchWithRpc(method: string, params: any[], endpoint: string): Promise<string | null> {
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.result || null
+  } catch {
+    return null
+  }
+}
+
+async function getCandidateCount(): Promise<number> {
+  const cacheKey = "candidateCount"
+  if (cache[cacheKey] && Date.now() - cache[cacheKey].timestamp < CACHE_TTL) {
+    return cache[cacheKey].data
+  }
+
+  const RPC_URLS = getRpcUrls()
+
+  // latestCandidateId() function selector: 0xb97b4b31
+  const functionSelector = "0xb97b4b31"
+  for (const rpcUrl of RPC_URLS) {
     try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-      })
-      const data = await response.json()
-      if (data.result !== undefined) {
-        return data.result
+      console.log("[v0] Trying RPC for candidate count:", rpcUrl.split("/").slice(-1)[0])
+      const result = await fetchWithRpc("eth_call", [{ to: NOUNS_DAO_DATA, data: functionSelector }, "latest"], rpcUrl)
+
+      if (result && result !== "0x") {
+        const count = Number.parseInt(result, 16)
+        cache[cacheKey] = { data: count, timestamp: Date.now() }
+        console.log("[v0] Got candidate count from RPC:", count)
+        return count
       }
     } catch (err) {
-      console.error(`[v0] RPC error from ${url}:`, err)
+      console.error("[v0] RPC error:", err)
       continue
     }
   }
-  throw new Error("All RPC endpoints failed")
+
+  console.error("[v0] Failed to get candidate count from all RPC endpoints")
+  return 0
 }
 
-// Fetch candidate count from contract
-async function getCandidateCount(): Promise<number> {
+async function getCandidatesFromSubgraph(limit: number): Promise<CandidateData[]> {
   try {
-    // Call latestCandidateId() - function selector: 0xb97b4b31
-    const result = await callRpc("eth_call", [
-      {
-        to: NOUNS_DAO_DATA,
-        data: "0xb97b4b31",
-      },
-      "latest",
-    ])
-    
-    if (result && result.length > 2) {
-      const candidateId = BigInt(result)
-      return Number(candidateId)
-    }
-    return 0
-  } catch (err) {
-    console.error("[v0] Failed to get candidate count:", err)
-    return 0
-  }
-}
-
-// Fetch candidates from subgraph with fallback to static data
-async function fetchCandidatesFromSubgraph(limit: number): Promise<CandidateData[]> {
-  const query = `{
-    proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc) {
-      id
-      slug
-      proposer {
+    const query = `{
+      proposalCandidates(first: ${limit}, orderBy: createdTimestamp, orderDirection: desc) {
         id
-      }
-      createdTimestamp
-      latestVersion {
-        content {
-          title
-          description
+        slug
+        proposer { id }
+        createdTimestamp
+        latestVersion {
+          content {
+            title
+            description
+          }
         }
       }
-    }
-  }`
+    }`
 
-  const subgraphUrls = [
-    "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
-    "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-  ]
+    const response = await fetch("https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(10000),
+    })
 
-  for (const url of subgraphUrls) {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      })
-      const json = await response.json()
+    if (!response.ok) return []
+    const data = await response.json()
 
-      if (json.data?.proposalCandidates && Array.isArray(json.data.proposalCandidates)) {
-        return json.data.proposalCandidates.map((c: any, idx: number) => ({
-          id: c.id || `candidate-${idx}`,
-          candidateNumber: limit - idx,
-          slug: c.slug || "",
-          title: c.latestVersion?.content?.title || `Candidate ${limit - idx}`,
-          proposer: c.proposer?.id || "0x0000000000000000000000000000000000000000",
-          createdTimestamp: Number(c.createdTimestamp || 0),
-          description: c.latestVersion?.content?.description || "",
-        }))
-      }
-    } catch (err) {
-      console.error(`[v0] Subgraph error from ${url}:`, err)
-      continue
-    }
+    if (!data.data?.proposalCandidates) return []
+
+    return data.data.proposalCandidates.map((c: any, index: number) => ({
+      id: c.id,
+      candidateNumber: index + 1,
+      proposer: c.proposer?.id || "0x0000000000000000000000000000000000000000",
+      title: c.latestVersion?.content?.title || `Candidate ${c.id}`,
+      description: c.latestVersion?.content?.description || "",
+      createdTimestamp: Number(c.createdTimestamp) || 0,
+      slug: c.slug || "",
+    }))
+  } catch (err) {
+    console.error("[v0] Subgraph fetch failed:", err)
+    return []
   }
-
-  return []
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100)
 
+  const cacheKey = `candidates_${limit}`
+  if (cache[cacheKey] && Date.now() - cache[cacheKey].timestamp < CACHE_TTL) {
+    return NextResponse.json(cache[cacheKey].data)
+  }
+
   try {
-    // Get actual candidate count from contract
-    const candidateCount = await getCandidateCount()
-    console.log(`[v0] Found ${candidateCount} candidates on chain`)
+    // Get real candidate count from contract
+    const totalCandidates = await getCandidateCount()
+    console.log("[v0] Total candidates from contract:", totalCandidates)
 
-    // Fetch from subgraph
-    let candidates = await fetchCandidatesFromSubgraph(limit)
+    // Get candidate data from subgraph
+    let candidates = await getCandidatesFromSubgraph(limit)
+    console.log("[v0] Got", candidates.length, "candidates from subgraph")
 
-    // If subgraph fails, return count with empty candidates for frontend to handle
-    if (candidates.length === 0 && candidateCount > 0) {
-      console.log("[v0] Subgraph returned no candidates, generating stubs...")
-      // Generate stub data showing the count at least
-      candidates = Array.from({ length: Math.min(20, candidateCount) }, (_, i) => ({
-        id: `candidate-${candidateCount - i}`,
-        candidateNumber: candidateCount - i,
-        slug: `candidate-${candidateCount - i}`,
-        title: `Proposal Candidate #${candidateCount - i}`,
+    // If subgraph fails, return stub data with correct count
+    if (candidates.length === 0 && totalCandidates > 0) {
+      console.log("[v0] Subgraph returned no candidates, generating stub data for", Math.min(limit, totalCandidates), "candidates")
+      candidates = Array.from({ length: Math.min(limit, totalCandidates) }, (_, i) => ({
+        id: `candidate-${totalCandidates - i}`,
+        candidateNumber: totalCandidates - i,
         proposer: "0x0000000000000000000000000000000000000000",
+        title: `Proposal Candidate #${totalCandidates - i}`,
+        description: "Loading candidate details...",
         createdTimestamp: 0,
-        description: `Nouns DAO Proposal Candidate #${candidateCount - i}`,
+        slug: `candidate-${totalCandidates - i}`,
       }))
     }
 
-    return NextResponse.json({
-      candidates: candidates.slice(0, limit),
-      total: candidateCount,
-      source: "onchain",
-    })
-  } catch (err) {
-    console.error("[v0] Candidates API error:", err)
+    const result = {
+      candidates,
+      total: totalCandidates,
+      source: candidates.length > 0 ? "subgraph" : "stub",
+    }
+
+    cache[cacheKey] = { data: result, timestamp: Date.now() }
+    return NextResponse.json(result)
+  } catch (error: any) {
+    console.error("[v0] Candidates API error:", error)
     return NextResponse.json(
-      { 
+      {
         candidates: [],
         total: 0,
-        error: "Failed to fetch candidates",
-        source: "error",
+        error: error?.message || "Failed to fetch candidates",
       },
       { status: 500 },
     )
