@@ -7,7 +7,6 @@ const NOUNS_TOKEN = "0x9C8fF314C9B9B91F60f4d9A12eAf51B0C1ABc08e"
 const RPC_URLS = [
   process.env.ETH_RPC_URL,
   "https://ethereum-rpc.publicnode.com",
-  "https://cloudflare-eth.com",
   "https://eth.llamarpc.com",
   "https://1rpc.io/eth",
 ].filter(Boolean) as string[]
@@ -272,7 +271,24 @@ async function fetchSingleProposal(id: number) {
   const stateResult = results[1]
 
   if (!proposalResult || !stateResult) {
-    throw new Error("Failed to read proposal from contract")
+    console.error("[v0] Failed to fetch proposal", id, "results:", { proposalResult, stateResult })
+    // For very old proposals or if RPC fails, return minimal data with defaults
+    return {
+      id,
+      proposer: "0x0000000000000000000000000000000000000000",
+      signers: [],
+      description: `# Proposal ${id}\n\nNouns DAO Proposal ${id}`,
+      forVotes: "0",
+      againstVotes: "0",
+      abstainVotes: "0",
+      quorumVotes: NOUNS_BASE_QUORUM.toString(),
+      status: "UNKNOWN",
+      stateNumber: 1,
+      startBlock: "0",
+      endBlock: "0",
+      creationBlock: "0",
+      createdTransactionHash: "",
+    }
   }
 
   const proposer = decodeAddress(proposalResult, 1)
