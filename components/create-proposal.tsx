@@ -509,11 +509,18 @@ export default function CreateProposal() {
   })
   const proposalThreshold = proposalThresholdRaw != null ? Number(proposalThresholdRaw) : null
 
-  const nounsOwned     = nounBalance ? Number(nounBalance) : 0
-  const delegatedVotes = votingPower ? Number(votingPower) : 0
-  const hasFeeWaiver   = delegatedVotes >= 1
-  // Can go on-chain if votes strictly exceed the threshold (matches nouns-camp: numberOfVotes > proposalThreshold)
-  const canProposeOnChain = proposalThreshold !== null && delegatedVotes > proposalThreshold
+  const nounsOwned     = nounBalance != null ? Number(nounBalance) : 0
+  const delegatedVotes = votingPower != null ? Number(votingPower) : 0
+  // Also count owned Nouns as votes — getCurrentVotes only reflects delegated-to-self if user delegated
+  const effectiveVotes = Math.max(nounsOwned, delegatedVotes)
+  const hasFeeWaiver   = effectiveVotes >= 1
+  // Can go on-chain if votes exceed the threshold.
+  // If threshold hasn't loaded yet, fall back to owning at least 1 Noun.
+  const canProposeOnChain = proposalThreshold !== null
+    ? effectiveVotes > proposalThreshold
+    : nounsOwned >= 1
+
+
 
   // Fee is 0 if user has voting power, otherwise use on-chain cost (fallback 0.01 ETH)
   const candidateFee = hasFeeWaiver ? 0n : (createCandidateCost ?? parseEther("0.01"))
