@@ -273,6 +273,7 @@ async function fetchProposalFromAPIFallback(
 export function useProposalData(proposalId: number) {
   const [mounted, setMounted] = useState(false)
   const [currentBlock, setCurrentBlock] = useState<number>(0)
+  const [refetchTrigger, setRefetchTrigger] = useState(0)
 
   const [proposalData, setProposalData] = useState({
     id: proposalId,
@@ -308,6 +309,22 @@ export function useProposalData(proposalId: number) {
     args: [BigInt(proposalId)],
     query: {
       enabled: mounted && proposalId > 0,
+    },
+  })
+
+  // Watch for ProposalUpdated events to trigger refetch when a proposal is edited
+  useWatchContractEvent({
+    address: GOVERNOR_CONTRACT.address,
+    abi: GOVERNOR_CONTRACT.abi,
+    eventName: "ProposalUpdated",
+    enabled: mounted && proposalId > 0,
+    onLogs(logs) {
+      logs.forEach((log) => {
+        if (Number(log.args.id) === proposalId) {
+          // Proposal was updated — trigger refetch
+          setRefetchTrigger(prev => prev + 1)
+        }
+      })
     },
   })
 
@@ -409,7 +426,7 @@ export function useProposalData(proposalId: number) {
     }
 
     fetchProposalFromAPI()
-  }, [mounted, proposalId, stateData])
+  }, [mounted, proposalId, stateData, refetchTrigger])
 
   return { ...proposalData, currentBlock }
 }
