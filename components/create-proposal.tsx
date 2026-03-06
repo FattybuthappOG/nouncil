@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
-import { parseEther, parseUnits, encodeFunctionData, parseAbi, isAddress } from "viem"
+import { parseEther, parseUnits, encodeFunctionData, encodeAbiParameters, parseAbi, parseAbiItem, isAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
@@ -89,15 +89,22 @@ const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const
 
 type ActionType = "eth" | "weth" | "usdc" | "custom"
 
+interface AbiInput { name: string; type: string; components?: AbiInput[] }
+interface AbiFunction { name: string; type: string; stateMutability: string; inputs: AbiInput[] }
+
 interface Action {
   type: ActionType
+  // transfer actions
   recipient?: string
   amount?: string
+  // custom call
   target?: string
-  value?: string
-  abi?: string
-  functionName?: string
-  args?: string
+  ethValue?: string          // only for payable functions
+  fetchedAbi?: AbiFunction[] // fetched from Etherscan
+  fetchError?: string
+  isFetching?: boolean
+  selectedFunction?: string  // function name
+  argValues?: Record<string, string> // inputName → value
 }
 
 function slugify(text: string): string {
@@ -141,36 +148,43 @@ function htmlToMarkdown(html: string): string {
     .trim()
 }
 
+function coerceArg(value: string, type: string): unknown {
+  if (type === "address") return value as `0x${string}`
+  if (type === "bool") return value === "true"
+  if (type.startsWith("uint") || type.startsWith("int")) return BigInt(value || "0")
+  if (type === "bytes" || type.startsWith("bytes")) return value as `0x${string}`
+  if (type.endsWith("[]")) {
+    try { return JSON.parse(value) } catch { return [] }
+  }
+  return value
+}
+
 function resolveAction(action: Action): { target: `0x${string}`; value: bigint; signature: string; calldata: `0x${string}` } {
   if (action.type === "eth") {
     if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for ETH transfer")
-    return {
-      target: action.recipient as `0x${string}`,
-      value: parseEther(action.amount || "0"),
-      signature: "",
-      calldata: "0x",
-    }
+    return { target: action.recipient as `0x${string}`, value: parseEther(action.amount || "0"), signature: "", calldata: "0x" }
   }
   if (action.type === "weth" || action.type === "usdc") {
     if (!isAddress(action.recipient || "")) throw new Error(`Invalid recipient address for ${action.type.toUpperCase()} transfer`)
     const tokenAddress = action.type === "weth" ? WETH : USDC
     const decimals = action.type === "usdc" ? 6 : 18
     const transferAbi = parseAbi(["function transfer(address to, uint256 amount) returns (bool)"])
-    const data = encodeFunctionData({
-      abi: transferAbi,
-      functionName: "transfer",
-      args: [action.recipient as `0x${string}`, parseUnits(action.amount || "0", decimals)],
-    })
+    const data = encodeFunctionData({ abi: transferAbi, functionName: "transfer", args: [action.recipient as `0x${string}`, parseUnits(action.amount || "0", decimals)] })
     return { target: tokenAddress, value: 0n, signature: "", calldata: data }
   }
-  // custom
+  // custom: encode from fetched ABI + selected function + arg values
   if (!isAddress(action.target || "")) throw new Error("Invalid target address for custom call")
-  return {
-    target: action.target as `0x${string}`,
-    value: parseEther(action.value || "0"),
-    signature: "",
-    calldata: (action.args || "0x") as `0x${string}`,
-  }
+  const fn = action.fetchedAbi?.find(f => f.name === action.selectedFunction)
+  if (!fn) throw new Error("Select a function")
+  const argVals = action.argValues || {}
+  const encodedArgs = fn.inputs.map(inp => coerceArg(argVals[inp.name] || "", inp.type))
+  const calldata = encodeFunctionData({
+    abi: [fn] as any,
+    functionName: fn.name,
+    args: encodedArgs,
+  })
+  const ethValue = fn.stateMutability === "payable" ? parseEther(action.ethValue || "0") : 0n
+  return { target: action.target as `0x${string}`, value: ethValue, signature: "", calldata }
 }
 
 // --- Toolbar button ---
@@ -293,6 +307,115 @@ function RichEditor({ onChange }: { onChange: (html: string) => void }) {
   )
 }
 
+// --- Custom call action: fetches ABI from Etherscan then shows function picker + arg inputs ---
+function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Action) => void }) {
+  const targetRef = useRef<string>("")
+
+  // Fetch ABI from Etherscan when a valid address is entered
+  useEffect(() => {
+    const addr = action.target?.trim() || ""
+    if (!isAddress(addr) || addr === targetRef.current) return
+    targetRef.current = addr
+    onChange({ ...action, isFetching: true, fetchError: undefined, fetchedAbi: undefined, selectedFunction: undefined, argValues: {} })
+
+    fetch(`/api/etherscan-abi?address=${addr}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          onChange({ ...action, target: addr, isFetching: false, fetchError: data.error, fetchedAbi: undefined })
+        } else {
+          const writeFns: AbiFunction[] = (data.abi as AbiFunction[]).filter(
+            f => f.type === "function" && ["nonpayable", "payable"].includes(f.stateMutability)
+          )
+          onChange({ ...action, target: addr, isFetching: false, fetchError: undefined, fetchedAbi: writeFns, selectedFunction: writeFns[0]?.name, argValues: {} })
+        }
+      })
+      .catch(() => onChange({ ...action, target: addr, isFetching: false, fetchError: "Failed to fetch ABI", fetchedAbi: undefined }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action.target])
+
+  const selectedFn = action.fetchedAbi?.find(f => f.name === action.selectedFunction)
+  const isPayable = selectedFn?.stateMutability === "payable"
+
+  const setArg = (name: string, val: string) =>
+    onChange({ ...action, argValues: { ...(action.argValues || {}), [name]: val } })
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Step 1: target address */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-muted-foreground">Target contract address</label>
+        <input
+          type="text"
+          value={action.target || ""}
+          onChange={e => onChange({ ...action, target: e.target.value, fetchedAbi: undefined, fetchError: undefined, selectedFunction: undefined, argValues: {} })}
+          placeholder="0x..."
+          className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+        />
+      </div>
+
+      {/* Loading */}
+      {action.isFetching && (
+        <p className="text-xs text-muted-foreground animate-pulse">Fetching contract ABI...</p>
+      )}
+
+      {/* Error — offer raw ABI paste fallback */}
+      {action.fetchError && (
+        <p className="text-xs text-destructive">{action.fetchError}. Paste the function signature manually below.</p>
+      )}
+
+      {/* Step 2: function selector — only shown after ABI is loaded */}
+      {action.fetchedAbi && action.fetchedAbi.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Function</label>
+          <select
+            value={action.selectedFunction || ""}
+            onChange={e => onChange({ ...action, selectedFunction: e.target.value, argValues: {} })}
+            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          >
+            {action.fetchedAbi.map(fn => (
+              <option key={fn.name} value={fn.name}>
+                {fn.name}({fn.inputs.map(i => `${i.type} ${i.name}`).join(", ")})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Step 3: per-argument inputs */}
+      {selectedFn && selectedFn.inputs.map(inp => (
+        <div key={inp.name} className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{inp.name}</span>
+            <span className="ml-1 text-muted-foreground/70">({inp.type})</span>
+          </label>
+          <input
+            type="text"
+            value={(action.argValues || {})[inp.name] || ""}
+            onChange={e => setArg(inp.name, e.target.value)}
+            placeholder={inp.type === "address" ? "0x..." : inp.type.startsWith("uint") || inp.type.startsWith("int") ? "0" : inp.type === "bool" ? "true / false" : "..."}
+            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+        </div>
+      ))}
+
+      {/* Step 4: ETH value — only for payable functions */}
+      {isPayable && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">ETH value to send</label>
+          <input
+            type="text"
+            value={action.ethValue || ""}
+            onChange={e => onChange({ ...action, ethValue: e.target.value })}
+            placeholder="0.0"
+            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // --- Action form ---
 function ActionForm({ action, index, onChange, onRemove }: { action: Action; index: number; onChange: (a: Action) => void; onRemove: () => void }) {
   const types: { value: ActionType; label: string }[] = [
@@ -306,13 +429,14 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
       <div className="flex items-center justify-between gap-2">
         <select
           value={action.type}
-          onChange={e => onChange({ ...action, type: e.target.value as ActionType })}
+          onChange={e => onChange({ type: e.target.value as ActionType })}
           className="text-xs font-medium bg-muted border border-border rounded-md px-2 py-1.5 text-foreground focus:outline-none"
         >
           {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         <button type="button" onClick={onRemove} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
+
       {(action.type === "eth" || action.type === "weth" || action.type === "usdc") && (
         <>
           <div className="flex flex-col gap-1">
@@ -327,25 +451,8 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
           </div>
         </>
       )}
-      {action.type === "custom" && (
-        <>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">Target contract address</label>
-            <input type="text" value={action.target || ""} onChange={e => onChange({ ...action, target: e.target.value })} placeholder="0x..."
-              className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">ETH value (optional)</label>
-            <input type="text" value={action.value || ""} onChange={e => onChange({ ...action, value: e.target.value })} placeholder="0.0"
-              className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">Calldata (hex)</label>
-            <input type="text" value={action.args || ""} onChange={e => onChange({ ...action, args: e.target.value })} placeholder="0x..."
-              className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
-          </div>
-        </>
-      )}
+
+      {action.type === "custom" && <CustomCallForm action={action} onChange={onChange} />}
     </div>
   )
 }
