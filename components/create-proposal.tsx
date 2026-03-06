@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from "react"
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
+import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
 import { parseEther, parseUnits, encodeFunctionData, encodeAbiParameters, parseAbi, parseAbiItem, isAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
-  Send, ChevronDown, ChevronUp, Coins, Banknote, AlertCircle, CheckCircle2,
+  Send, ChevronDown, ChevronUp, Coins, Banknote, AlertCircle, CheckCircle2, Wallet,
 } from "lucide-react"
 import Link from "next/link"
 import { useEditor, EditorContent } from "@tiptap/react"
@@ -63,6 +63,13 @@ const NOUNS_GOVERNOR_ABI = [
     ],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    name: "proposalThreshold",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
 ] as const
 
 // Nouns token for balance/voting power checks
@@ -87,7 +94,7 @@ const NOUNS_TOKEN_ABI = [
 const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as const
 const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const
 
-type ActionType = "eth" | "weth" | "usdc" | "custom"
+type ActionType = "eth" | "usdc" | "custom"
 
 interface AbiInput { name: string; type: string; components?: AbiInput[] }
 interface AbiFunction { name: string; type: string; stateMutability: string; inputs: AbiInput[] }
@@ -420,7 +427,6 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
 function ActionForm({ action, index, onChange, onRemove }: { action: Action; index: number; onChange: (a: Action) => void; onRemove: () => void }) {
   const types: { value: ActionType; label: string }[] = [
     { value: "eth",    label: "Send ETH" },
-    { value: "weth",   label: "Send WETH" },
     { value: "usdc",   label: "Send USDC" },
     { value: "custom", label: "Custom Call" },
   ]
@@ -437,7 +443,7 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
         <button type="button" onClick={onRemove} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
 
-      {(action.type === "eth" || action.type === "weth" || action.type === "usdc") && (
+      {(action.type === "eth" || action.type === "usdc") && (
         <>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">Recipient address</label>
@@ -460,6 +466,7 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
 // --- Main component ---
 export default function CreateProposal() {
   const { address, isConnected } = useAccount()
+  const { connectors, connect } = useConnect()
   const [title, setTitle] = useState("")
   const [bodyHtml, setBodyHtml] = useState("")
   const [actions, setActions] = useState<Action[]>([])
@@ -471,7 +478,7 @@ export default function CreateProposal() {
   const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
 
-  // Check Noun balance and voting power
+  // Check Noun balance and voting power (delegations)
   const { data: nounBalance } = useReadContract({
     address: NOUNS_TOKEN,
     abi: NOUNS_TOKEN_ABI,
@@ -494,11 +501,27 @@ export default function CreateProposal() {
     functionName: "createCandidateCost",
   })
 
-  const nounsOwned     = nounBalance   ? Number(nounBalance)   : 0
-  const delegatedVotes = votingPower   ? Number(votingPower)   : 0
-  const hasFeeWaiver   = nounsOwned >= 1 || delegatedVotes >= 1
+  // Fetch proposalThreshold dynamically from the Governor (nouns-camp pattern)
+  const { data: proposalThresholdRaw } = useReadContract({
+    address: NOUNS_GOVERNOR,
+    abi: NOUNS_GOVERNOR_ABI,
+    functionName: "proposalThreshold",
+  })
+  const proposalThreshold = proposalThresholdRaw != null ? Number(proposalThresholdRaw) : null
+
+  const nounsOwned     = nounBalance ? Number(nounBalance) : 0
+  const delegatedVotes = votingPower ? Number(votingPower) : 0
+  const hasFeeWaiver   = delegatedVotes >= 1
+  // Can go on-chain if votes strictly exceed the threshold (matches nouns-camp: numberOfVotes > proposalThreshold)
+  const canProposeOnChain = proposalThreshold !== null && delegatedVotes > proposalThreshold
+
   // Fee is 0 if user has voting power, otherwise use on-chain cost (fallback 0.01 ETH)
-  const candidateFee   = hasFeeWaiver ? 0n : (createCandidateCost ?? parseEther("0.01"))
+  const candidateFee = hasFeeWaiver ? 0n : (createCandidateCost ?? parseEther("0.01"))
+
+  const connectWallet = () => {
+    const wc = connectors.find(c => c.id === "walletConnect") ?? connectors[0]
+    if (wc) connect({ connector: wc })
+  }
 
   const addAction    = (type: ActionType = "eth") => { setActions(prev => [...prev, { type, recipient: "", amount: "" }]); setShowActions(true) }
   const removeAction = (i: number) => setActions(prev => prev.filter((_, idx) => idx !== i))
@@ -636,9 +659,6 @@ export default function CreateProposal() {
                 <button type="button" onClick={() => addAction("eth")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Coins className="w-3.5 h-3.5" /> Send ETH
                 </button>
-                <button type="button" onClick={() => addAction("weth")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                  <Banknote className="w-3.5 h-3.5" /> Send WETH
-                </button>
                 <button type="button" onClick={() => addAction("usdc")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Banknote className="w-3.5 h-3.5" /> Send USDC
                 </button>
@@ -665,51 +685,56 @@ export default function CreateProposal() {
         )}
 
         {/* Submit row */}
-        <div className="flex flex-col gap-3 pt-2 border-t border-border">
-          <div className="text-xs text-muted-foreground">
-            {isConnected
-              ? <span>Connected: <code className="bg-muted px-1 rounded">{address?.slice(0, 6)}...{address?.slice(-4)}</code></span>
-              : <span className="text-destructive">Connect wallet to submit</span>
-            }
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {isConnected && nounsOwned >= 1 ? (
+        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+          <div className="flex flex-col sm:flex-row items-stretch gap-2">
+            {!isConnected ? (
+              /* Not connected — single green button that opens wallet modal */
+              <button
+                type="button"
+                onClick={connectWallet}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95 flex-1"
+              >
+                <Send className="w-3.5 h-3.5 shrink-0" />
+                Connect wallet to submit
+              </button>
+            ) : canProposeOnChain ? (
+              /* Has enough votes to propose on-chain — show both options */
               <>
                 <button
                   type="button"
                   onClick={() => handleSubmit("candidate")}
                   disabled={isPending || isConfirming || !title.trim()}
-                  className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium border border-border transition-all flex-1 sm:flex-none ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-border transition-all flex-1 ${
                     !title.trim() || isPending || isConfirming
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-card text-foreground hover:bg-muted active:scale-95"
                   }`}
                 >
                   <Send className="w-3.5 h-3.5 shrink-0" />
-                  <span>Submit as Candidate</span>
+                  <span>{isPending && proposalType === "candidate" ? "Confirm in wallet..." : isConfirming && proposalType === "candidate" ? "Confirming..." : "Submit as Candidate"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSubmit("onchain")}
                   disabled={isPending || isConfirming || !title.trim()}
-                  className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 ${
                     !title.trim() || isPending || isConfirming
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
                   }`}
                 >
                   <Send className="w-3.5 h-3.5 shrink-0" />
-                  <span>{isPending ? "Confirm in wallet..." : isConfirming ? "Confirming..." : "Submit On-Chain"}</span>
+                  <span>{isPending && proposalType === "onchain" ? "Confirm in wallet..." : isConfirming && proposalType === "onchain" ? "Confirming..." : "Submit On-Chain"}</span>
                 </button>
               </>
             ) : (
+              /* Connected but below threshold — single candidate button */
               <button
                 type="button"
                 onClick={() => handleSubmit("candidate")}
-                disabled={!isConnected || isPending || isConfirming || !title.trim()}
-                className={`flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 ${
-                  !isConnected || !title.trim() || isPending || isConfirming
+                disabled={isPending || isConfirming || !title.trim()}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 ${
+                  !title.trim() || isPending || isConfirming
                     ? "bg-muted text-muted-foreground cursor-not-allowed"
                     : "bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
                 }`}
