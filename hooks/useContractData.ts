@@ -155,7 +155,7 @@ const PROPOSAL_STATE_NAMES = [
 // Fallback: fetch proposals via server-side API route (which reads directly from the contract)
 async function fetchProposalIdsFromAPI(
   limit: number,
-  statusFilter: "all" | "active" | "executed" | "defeated" | "vetoed" | "canceled",
+  statusFilter: "all" | "active" | "executed" | "defeated" | "canceled",
 ): Promise<{ ids: number[]; total: number }> {
   const response = await fetch(`/api/nouns/proposals?limit=${limit}&status=${statusFilter}`)
   if (!response.ok) throw new Error(`API route failed: ${response.status}`)
@@ -170,7 +170,7 @@ async function fetchProposalIdsFromAPI(
 
 export function useProposalIds(
   limit = 20,
-  statusFilter: "all" | "active" | "executed" | "defeated" | "vetoed" | "canceled" = "all",
+  statusFilter: "all" | "active" | "executed" | "defeated" | "canceled" = "all",
 ) {
   const [proposalIds, setProposalIds] = useState<number[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)

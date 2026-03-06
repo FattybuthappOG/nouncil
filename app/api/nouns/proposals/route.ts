@@ -154,7 +154,6 @@ async function fetchProposalList(limit: number, statusFilter: string) {
       if (statusFilter === "active") return [0, 1, 5].includes(p.stateNumber)
       if (statusFilter === "executed") return p.stateNumber === 7
       if (statusFilter === "defeated") return p.stateNumber === 3
-      if (statusFilter === "vetoed") return p.stateNumber === 8
       if (statusFilter === "canceled") return p.stateNumber === 2
       return true
     })
