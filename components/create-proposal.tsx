@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
+import WalletConnectButton from "./wallet-connect-button"
 import { parseEther, parseUnits, encodeFunctionData, parseAbi, isAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
@@ -40,7 +41,7 @@ const NOUNS_DAO_DATA_ABI = [
 const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223E" as const
 const NOUNS_GOVERNOR_ABI = [
   {
-    name: "propose",
+    name: "proposeWithClientId",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -49,6 +50,7 @@ const NOUNS_GOVERNOR_ABI = [
       { name: "signatures", type: "string[]" },
       { name: "calldatas", type: "bytes[]" },
       { name: "description", type: "string" },
+      { name: "clientId", type: "uint32" },
     ],
     outputs: [{ name: "", type: "uint256" }],
   },
@@ -521,8 +523,8 @@ export default function CreateProposal() {
         writeContract({
           address: NOUNS_GOVERNOR,
           abi: NOUNS_GOVERNOR_ABI,
-          functionName: "propose",
-          args: [targets, values, sigs, datas, fullDescription],
+          functionName: "proposeWithClientId",
+          args: [targets, values, sigs, datas, fullDescription, CLIENT_ID],
         })
       }
     } catch (err: any) {
@@ -534,13 +536,15 @@ export default function CreateProposal() {
     <div className="min-h-screen bg-background">
       {/* Sticky header */}
       <header className="sticky top-0 z-10 border-b border-border bg-card/90 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0">
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm hidden sm:inline">Back</span>
           </Link>
-          <div className="w-px h-4 bg-border shrink-0" />
-          <span className="text-sm font-medium text-foreground">Create Proposal</span>
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline-block"><WalletConnectButton /></span>
+            <span className="sm:hidden"><WalletConnectButton compact /></span>
+          </div>
         </div>
       </header>
 
