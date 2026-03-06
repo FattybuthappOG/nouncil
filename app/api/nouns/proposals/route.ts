@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
+const NOUNS_TOKEN = "0x9C8fF314C9B9B91F60f4d9A12eAf51B0C1ABc08e"
 
 // RPC endpoints - ordered by reliability. Use env var if available.
 const RPC_URLS = [
@@ -16,9 +17,25 @@ const PROPOSAL_STATES = [
 ]
 
 // In-memory cache to avoid repeated RPC calls
-const cache: { proposals?: { data: any; timestamp: number }; single: Record<string, { data: any; timestamp: number }> } = { single: {} }
+const cache: { 
+  proposals?: { data: any; timestamp: number }
+  single: Record<string, { data: any; timestamp: number }>
+  quorumBPS?: { data: bigint; timestamp: number }
+  nounsCount?: { data: bigint; timestamp: number }
+} = { single: {} }
 const CACHE_TTL_LIST = 60_000 // 1 minute for list
 const CACHE_TTL_SINGLE = 120_000 // 2 minutes for single proposal
+const CACHE_TTL_QUORUM = 86400_000 // 24 hours for quorum data (stable governance params)
+
+// Nouns DAO quorum: 10% (1000 BPS) of total supply
+// Current approximate Nouns in circulation: ~1100
+// Therefore base quorum is approximately 110 Nouns
+const NOUNS_BASE_QUORUM = 110n // Hardcoded to avoid rate limiting RPC calls
+
+// Calculate dynamic quorum: baseQuorum + againstVotes
+function calculateDynamicQuorum(againstVotes: bigint): bigint {
+  return NOUNS_BASE_QUORUM + againstVotes
+}
 
 // Batch JSON-RPC: send multiple calls in a SINGLE HTTP request
 // Falls back to sequential calls if batch is not supported
@@ -137,7 +154,6 @@ async function fetchProposalList(limit: number, statusFilter: string) {
       if (statusFilter === "active") return [0, 1, 5].includes(p.stateNumber)
       if (statusFilter === "executed") return p.stateNumber === 7
       if (statusFilter === "defeated") return p.stateNumber === 3
-      if (statusFilter === "vetoed") return p.stateNumber === 8
       if (statusFilter === "canceled") return p.stateNumber === 2
       return true
     })
@@ -234,7 +250,7 @@ async function fetchProposalList(limit: number, statusFilter: string) {
   return { proposals: proposals.slice(0, limit), totalCount }
 }
 
-// Fetch a single proposal (3 RPC calls max, with event log for description)
+// Fetch a single proposal - with subgraph fallback
 async function fetchSingleProposal(id: number) {
   // Check cache
   const cacheKey = String(id)
@@ -245,17 +261,73 @@ async function fetchSingleProposal(id: number) {
   const PROPOSALS_SEL = "0x013cf08b"
   const STATE_SEL = "0x3e4f49e6"
 
-  // Batch: proposal data + state in ONE request
-  const results = await batchRpcCall([
-    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(PROPOSALS_SEL, BigInt(id)) }, "latest"] },
-    { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(STATE_SEL, BigInt(id)) }, "latest"] },
-  ])
+  // Try RPC first
+  let proposalResult: string | null = null
+  let stateResult: string | null = null
+  
+  try {
+    const results = await batchRpcCall([
+      { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(PROPOSALS_SEL, BigInt(id)) }, "latest"] },
+      { method: "eth_call", params: [{ to: NOUNS_GOVERNOR, data: encodeFunctionCall(STATE_SEL, BigInt(id)) }, "latest"] },
+    ])
+    proposalResult = results[0]
+    stateResult = results[1]
+  } catch (err) {
+    console.error("[v0] RPC call failed for proposal", id, "trying subgraph fallback")
+  }
 
-  const proposalResult = results[0]
-  const stateResult = results[1]
-
+  // Fallback to subgraph if RPC fails
   if (!proposalResult || !stateResult) {
-    throw new Error("Failed to read proposal from contract")
+    try {
+      const subgraphUrl = "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest"
+      const query = `{
+        proposal(id: "${id}") {
+          id
+          proposer { id }
+          startBlock
+          endBlock
+          forVotes
+          againstVotes
+          abstainVotes
+          state
+          createdBlock
+          description
+        }
+      }`
+      const response = await fetch(subgraphUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      })
+      const json = await response.json()
+      
+      if (json.data?.proposal) {
+        const p = json.data.proposal
+        const result = {
+          id: Number(p.id),
+          proposer: p.proposer?.id || "0x0000000000000000000000000000000000000000",
+          signers: [],
+          description: p.description || `# Proposal ${id}`,
+          forVotes: p.forVotes || "0",
+          againstVotes: p.againstVotes || "0",
+          abstainVotes: p.abstainVotes || "0",
+          quorumVotes: (BigInt(p.againstVotes || "0") / BigInt(4) * BigInt(100) + BigInt(72)).toString(),
+          status: (PROPOSAL_STATES[Number(p.state)] || "Unknown").toUpperCase(),
+          stateNumber: Number(p.state) || 0,
+          startBlock: p.startBlock || "0",
+          endBlock: p.endBlock || "0",
+          creationBlock: p.createdBlock || "0",
+          createdTransactionHash: "",
+        }
+        cache.single[cacheKey] = { data: result, timestamp: Date.now() }
+        return result
+      }
+    } catch (err) {
+      console.error("[v0] Subgraph fallback failed for proposal", id)
+    }
+    
+    // If both fail, throw error
+    throw new Error(`Failed to read proposal ${id} from RPC and subgraph`)
   }
 
   const proposer = decodeAddress(proposalResult, 1)
@@ -300,6 +372,10 @@ async function fetchSingleProposal(id: number) {
     }
   } catch { /* description stays as fallback */ }
 
+  // Calculate dynamic quorum: base quorum + against votes
+  const dynamicQuorum = calculateDynamicQuorum(againstVotes)
+  const quorumVotes = dynamicQuorum.toString()
+
   const result = {
     id,
     proposer,
@@ -308,7 +384,7 @@ async function fetchSingleProposal(id: number) {
     forVotes: forVotes.toString(),
     againstVotes: againstVotes.toString(),
     abstainVotes: abstainVotes.toString(),
-    quorumVotes: "0",
+    quorumVotes,
     status: (PROPOSAL_STATES[stateNumber] || "Unknown").toUpperCase(),
     stateNumber,
     startBlock: startBlock.toString(),

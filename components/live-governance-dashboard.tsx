@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAccount, useDisconnect, useBalance } from "wagmi"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Moon, Sun, X, Search, Globe, Copy, Menu } from "lucide-react"
+import { Moon, Sun, X, Search, Globe, Copy, Menu, PenLine } from "lucide-react"
 import ProposalVotingCard from "./proposal-voting-card"
 import CandidateCard from "./candidate-card"
 import TreasuryDropdown from "./treasury-dropdown"
@@ -38,7 +38,7 @@ const translations = {
     showAll: "Show All",
     active: "Active",
     executed: "Executed",
-    vetoed: "Vetoed",
+    defeated: "Defeated",
     canceled: "Canceled",
     loadMore: "Load 20 More",
     connectWallet: "Connect Wallet",
@@ -64,14 +64,14 @@ const translations = {
     filterByStatus: "Filter by Status",
   },
   zh: {
-    proposals: "提案",
+    proposals: "候选人",
     candidates: "候选人",
     searchProposals: "按编号或标题搜索提案...",
     searchCandidates: "按编号或标题搜索候选人...",
     showAll: "显示全部",
     active: "活跃",
     executed: "已执行",
-    vetoed: "已否决",
+    defeated: "已否决",
     canceled: "已取消",
     loadMore: "加载更多20个",
     connectWallet: "连接钱包",
@@ -97,14 +97,14 @@ const translations = {
     filterByStatus: "按状态过滤",
   },
   es: {
-    proposals: "Propuestas",
+    proposals: "Candidatos",
     candidates: "Candidatos",
     searchProposals: "Buscar propuestas por número o título...",
     searchCandidates: "Buscar candidatos por número o título...",
     showAll: "Mostrar Todo",
     active: "Activo",
     executed: "Ejecutado",
-    vetoed: "Vetadas",
+    defeated: "Rechazado",
     canceled: "Canceladas",
     loadMore: "Cargar 20 Más",
     connectWallet: "Conectar Billetera",
@@ -130,14 +130,14 @@ const translations = {
     filterByStatus: "Filtrar por Estado",
   },
   hi: {
-    proposals: "प्रस्ताव",
+    proposals: "उम्मीदवार",
     candidates: "उम्मीदवार",
     searchProposals: "संख्या या शीर्षक से प्रस्ताव खोजें...",
     searchCandidates: "संख्या या शीर्षक से उम्मीदवार खोजें...",
     showAll: "सभी दिखाएं",
     active: "सक्रिय",
     executed: "निष्पादित",
-    vetoed: "वीटो",
+    defeated: "पराजित",
     canceled: "रद्द",
     loadMore: "20 और लोड करें",
     connectWallet: "वॉलेट कनेक्ट करें",
@@ -163,14 +163,14 @@ const translations = {
     filterByStatus: "स्थिति के आधार पर फ़िल्टर करें",
   },
   ar: {
-    proposals: "المقترحات",
+    proposals: "المرشحون",
     candidates: "المرشحون",
     searchProposals: "البحث عن مقترحات بالرقم أو العنوان...",
     searchCandidates: "البحث عن مرشحين بالرقم أو العنوان...",
     showAll: "عرض الكل",
     active: "نشط",
     executed: "منفذ",
-    vetoed: "مرفوضة",
+    defeated: "مرفوض",
     canceled: "ملغى",
     loadMore: "تحميل 20 أكثر",
     connectWallet: "ربط المحفظة",
@@ -196,14 +196,14 @@ const translations = {
     filterByStatus: "تصفية حسب الحالة",
   },
   pt: {
-    proposals: "Propostas",
+    proposals: "Candidatos",
     candidates: "Candidatos",
     searchProposals: "Pesquisar propostas por número ou título...",
     searchCandidates: "Pesquisar candidatos por número ou título...",
     showAll: "Mostrar Tudo",
     active: "Ativo",
     executed: "Executado",
-    vetoed: "Vetadas",
+    defeated: "Derrotado",
     canceled: "Canceladas",
     loadMore: "Carregar Mais 20",
     connectWallet: "Conectar Carteira",
@@ -229,14 +229,14 @@ const translations = {
     filterByStatus: "Filtrar por Status",
   },
   bn: {
-    proposals: "প্রস্তাব",
+    proposals: "প্রার্থী",
     candidates: "প্রার্থী",
     searchProposals: "সংখ্যা বা শিরোনাম দ্বারা প্রস্তাব অনুসন্ধান করুন...",
     searchCandidates: "সংখ্যা বা শিরোনাম দ্বারা প্রার্থী অনুসন্ধান করুন...",
     showAll: "সব দেখান",
     active: "সক্রিয়",
     executed: "সম্পাদিত",
-    vetoed: "ভেটো",
+    defeated: "পরাজিত",
     canceled: "বাতিল",
     loadMore: "আরও 20 লোড করুন",
     connectWallet: "ওয়ালেট সংযুক্ত করুন",
@@ -363,7 +363,7 @@ const translations = {
 }
 
 type LanguageCode = keyof typeof translations
-type SearchResult = { id: string; description?: string; slug?: string; latestVersion?: { content: { title: string } } }
+type SearchResult = { id: string; description?: string; slug?: string; title?: string; candidateNumber?: number; latestVersion?: { content: { title: string } } }
 
 export default function LiveGovernanceDashboard() {
   const [mounted, setMounted] = useState(false)
@@ -473,90 +473,58 @@ function LiveGovernanceDashboardContent() {
           const searchType = activeTab === "proposals" ? "proposals" : "candidates"
           const isNumber = /^\d+$/.test(debouncedSearch)
 
-          let query
           if (searchType === "proposals") {
-            if (isNumber) {
-              query = `query { proposal(id: "${debouncedSearch}") { id description } }`
-            } else {
-              query = `query { proposals(first: 10, where: { description_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id description } }`
-            }
-          } else {
-            // For candidates, search in both slug and title
-            if (isNumber) {
-              query = `query { 
-                proposalCandidates(first: 1000, orderBy: createdTimestamp, orderDirection: desc) { 
-                  id 
-                  slug 
-                  latestVersion { 
-                    content { 
-                      title 
-                    } 
-                  } 
-                } 
-              }`
-            } else {
-              query = `query { 
-                proposalCandidates(
-                  first: 1000, 
-                  orderBy: createdTimestamp, 
-                  orderDirection: desc
-                ) { 
-                  id 
-                  slug 
-                  latestVersion { 
-                    content { 
-                      title 
-                    } 
-                  } 
-                } 
-              }`
-            }
-          }
+            // Proposals still use subgraph
+            const query = isNumber
+              ? `query { proposal(id: "${debouncedSearch}") { id description } }`
+              : `query { proposals(first: 10, where: { description_contains_nocase: "${debouncedSearch}" }, orderBy: createdTimestamp, orderDirection: desc) { id description } }`
 
-          const SUBGRAPH_URLS = [
-            "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-            "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
-          ]
-          let data: any = null
-          for (const url of SUBGRAPH_URLS) {
-            try {
-              const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query }),
-              })
-              if (!response.ok) continue
-              const json = await response.json()
-              if (json.errors || !json.data) continue
-              data = json.data
-              break
-            } catch { continue }
-          }
-
-          if (searchType === "proposals") {
+            const SUBGRAPH_URLS = [
+              "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+              "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+            ]
+            let data: any = null
+            for (const url of SUBGRAPH_URLS) {
+              try {
+                const response = await fetch(url, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ query }),
+                })
+                if (!response.ok) continue
+                const json = await response.json()
+                if (json.errors || !json.data) continue
+                data = json.data
+                break
+              } catch { continue }
+            }
             const results = isNumber && data?.proposal ? [data.proposal] : data?.proposals || []
             setSearchResults(results)
           } else {
-            let candidates = data?.proposalCandidates || []
-            if (isNumber) {
-              const searchNumber = Number.parseInt(debouncedSearch)
-              const index = totalCandidates - searchNumber
-              if (index >= 0 && index < candidates.length) {
-                candidates = [candidates[index]]
+            // Candidates use our API route (subgraph is dead)
+            try {
+              const res = await fetch(`/api/nouns/candidates?limit=100`)
+              if (!res.ok) throw new Error("API failed")
+              const data = await res.json()
+              let candidates = data.candidates || []
+
+              if (isNumber) {
+                const searchNumber = Number.parseInt(debouncedSearch)
+                candidates = candidates.filter((c: any) => c.candidateNumber === searchNumber)
               } else {
-                candidates = []
+                const searchLower = debouncedSearch.toLowerCase()
+                candidates = candidates
+                  .filter((c: any) => {
+                    const slug = c.slug?.toLowerCase() || ""
+                    const title = c.title?.toLowerCase() || ""
+                    return slug.includes(searchLower) || title.includes(searchLower)
+                  })
+                  .slice(0, 10)
               }
-            } else {
-              candidates = candidates
-                .filter((candidate: any) => {
-                  const slug = candidate.slug?.toLowerCase() || ""
-                  const title = candidate.latestVersion?.content?.title?.toLowerCase() || ""
-                  const searchLower = debouncedSearch.toLowerCase()
-                  return slug.includes(searchLower) || title.includes(searchLower)
-                })
-                .slice(0, 10) // Limit to 10 results
+              setSearchResults(candidates)
+            } catch {
+              setSearchResults([])
             }
-            setSearchResults(candidates)
           }
         } catch (error) {
           setSearchResults([])
@@ -582,13 +550,25 @@ function LiveGovernanceDashboardContent() {
   }
 
   const handleSelectCandidate = (id: string) => {
-    const candidateIndex = safeCandidates.findIndex((c) => c.id === id)
-    if (candidateIndex !== -1) {
-      const candidateNumber = totalCandidates - candidateIndex
-      router.push(`/candidate/${candidateNumber}`)
+  // First check search results (which have candidateNumber from API)
+  const searchResult = searchResults.find((r) => r.id === id)
+  if (searchResult?.candidateNumber) {
+    router.push(`/candidate/${searchResult.candidateNumber}`)
+  } else {
+    // Fallback to safeCandidates list
+    const candidate = safeCandidates.find((c) => c.id === id)
+    if (candidate?.candidateNumber) {
+      router.push(`/candidate/${candidate.candidateNumber}`)
+    } else {
+      const candidateIndex = safeCandidates.findIndex((c) => c.id === id)
+      if (candidateIndex !== -1) {
+        const candidateNumber = totalCandidates - candidateIndex
+        router.push(`/candidate/${candidateNumber}`)
+      }
     }
-    setSearchQuery("")
-    setSearchResults([])
+  }
+  setSearchQuery("")
+  setSearchResults([])
   }
 
   const loadMoreCandidates = () => {
@@ -810,7 +790,8 @@ function LiveGovernanceDashboardContent() {
                     )}
                   </div>
 
-                  {/* Lil Nouns */}
+                  {/* HIDDEN: Lil Nouns - To re-enable, uncomment this section */}
+                  {/* 
                   <Link
                     href="/lilnouns"
                     onClick={() => setShowMenu(false)}
@@ -823,6 +804,7 @@ function LiveGovernanceDashboardContent() {
                     <img src="/images/lilnouns-logo.png" alt="Lil Nouns" className="h-6 w-auto" />
                     <span className="font-medium">Governance</span>
                   </Link>
+                  */}
 
                   {/* Dark Mode Toggle */}
                   <button
@@ -879,10 +861,10 @@ function LiveGovernanceDashboardContent() {
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm text-blue-500">
-                        {activeTab === "proposals" ? `#${result.id}` : `#${totalCandidates - index}`}
+                        {activeTab === "proposals" ? `#${result.id}` : `#${result.candidateNumber || totalCandidates - index}`}
                       </span>
                       <span className="text-sm truncate">
-                        {result.description || result.latestVersion?.content?.title || result.slug || result.id}
+                        {result.title || result.description || result.latestVersion?.content?.title || result.slug || result.id}
                       </span>
                     </div>
                   </button>
@@ -926,7 +908,7 @@ function LiveGovernanceDashboardContent() {
           </div>
 
           {activeTab === "proposals" && (
-            <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-6">
+            <div className="flex items-center gap-2">
               <Select value={statusFilter} onValueChange={(value) => handleStatusFilterChange(value as any)}>
                 <SelectTrigger className="w-full md:w-[200px] h-8 sm:h-10 text-xs sm:text-sm">
                   <SelectValue placeholder={t("filterByStatus")} />
@@ -935,10 +917,17 @@ function LiveGovernanceDashboardContent() {
                   <SelectItem value="all" className="text-xs sm:text-sm">{t("showAll")}</SelectItem>
                   <SelectItem value="active" className="text-xs sm:text-sm">{t("active")}</SelectItem>
                   <SelectItem value="executed" className="text-xs sm:text-sm">{t("executed")}</SelectItem>
-                  <SelectItem value="vetoed" className="text-xs sm:text-sm">{t("vetoed")}</SelectItem>
+                  <SelectItem value="defeated" className="text-xs sm:text-sm">{t("defeated")}</SelectItem>
                   <SelectItem value="canceled" className="text-xs sm:text-sm">{t("canceled")}</SelectItem>
                 </SelectContent>
               </Select>
+              <Link
+                href="/create"
+                className="flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Create</span>
+              </Link>
             </div>
           )}
         </div>
@@ -957,7 +946,7 @@ function LiveGovernanceDashboardContent() {
                 ))
               )}
               {hasMoreProposals && (
-                <div className="flex justify-center mt-8 w-full">
+                <div className="col-span-1 md:col-span-2 flex justify-center mt-8 w-full">
                   <button
                     onClick={loadMoreProposals}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors ${

@@ -222,10 +222,10 @@ export default function AuctionContent() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#1a1a2e] text-white">
-        <div className="sticky top-0 z-50 backdrop-blur-md bg-[#1a1a2e]/90 border-b border-gray-800">
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="sticky top-0 z-50 backdrop-blur-md bg-background/90 border-b border-border">
           <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3 text-gray-300 hover:text-white transition-colors">
+            <Link href="/" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
               <span className="font-medium">Back to Nouncil</span>
             </Link>
@@ -233,18 +233,18 @@ export default function AuctionContent() {
         </div>
         <main className="max-w-4xl mx-auto p-4 pb-24">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-full max-w-md aspect-square rounded-2xl bg-gray-800 animate-pulse mb-4" />
-            <div className="h-10 w-48 bg-gray-800 rounded animate-pulse" />
+            <div className="w-full max-w-md aspect-square rounded-2xl bg-muted animate-pulse mb-4" />
+            <div className="h-10 w-48 bg-muted rounded animate-pulse" />
           </div>
-          <Card className="bg-[#252540] border-gray-700 mb-6">
+          <Card className="bg-card border-border mb-6">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-foreground flex items-center gap-2">
                 <Clock className="w-5 h-5" />
                 Loading Auction...
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-6 w-32 bg-gray-700 rounded animate-pulse" />
+              <div className="h-6 w-32 bg-muted rounded animate-pulse" />
             </CardContent>
           </Card>
         </main>
@@ -484,7 +484,7 @@ function AuctionContentInner() {
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"}`}>
+    <div className={`min-h-screen ${isDarkMode ? "bg-background text-foreground" : "bg-background text-foreground"}`}>
       <div className="w-full max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
           <Link href="/" className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity">
@@ -499,14 +499,14 @@ function AuctionContentInner() {
           <div className="relative ml-2">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-[#252540]" : "hover:bg-gray-100"}`}
+              className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"}`}
             >
               {showMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
 
             {showMenu && (
               <div
-                className={`absolute right-0 top-12 w-56 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+                className={`absolute right-0 top-12 w-56 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-card border-border" : "bg-card border-border"}`}
               >
                 <div className="p-2 space-y-1">
                   <TreasuryDropdown isDarkMode={isDarkMode} balance={balance} />
@@ -515,7 +515,7 @@ function AuctionContentInner() {
                     href="https://nouns.wtf"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"}`}
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t("learnNouns")}
@@ -525,7 +525,7 @@ function AuctionContentInner() {
                     href="https://toga.nounswap.wtf"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"}`}
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t("togaPfp")}
@@ -533,7 +533,7 @@ function AuctionContentInner() {
 
                   <button
                     onClick={copyNoggle}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"}`}
                   >
                     {copyFeedback ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                     {copyFeedback ? "Copied!" : "⌐◨-◨"}
@@ -542,7 +542,7 @@ function AuctionContentInner() {
                   <div className="relative">
                     <button
                       onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                      className={`flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                      className={`flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"}`}
                     >
                       <span>
                         {selectedLanguage === "en"
@@ -559,14 +559,14 @@ function AuctionContentInner() {
                     </button>
                     {showLanguageMenu && (
                       <div
-                        className={`absolute left-full top-0 ml-2 w-36 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : "bg-white border-gray-200"}`}
+                        className={`absolute left-full top-0 ml-2 w-36 rounded-lg shadow-lg border z-50 ${isDarkMode ? "bg-card border-border" : "bg-card border-border"}`}
                       >
                         <div className="p-1">
                           {(["en", "zh", "es", "pt", "ja"] as LanguageCode[]).map((lang) => (
                             <button
                               key={lang}
                               onClick={() => handleLanguageChange(lang)}
-                              className={`w-full text-left px-3 py-2 rounded text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"} ${selectedLanguage === lang ? (isDarkMode ? "bg-[#3a3a5a]" : "bg-gray-100") : ""}`}
+                              className={`w-full text-left px-3 py-2 rounded text-sm ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"} ${selectedLanguage === lang ? (isDarkMode ? "bg-muted" : "bg-muted") : ""}`}
                             >
                               {lang === "en"
                                 ? "🇬🇧 English"
@@ -588,7 +588,7 @@ function AuctionContentInner() {
                     href="https://discord.gg/nouncil"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"}`}
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t("discord")}
@@ -596,7 +596,7 @@ function AuctionContentInner() {
 
                   <button
                     onClick={() => setIsDarkMode(!isDarkMode)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-[#3a3a5a]" : "hover:bg-gray-100"}`}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full ${isDarkMode ? "hover:bg-muted" : "hover:bg-muted"}`}
                   >
                     {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                     {isDarkMode ? "Light Mode" : "Dark Mode"}
@@ -612,13 +612,13 @@ function AuctionContentInner() {
           <div className="flex flex-col gap-3 md:w-1/2 order-2 md:order-1 md:justify-center">
             {/* Time Remaining */}
             <div
-              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
+              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-card border border-border" : "bg-card border border-border"}`}
             >
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-purple-100"}`}>
+                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-muted" : "bg-muted"}`}>
                   <Clock className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
                 </div>
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("timeRemaining")}</span>
+                <span className={isDarkMode ? "text-muted-foreground" : "text-muted-foreground"}>{t("timeRemaining")}</span>
               </div>
               <span className="font-mono font-bold text-lg">
                 {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
@@ -627,14 +627,14 @@ function AuctionContentInner() {
 
             {/* Current Bid */}
             <div
-              className={`flex flex-col p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
+              className={`flex flex-col p-4 rounded-xl ${isDarkMode ? "bg-card border border-border" : "bg-card border border-border"}`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-green-100"}`}>
+                  <div className={`p-2 rounded-lg ${isDarkMode ? "bg-muted" : "bg-muted"}`}>
                     <TrendingUp className={`h-5 w-5 ${isDarkMode ? "text-green-400" : "text-green-600"}`} />
                   </div>
-                  <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("currentBid")}</span>
+                  <span className={isDarkMode ? "text-muted-foreground" : "text-muted-foreground"}>{t("currentBid")}</span>
                 </div>
                 <span className={`font-bold text-lg ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
                   {Number.parseFloat(currentBid).toFixed(2)} ETH
@@ -642,7 +642,7 @@ function AuctionContentInner() {
               </div>
               {currentBidder !== "0x0000000000000000000000000000000000000000" && (
                 <div
-                  className={`mt-2 pl-12 text-sm flex items-center gap-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}
+                  className={`mt-2 pl-12 text-sm flex items-center gap-1 ${isDarkMode ? "text-muted-foreground" : "text-muted-foreground"}`}
                 >
                   <span>by</span>
                   <EnsDisplay address={currentBidder as `0x${string}`} />
@@ -652,13 +652,13 @@ function AuctionContentInner() {
 
             {/* Minimum Next Bid */}
             <div
-              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
+              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-card border border-border" : "bg-card border border-border"}`}
             >
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-yellow-100"}`}>
+                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-muted" : "bg-muted"}`}>
                   <Gavel className={`h-5 w-5 ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`} />
                 </div>
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("minimumNextBid")}</span>
+                <span className={isDarkMode ? "text-muted-foreground" : "text-muted-foreground"}>{t("minimumNextBid")}</span>
               </div>
               <span className={`font-bold text-lg ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
                 {Number.parseFloat(minNextBid).toFixed(4)} ETH
@@ -667,13 +667,13 @@ function AuctionContentInner() {
 
             {/* Curator of Auction */}
             <div
-              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-[#252540] border border-[#3a3a5a]" : "bg-white border border-gray-200"}`}
+              className={`flex items-center justify-between p-4 rounded-xl ${isDarkMode ? "bg-card border border-border" : "bg-card border border-border"}`}
             >
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-purple-100"}`}>
+                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-muted" : "bg-muted"}`}>
                   <User className={`h-5 w-5 ${isDarkMode ? "text-purple-400" : "text-purple-600"}`} />
                 </div>
-                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("curatorOfAuction")}</span>
+                <span className={isDarkMode ? "text-muted-foreground" : "text-muted-foreground"}>{t("curatorOfAuction")}</span>
               </div>
               <span className={`font-medium ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
                 {curatorLoading ? (
@@ -728,17 +728,15 @@ function AuctionContentInner() {
           </div>
 
           {/* Right column - Noun artwork */}
-          <div className="flex flex-col items-center justify-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0 md:overflow-hidden">
-            <div
-              className={`w-full max-w-[320px] md:max-w-none md:max-h-[calc(100vh-200px)] rounded-2xl overflow-hidden flex items-center justify-center ${isDarkMode ? "bg-[#252540]" : "bg-gray-100"}`}
-            >
+          <div className="flex flex-col items-center justify-center md:w-1/2 order-1 md:order-2 mb-6 md:mb-0">
+            <div className="w-full max-w-[320px] md:max-w-[350px] rounded-2xl overflow-hidden">
               {nounId !== null ? (
                 <Image
                   src={`https://noun.pics/${nounId}`}
                   alt={`Noun ${nounId}`}
                   width={500}
                   height={500}
-                  className="w-full h-full object-contain"
+                  className="w-full h-auto rounded-2xl"
                   priority
                 />
               ) : (
@@ -747,7 +745,7 @@ function AuctionContentInner() {
                   alt="Loading Noun..."
                   width={500}
                   height={500}
-                  className="w-full h-full object-contain"
+                  className="w-full h-auto rounded-2xl"
                   unoptimized
                 />
               )}

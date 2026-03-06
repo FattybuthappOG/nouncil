@@ -29,10 +29,10 @@ interface SettlementInfo {
 const AuctionContent = dynamic(() => import("@/components/auction-content"), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-[#1a1a2e] p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-[#252540] rounded w-3/4" />
-        <div className="h-64 bg-[#252540] rounded" />
+        <div className="h-8 bg-muted rounded w-3/4" />
+        <div className="h-64 bg-muted rounded" />
       </div>
     </div>
   ),
