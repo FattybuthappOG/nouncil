@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAccount, useDisconnect, useBalance } from "wagmi"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Moon, Sun, X, Search, Globe, Copy, Menu } from "lucide-react"
+import { Moon, Sun, X, Search, Globe, Copy, Menu, PenLine } from "lucide-react"
 import ProposalVotingCard from "./proposal-voting-card"
 import CandidateCard from "./candidate-card"
 import TreasuryDropdown from "./treasury-dropdown"
@@ -908,7 +908,7 @@ function LiveGovernanceDashboardContent() {
           </div>
 
           {activeTab === "proposals" && (
-            <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-6">
+            <div className="flex items-center gap-2">
               <Select value={statusFilter} onValueChange={(value) => handleStatusFilterChange(value as any)}>
                 <SelectTrigger className="w-full md:w-[200px] h-8 sm:h-10 text-xs sm:text-sm">
                   <SelectValue placeholder={t("filterByStatus")} />
@@ -921,6 +921,17 @@ function LiveGovernanceDashboardContent() {
                   <SelectItem value="canceled" className="text-xs sm:text-sm">{t("canceled")}</SelectItem>
                 </SelectContent>
               </Select>
+              <Link
+                href="/create"
+                className={`flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md border text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  isDarkMode
+                    ? "border-border bg-card hover:bg-muted text-foreground"
+                    : "border-border bg-card hover:bg-muted text-foreground"
+                }`}
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Create</span>
+              </Link>
             </div>
           )}
         </div>
