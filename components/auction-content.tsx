@@ -738,7 +738,7 @@ function AuctionContentInner() {
                   alt={`Noun ${nounId}`}
                   width={500}
                   height={500}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain rounded-2xl"
                   priority
                 />
               ) : (
@@ -747,7 +747,7 @@ function AuctionContentInner() {
                   alt="Loading Noun..."
                   width={500}
                   height={500}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain rounded-2xl"
                   unoptimized
                 />
               )}
