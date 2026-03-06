@@ -461,6 +461,7 @@ function AuctionContentInner() {
   }
 
   const nounId = auctionData?.[0] !== undefined ? Number(auctionData[0]) : null
+  console.log("[v0] Auction data:", { auctionData, nounId })
   const currentBid = auctionData ? formatEther(auctionData[1]) : "0"
   const currentBidder = auctionData ? auctionData[4] : "0x0000000000000000000000000000000000000000"
 
