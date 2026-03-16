@@ -130,23 +130,35 @@ async function fetchCandidates(limit: number): Promise<{ candidates: CandidateDa
   const currentBlockHex: string = await rpcCall("eth_blockNumber", [])
   const currentBlock = parseInt(currentBlockHex, 16)
 
-  // Step 2: single eth_getLogs call — Infura returns up to 10,000 results
-  // Query the FULL range; Infura will return the most recent 10k results
-  const logs: any[] = await rpcCall("eth_getLogs", [{
-    address: NOUNS_DAO_DATA,
-    topics: [CANDIDATE_CREATED_TOPIC],
-    fromBlock: `0x${DEPLOY_BLOCK.toString(16)}`,
-    toBlock: `0x${currentBlock.toString(16)}`,
-  }])
-
-  if (!Array.isArray(logs)) {
-    throw new Error("eth_getLogs did not return an array")
+  // Step 2: fetch logs in 5000-block chunks to stay under RPC provider limits (10k max per request)
+  const CHUNK_SIZE = 5000
+  const allLogs: any[] = []
+  
+  for (let fromBlock = DEPLOY_BLOCK; fromBlock <= currentBlock; fromBlock += CHUNK_SIZE) {
+    const toBlock = Math.min(fromBlock + CHUNK_SIZE - 1, currentBlock)
+    
+    try {
+      const logs: any[] = await rpcCall("eth_getLogs", [{
+        address: NOUNS_DAO_DATA,
+        topics: [CANDIDATE_CREATED_TOPIC],
+        fromBlock: `0x${fromBlock.toString(16)}`,
+        toBlock: `0x${toBlock.toString(16)}`,
+      }])
+      
+      if (Array.isArray(logs)) {
+        allLogs.push(...logs)
+      }
+    } catch (err) {
+      console.error(`[candidates] Failed to fetch logs for blocks ${fromBlock}-${toBlock}:`, err)
+      // Continue to next chunk even if one fails
+      continue
+    }
   }
 
-  const total = logs.length
+  const total = allLogs.length
 
   // Take the last `limit` logs (most recent events are at end of array)
-  const recentLogs = logs.slice(-limit).reverse()
+  const recentLogs = allLogs.slice(-limit).reverse()
 
   const candidates: CandidateData[] = []
   let candidateNumber = total
