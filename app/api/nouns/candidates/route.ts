@@ -19,7 +19,7 @@ const CANDIDATE_CREATED_TOPIC = "0xf1167632f94b4215581a322b86242c468fa7920b4c79e
 // Deployment block of NounsDAOData contract (Aug 2023)
 const DEPLOY_BLOCK = 17812145
 
-// RPC endpoints with fallback strategy - remove unreliable endpoints
+// RPC endpoints with fallback strategy
 const RPC_URLS = [
   process.env.ETH_RPC_URL || "https://eth.drpc.org",
   "https://cloudflare-eth.com",
@@ -29,9 +29,9 @@ const RPC_URLS = [
   "https://eth.meowrpc.com",
 ].filter(Boolean) as string[]
 
-// 6 hour cache to minimize RPC calls (candidates don't change that often)
+// 24 hour cache for all candidates (heavy query, cache longer)
 const cache: Record<string, { data: any; ts: number }> = {}
-const CACHE_TTL = 6 * 60 * 60 * 1000
+const CACHE_TTL = 24 * 60 * 60 * 1000
 
 // Delay between RPC calls to avoid rate limiting (400ms = 2.5 requests/second for safety)
 const RPC_DELAY_MS = 400
@@ -55,7 +55,6 @@ async function rpcCall(method: string, params: any[]): Promise<any> {
       
       if (!res.ok) {
         lastError = new Error(`HTTP ${res.status}`)
-        // Add delay before trying next provider to avoid hammering
         await delay(RPC_DELAY_MS)
         continue
       }
@@ -63,7 +62,6 @@ async function rpcCall(method: string, params: any[]): Promise<any> {
       const json = await res.json()
       if (json.error) {
         lastError = new Error(`RPC error: ${json.error.message}`)
-        // Add delay before trying next provider on error
         await delay(RPC_DELAY_MS)
         continue
       }
@@ -71,24 +69,7 @@ async function rpcCall(method: string, params: any[]): Promise<any> {
       return json.result
     } catch (err) {
       lastError = err
-      // Add delay on exception too
       await delay(RPC_DELAY_MS)
-      continue
-    }
-  }
-  
-  throw new Error(`All RPC endpoints failed. Last error: ${lastError?.message || "Unknown"}`)
-}
-      
-      const json = await res.json()
-      if (json.error) {
-        lastError = new Error(`RPC error: ${json.error.message}`)
-        continue
-      }
-      
-      return json.result
-    } catch (err) {
-      lastError = err
       continue
     }
   }
@@ -99,13 +80,11 @@ async function rpcCall(method: string, params: any[]): Promise<any> {
 // Decode ABI string from log data at a given offset (in 32-byte words)
 function decodeAbiString(data: string, wordOffset: number): string {
   try {
-    // Each word is 64 hex chars. data starts after "0x"
     const hex = data.slice(2)
-    // The wordOffset points to the offset of the string
     const offsetHex = hex.slice(wordOffset * 64, wordOffset * 64 + 64)
-    const strOffset = parseInt(offsetHex, 16) * 2 // in hex chars
+    const strOffset = parseInt(offsetHex, 16) * 2
     const lenHex = hex.slice(strOffset, strOffset + 64)
-    const strLen = parseInt(lenHex, 16) * 2 // in hex chars
+    const strLen = parseInt(lenHex, 16) * 2
     const strHex = hex.slice(strOffset + 64, strOffset + 64 + strLen)
     return Buffer.from(strHex, "hex").toString("utf8")
   } catch {
@@ -118,28 +97,15 @@ function parseLog(log: any, index: number): CandidateData | null {
     const proposer = `0x${log.topics[1].slice(26)}`
     const blockNumber = parseInt(log.blockNumber, 16)
 
-    // The non-indexed params in log.data are ABI-encoded as:
-    // [0] targets offset
-    // [1] values offset
-    // [2] signatures offset
-    // [3] calldatas offset
-    // [4] description offset
-    // [5] slug offset
-    // [6] proposalIdToUpdate (uint256)
-    // [7] encodedProposalHash (bytes32)
-    // Then the actual arrays/strings follow
-
     const description = decodeAbiString(log.data, 4)
     const slug = decodeAbiString(log.data, 5)
 
-    // Extract title from markdown description (first line after #)
     let title = slug || `Candidate by ${proposer.slice(0, 8)}`
     if (description) {
       const firstLine = description.split("\n")[0].replace(/^#+\s*/, "").trim()
       if (firstLine.length > 0) title = firstLine
     }
 
-    // Use a running index for candidateNumber (will be set from total later)
     const id = `${proposer.toLowerCase()}-${slug || blockNumber}`
 
     return {
@@ -148,7 +114,7 @@ function parseLog(log: any, index: number): CandidateData | null {
       proposer,
       title: title.length > 120 ? title.slice(0, 120) + "…" : title,
       description,
-      createdTimestamp: blockNumber, // block number as proxy; no extra RPC needed
+      createdTimestamp: blockNumber,
       slug: slug || id,
     }
   } catch (err) {
@@ -156,23 +122,15 @@ function parseLog(log: any, index: number): CandidateData | null {
   }
 }
 
-async function fetchCandidates(limit: number, offset: number = 0): Promise<{ candidates: CandidateData[]; total: number; hasMore: boolean }> {
-  // Step 1: get current block
+// Fetch ALL candidates from deployment block - called once per cache TTL
+async function fetchAllCandidates(): Promise<CandidateData[]> {
   const currentBlockHex: string = await rpcCall("eth_blockNumber", [])
   const currentBlock = parseInt(currentBlockHex, 16)
 
-  // Step 2: Query blocks progressively based on offset to minimize RPC load
-  // ~12.5 blocks per second = ~1.08M blocks per day
-  // Start with 1 day (most recent candidates), expand if user wants more
-  const BLOCKS_PER_DAY = 1_080_000
-  const daysToQuery = Math.ceil((offset + limit) / 20) + 1 // Assume ~20 candidates per day
-  const fromBlock = Math.max(DEPLOY_BLOCK, currentBlock - BLOCKS_PER_DAY * daysToQuery)
-
-  // Step 3: fetch logs in 5000-block chunks
   const CHUNK_SIZE = 5000
   const allLogs: any[] = []
   
-  for (let start = fromBlock; start <= currentBlock; start += CHUNK_SIZE) {
+  for (let start = DEPLOY_BLOCK; start <= currentBlock; start += CHUNK_SIZE) {
     const end = Math.min(start + CHUNK_SIZE - 1, currentBlock)
     
     try {
@@ -191,86 +149,72 @@ async function fetchCandidates(limit: number, offset: number = 0): Promise<{ can
       continue
     }
     
-    // Add delay between chunk requests to avoid rate limiting
     await delay(RPC_DELAY_MS)
   }
 
-  const total = allLogs.length
-  const hasMore = total > offset + limit
-
-  // Take the slice for pagination (most recent events are at end of array)
-  const paginatedLogs = allLogs.slice(-(offset + limit)).slice(-limit).reverse()
-
+  // Parse all logs and reverse so most recent is first
   const candidates: CandidateData[] = []
-  let candidateNumber = total - offset
-  for (const log of paginatedLogs) {
+  let candidateNumber = allLogs.length
+  
+  for (const log of allLogs) {
     const c = parseLog(log, 0)
     if (c) {
       c.candidateNumber = candidateNumber--
       candidates.push(c)
     }
   }
-
-  return { candidates, total, hasMore }
-}
-    } catch (err) {
-      console.error(`[candidates] Failed to fetch logs for blocks ${fromBlock}-${toBlock}:`, err)
-      // Continue to next chunk even if one fails
-      continue
-    }
-  }
-
-  const total = allLogs.length
-
-  // Take the last `limit` logs (most recent events are at end of array)
-  const recentLogs = allLogs.slice(-limit).reverse()
-
-  const candidates: CandidateData[] = []
-  let candidateNumber = total
-  for (const log of recentLogs) {
-    const c = parseLog(log, 0)
-    if (c) {
-      c.candidateNumber = candidateNumber--
-      candidates.push(c)
-    }
-  }
-
-  return { candidates, total }
+  
+  candidates.reverse()
+  return candidates
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100)
   const offset = Math.max(0, parseInt(searchParams.get("offset") || "0"))
-  const cacheKey = `candidates_${limit}_${offset}`
+  
+  const cacheKey = "candidates_all"
 
-  // Return cached data if available (6 hour TTL)
+  // Check cache - fetch all candidates once, then paginate
+  let allCandidates: CandidateData[] = []
+  let fromCache = false
+
   if (cache[cacheKey] && Date.now() - cache[cacheKey].ts < CACHE_TTL) {
-    return NextResponse.json(cache[cacheKey].data)
+    allCandidates = cache[cacheKey].data
+    fromCache = true
+  } else {
+    try {
+      allCandidates = await fetchAllCandidates()
+      cache[cacheKey] = { data: allCandidates, ts: Date.now() }
+    } catch (error: any) {
+      console.error("[candidates] Fetch error:", error?.message)
+      
+      // Use stale cache if available
+      if (cache[cacheKey]) {
+        console.warn("[candidates] Using stale cache due to RPC failure")
+        allCandidates = cache[cacheKey].data
+        fromCache = true
+      } else {
+        return NextResponse.json(
+          { candidates: [], total: 0, hasMore: false, offset, limit, error: error?.message },
+          { status: 200 }
+        )
+      }
+    }
   }
 
-  try {
-    const { candidates, total, hasMore } = await fetchCandidates(limit, offset)
-    const result = { candidates, total, hasMore, offset, limit, source: "rpc-cached" }
-    cache[cacheKey] = { data: result, ts: Date.now() }
-    return NextResponse.json(result)
-  } catch (error: any) {
-    console.error("[candidates] Fetch error:", error?.message)
-    
-    // If we have stale cache, return it instead of error
-    if (cache[cacheKey]) {
-      console.warn("[candidates] Using stale cache due to RPC failure")
-      return NextResponse.json({
-        ...cache[cacheKey].data,
-        stale: true,
-        error: "Using cached data - RPC failed",
-      })
-    }
-    
-    // Return empty result gracefully instead of error
-    return NextResponse.json(
-      { candidates: [], total: 0, hasMore: false, offset, limit, error: error?.message },
-      { status: 200 }
-    )
-  }
+  // Paginate from cached/fetched candidates
+  const total = allCandidates.length
+  const hasMore = total > offset + limit
+  const paginatedCandidates = allCandidates.slice(offset, offset + limit)
+
+  return NextResponse.json({
+    candidates: paginatedCandidates,
+    total,
+    hasMore,
+    offset,
+    limit,
+    source: fromCache ? "cached" : "rpc-fetched",
+    cacheAge: cache[cacheKey] ? Math.round((Date.now() - cache[cacheKey].ts) / 1000 / 60) + "m" : "unknown"
+  })
 }
