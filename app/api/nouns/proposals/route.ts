@@ -38,67 +38,94 @@ function calculateDynamicQuorum(againstVotes: bigint): bigint {
   return NOUNS_BASE_QUORUM + againstVotes
 }
 
-// Batch JSON-RPC: send multiple calls in a SINGLE HTTP request
-// Falls back to sequential calls if batch is not supported
+// Batch JSON-RPC: send multiple calls, chunked to respect provider limits
+// drpc.org free tier: max 3 requests per batch
+// llamarpc.com: max 25 requests per batch
 async function batchRpcCall(calls: { method: string; params: any[] }[]): Promise<any[]> {
-  const batch = calls.map((c, i) => ({
-    jsonrpc: "2.0",
-    method: c.method,
-    params: c.params,
-    id: i + 1,
-  }))
+  const CHUNK_SIZE = 3 // Use conservative limit (drpc.org free tier)
+  const allResults: any[] = []
 
-  // Try batch first
-  for (const url of RPC_URLS) {
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 12000)
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(batch),
-        signal: controller.signal,
-      })
-      clearTimeout(timeout)
-      if (!res.ok) continue
-      const results = await res.json()
-      if (!Array.isArray(results)) continue
-      results.sort((a: any, b: any) => a.id - b.id)
-      const successes = results.filter((r: any) => !r.error && r.result)
-      if (successes.length >= calls.length * 0.5) {
-        return results.map((r: any) => r.result || null)
-      }
-    } catch {
-      continue
-    }
-  }
+  // Split into chunks and send each chunk
+  for (let i = 0; i < calls.length; i += CHUNK_SIZE) {
+    const chunk = calls.slice(i, i + CHUNK_SIZE)
+    const batch = chunk.map((c, idx) => ({
+      jsonrpc: "2.0",
+      method: c.method,
+      params: c.params,
+      id: idx + 1,
+    }))
 
-  // Fallback: sequential calls with first working RPC
-  for (const url of RPC_URLS) {
-    try {
-      const results: (any | null)[] = []
-      let failed = false
-      for (const call of calls) {
+    let chunkResults: any[] | null = null
+
+    // Try batch request with each RPC provider
+    for (const url of RPC_URLS) {
+      try {
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 6000)
+        const timeout = setTimeout(() => controller.abort(), 12000)
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", method: call.method, params: call.params, id: 1 }),
+          body: JSON.stringify(batch),
           signal: controller.signal,
         })
         clearTimeout(timeout)
-        if (!res.ok) { failed = true; break }
-        const json = await res.json()
-        results.push(json.error ? null : json.result)
+        if (!res.ok) continue
+        
+        const results = await res.json()
+        if (!Array.isArray(results)) continue
+        
+        results.sort((a: any, b: any) => a.id - b.id)
+        const successes = results.filter((r: any) => !r.error && r.result !== undefined)
+        
+        // If we got most of the results, use them
+        if (successes.length >= batch.length * 0.5) {
+          chunkResults = results.map((r: any) => r.result || null)
+          break
+        }
+      } catch {
+        continue
       }
-      if (!failed && results.length === calls.length) return results
-    } catch {
-      continue
     }
+
+    // If batch failed, try sequential fallback for this chunk
+    if (!chunkResults) {
+      chunkResults = []
+      for (const call of chunk) {
+        let callResult = null
+        for (const url of RPC_URLS) {
+          try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 6000)
+            const res = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ jsonrpc: "2.0", method: call.method, params: call.params, id: 1 }),
+              signal: controller.signal,
+            })
+            clearTimeout(timeout)
+            if (res.ok) {
+              const json = await res.json()
+              if (!json.error) {
+                callResult = json.result
+                break
+              }
+            }
+          } catch {
+            continue
+          }
+        }
+        chunkResults.push(callResult)
+      }
+    }
+
+    allResults.push(...chunkResults)
   }
 
-  throw new Error("All RPC endpoints failed for batch call")
+  if (allResults.length !== calls.length) {
+    throw new Error(`Failed to get results for all calls (got ${allResults.length}/${calls.length})`)
+  }
+
+  return allResults
 }
 
 // Single RPC call
