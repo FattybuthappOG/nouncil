@@ -10,41 +10,59 @@ interface CandidateData {
   slug: string
 }
 
-// NounsDAOData proxy contract (confirmed from nouns-camp source)
+// NounsDAOData proxy contract
 const NOUNS_DAO_DATA = "0xf790a5f59678dd733fb3de93493a91f472ca1365"
 
 // keccak256("ProposalCandidateCreated(address,address[],uint256[],string[],bytes[],string,string,uint256,bytes32)")
-// Computed via Python hashlib.sha3_256 — verified correct
 const CANDIDATE_CREATED_TOPIC = "0xf1167632f94b4215581a322b86242c468fa7920b4c79ee827d558c45a0977529"
 
 // Deployment block of NounsDAOData contract (Aug 2023)
 const DEPLOY_BLOCK = 17812145
 
+// RPC endpoints with fallback strategy
+const RPC_URLS = [
+  process.env.ETH_RPC_URL || "https://eth.drpc.org",
+  "https://cloudflare-eth.com",
+  "https://eth.llamarpc.com",
+  "https://1rpc.io/eth",
+  "https://ethereum.publicnode.com",
+].filter(Boolean) as string[]
+
 // 1 hour cache to minimize RPC calls
 const cache: Record<string, { data: any; ts: number }> = {}
 const CACHE_TTL = 60 * 60 * 1000
 
-function getInfuraUrl() {
-  const key = process.env.INFURA_API_KEY
-  if (!key) throw new Error("INFURA_API_KEY not set")
-  return `https://mainnet.infura.io/v3/${key}`
-}
-
 async function rpcCall(method: string, params: any[]) {
-  const url = getInfuraUrl()
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    signal: AbortSignal.timeout(20000),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Infura ${res.status}: ${text.substring(0, 100)}`)
+  let lastError: any
+  
+  for (const url of RPC_URLS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(15000),
+      })
+      
+      if (!res.ok) {
+        lastError = new Error(`HTTP ${res.status}`)
+        continue
+      }
+      
+      const json = await res.json()
+      if (json.error) {
+        lastError = new Error(`RPC error: ${json.error.message}`)
+        continue
+      }
+      
+      return json.result
+    } catch (err) {
+      lastError = err
+      continue
+    }
   }
-  const json = await res.json()
-  if (json.error) throw new Error(`RPC error: ${json.error.message}`)
-  return json.result
+  
+  throw new Error(`All RPC endpoints failed. Last error: ${lastError?.message || "Unknown"}`)
 }
 
 // Decode ABI string from log data at a given offset (in 32-byte words)

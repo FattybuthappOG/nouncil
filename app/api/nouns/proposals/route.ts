@@ -6,10 +6,11 @@ const NOUNS_TOKEN = "0x9C8fF314C9B9B91F60f4d9A12eAf51B0C1ABc08e"
 // RPC endpoints - ordered by reliability. Use env var if available.
 const RPC_URLS = [
   process.env.ETH_RPC_URL,
-  "https://ethereum-rpc.publicnode.com",
+  "https://eth.drpc.org",
   "https://cloudflare-eth.com",
   "https://eth.llamarpc.com",
   "https://1rpc.io/eth",
+  "https://ethereum.publicnode.com",
 ].filter(Boolean) as string[]
 
 const PROPOSAL_STATES = [
@@ -105,7 +106,7 @@ async function rpcCall(method: string, params: any[]): Promise<any> {
   for (const url of RPC_URLS) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 8000)
+      const timeout = setTimeout(() => controller.abort(), 12000)
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
