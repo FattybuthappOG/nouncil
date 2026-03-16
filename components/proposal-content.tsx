@@ -487,6 +487,10 @@ function ProposalContentInner({
         </Card>
 
         {/* Activity Section */}
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">{t.activity}</h2>
               {votes.votes && votes.votes.length > 0 && (
                 <span className="text-sm text-muted-foreground">
                   {votes.votes.length} vote{votes.votes.length !== 1 ? "s" : ""}
