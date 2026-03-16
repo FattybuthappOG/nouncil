@@ -29,11 +29,19 @@ const RPC_URLS = [
   "https://eth.meowrpc.com",
 ].filter(Boolean) as string[]
 
-// 1 hour cache to minimize RPC calls
+// 6 hour cache to minimize RPC calls (candidates don't change that often)
 const cache: Record<string, { data: any; ts: number }> = {}
-const CACHE_TTL = 60 * 60 * 1000
+const CACHE_TTL = 6 * 60 * 60 * 1000
 
-async function rpcCall(method: string, params: any[]) {
+// Delay between RPC calls to avoid rate limiting (400ms = 2.5 requests/second for safety)
+const RPC_DELAY_MS = 400
+
+// Helper to delay execution
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function rpcCall(method: string, params: any[]): Promise<any> {
   let lastError: any
   
   for (const url of RPC_URLS) {
@@ -47,8 +55,30 @@ async function rpcCall(method: string, params: any[]) {
       
       if (!res.ok) {
         lastError = new Error(`HTTP ${res.status}`)
+        // Add delay before trying next provider to avoid hammering
+        await delay(RPC_DELAY_MS)
         continue
       }
+      
+      const json = await res.json()
+      if (json.error) {
+        lastError = new Error(`RPC error: ${json.error.message}`)
+        // Add delay before trying next provider on error
+        await delay(RPC_DELAY_MS)
+        continue
+      }
+      
+      return json.result
+    } catch (err) {
+      lastError = err
+      // Add delay on exception too
+      await delay(RPC_DELAY_MS)
+      continue
+    }
+  }
+  
+  throw new Error(`All RPC endpoints failed. Last error: ${lastError?.message || "Unknown"}`)
+}
       
       const json = await res.json()
       if (json.error) {
@@ -131,24 +161,58 @@ async function fetchCandidates(limit: number): Promise<{ candidates: CandidateDa
   const currentBlockHex: string = await rpcCall("eth_blockNumber", [])
   const currentBlock = parseInt(currentBlockHex, 16)
 
-  // Step 2: fetch logs in 5000-block chunks to stay under RPC provider limits (10k max per request)
+  // Step 2: Only query recent blocks to avoid rate limits
+  // ~12.5 blocks per second = ~1.08M blocks per day
+  // Query last 7 days instead of all history from deployment
+  const BLOCKS_PER_DAY = 1_080_000
+  const DAYS_TO_QUERY = 7
+  const fromBlock = Math.max(DEPLOY_BLOCK, currentBlock - BLOCKS_PER_DAY * DAYS_TO_QUERY)
+
+  // Step 3: fetch logs in 5000-block chunks
   const CHUNK_SIZE = 5000
   const allLogs: any[] = []
   
-  for (let fromBlock = DEPLOY_BLOCK; fromBlock <= currentBlock; fromBlock += CHUNK_SIZE) {
-    const toBlock = Math.min(fromBlock + CHUNK_SIZE - 1, currentBlock)
+  for (let start = fromBlock; start <= currentBlock; start += CHUNK_SIZE) {
+    const end = Math.min(start + CHUNK_SIZE - 1, currentBlock)
     
     try {
       const logs: any[] = await rpcCall("eth_getLogs", [{
         address: NOUNS_DAO_DATA,
         topics: [CANDIDATE_CREATED_TOPIC],
-        fromBlock: `0x${fromBlock.toString(16)}`,
-        toBlock: `0x${toBlock.toString(16)}`,
+        fromBlock: `0x${start.toString(16)}`,
+        toBlock: `0x${end.toString(16)}`,
       }])
       
       if (Array.isArray(logs)) {
         allLogs.push(...logs)
       }
+    } catch (err) {
+      console.error(`[candidates] Failed to fetch logs for blocks ${start}-${end}:`, err)
+      // Continue with next chunk even if one fails
+      continue
+    }
+    
+    // Add delay between chunk requests to avoid rate limiting
+    await delay(RPC_DELAY_MS)
+  }
+
+  const total = allLogs.length
+
+  // Take the last `limit` logs (most recent events are at end of array)
+  const recentLogs = allLogs.slice(-limit).reverse()
+
+  const candidates: CandidateData[] = []
+  let candidateNumber = total
+  for (const log of recentLogs) {
+    const c = parseLog(log, 0)
+    if (c) {
+      c.candidateNumber = candidateNumber--
+      candidates.push(c)
+    }
+  }
+
+  return { candidates, total }
+}
     } catch (err) {
       console.error(`[candidates] Failed to fetch logs for blocks ${fromBlock}-${toBlock}:`, err)
       // Continue to next chunk even if one fails
@@ -179,17 +243,33 @@ export async function GET(request: Request) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100)
   const cacheKey = `candidates_${limit}`
 
+  // Return cached data if available (6 hour TTL)
   if (cache[cacheKey] && Date.now() - cache[cacheKey].ts < CACHE_TTL) {
     return NextResponse.json(cache[cacheKey].data)
   }
 
   try {
     const { candidates, total } = await fetchCandidates(limit)
-    const result = { candidates, total, source: "infura-rpc" }
+    const result = { candidates, total, source: "rpc-cached" }
     cache[cacheKey] = { data: result, ts: Date.now() }
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error("[v0] Candidates fetch error:", error?.message)
-    return NextResponse.json({ candidates: [], total: 0, error: error?.message }, { status: 500 })
+    console.error("[candidates] Fetch error:", error?.message)
+    
+    // If we have stale cache, return it instead of error
+    if (cache[cacheKey]) {
+      console.warn("[candidates] Using stale cache due to RPC failure")
+      return NextResponse.json({
+        ...cache[cacheKey].data,
+        stale: true,
+        error: "Using cached data - RPC failed",
+      })
+    }
+    
+    // Return empty result gracefully instead of error
+    return NextResponse.json(
+      { candidates: [], total: 0, error: error?.message },
+      { status: 200 }
+    )
   }
 }
