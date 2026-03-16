@@ -14,7 +14,7 @@ import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
-import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useConnect } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -107,7 +107,6 @@ function ProposalContentInner({
 
   // Voting state
   const { isConnected } = useAccount()
-  const { connectors } = useConnect()
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
@@ -120,11 +119,6 @@ function ProposalContentInner({
     cacheTime: 10_000,
   })
   const currentBlock = currentBlockData ? Number(currentBlockData) : null
-
-  const connectWallet = () => {
-    const wc = connectors.find(c => c.id === "walletConnect") ?? connectors[0]
-    if (wc) connect({ connector: wc })
-  }
 
   const votingIsActive = proposal.state === 1 || proposal.state === 0
 
@@ -253,12 +247,7 @@ function ProposalContentInner({
             <div className="space-y-4">
               {!isConnected ? (
                 <div className="flex justify-center w-full py-4">
-                  <button
-                    onClick={connectWallet}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] rounded-lg font-medium hover:brightness-110 active:scale-95 transition-all"
-                  >
-                    Connect wallet to vote
-                  </button>
+                  <WalletConnectButton />
                 </div>
               ) : isConfirmed ? (
                 <div className="flex items-center justify-center gap-2 w-full py-4">
