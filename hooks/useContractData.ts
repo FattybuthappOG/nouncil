@@ -473,7 +473,10 @@ export function useBatchProposals(proposalIds: number[]) {
 export function useCandidateIds(limit = 20) {
   const [candidates, setCandidates] = useState<any[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
+  const [hasMore, setHasMore] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isFetchingMore, setIsFetchingMore] = useState(false)
+  const [offset, setOffset] = useState(0)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -485,30 +488,55 @@ export function useCandidateIds(limit = 20) {
 
     const fetchCandidates = async () => {
       try {
-        const res = await fetch(`/api/nouns/candidates?limit=${limit}`, {
+        const res = await fetch(`/api/nouns/candidates?limit=${limit}&offset=${offset}`, {
           signal: AbortSignal.timeout(15000),
         })
         
         if (res.ok) {
           const data = await res.json()
-          setCandidates(data.candidates || [])
+          if (offset === 0) {
+            // First load: replace candidates
+            setCandidates(data.candidates || [])
+          } else {
+            // Pagination: append candidates
+            setCandidates(prev => [...prev, ...(data.candidates || [])])
+          }
           setTotalCount(data.total || 0)
+          setHasMore(data.hasMore || false)
         } else {
+          if (offset === 0) {
+            setCandidates([])
+            setTotalCount(0)
+            setHasMore(false)
+          }
+        }
+      } catch (err) {
+        console.error("[candidates] Fetch failed:", err)
+        if (offset === 0) {
           setCandidates([])
           setTotalCount(0)
+          setHasMore(false)
         }
-      } catch {
-        setCandidates([])
-        setTotalCount(0)
       } finally {
-        setIsLoading(false)
+        offset === 0 ? setIsLoading(false) : setIsFetchingMore(false)
       }
     }
 
+    if (offset === 0) {
+      setIsLoading(true)
+    } else {
+      setIsFetchingMore(true)
+    }
     fetchCandidates()
-  }, [mounted, limit])
+  }, [mounted, offset, limit])
 
-  return { candidates, totalCount, isLoading }
+  const loadMore = () => {
+    if (!isFetchingMore && hasMore) {
+      setOffset(prev => prev + limit)
+    }
+  }
+
+  return { candidates, totalCount, hasMore, isLoading, isFetchingMore, loadMore }
 }
 
 export function useCandidateData(candidateId: string) {

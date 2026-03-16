@@ -156,17 +156,17 @@ function parseLog(log: any, index: number): CandidateData | null {
   }
 }
 
-async function fetchCandidates(limit: number): Promise<{ candidates: CandidateData[]; total: number }> {
+async function fetchCandidates(limit: number, offset: number = 0): Promise<{ candidates: CandidateData[]; total: number; hasMore: boolean }> {
   // Step 1: get current block
   const currentBlockHex: string = await rpcCall("eth_blockNumber", [])
   const currentBlock = parseInt(currentBlockHex, 16)
 
-  // Step 2: Only query recent blocks to avoid rate limits
+  // Step 2: Query blocks progressively based on offset to minimize RPC load
   // ~12.5 blocks per second = ~1.08M blocks per day
-  // Query last 7 days instead of all history from deployment
+  // Start with 1 day (most recent candidates), expand if user wants more
   const BLOCKS_PER_DAY = 1_080_000
-  const DAYS_TO_QUERY = 7
-  const fromBlock = Math.max(DEPLOY_BLOCK, currentBlock - BLOCKS_PER_DAY * DAYS_TO_QUERY)
+  const daysToQuery = Math.ceil((offset + limit) / 20) + 1 // Assume ~20 candidates per day
+  const fromBlock = Math.max(DEPLOY_BLOCK, currentBlock - BLOCKS_PER_DAY * daysToQuery)
 
   // Step 3: fetch logs in 5000-block chunks
   const CHUNK_SIZE = 5000
@@ -188,7 +188,6 @@ async function fetchCandidates(limit: number): Promise<{ candidates: CandidateDa
       }
     } catch (err) {
       console.error(`[candidates] Failed to fetch logs for blocks ${start}-${end}:`, err)
-      // Continue with next chunk even if one fails
       continue
     }
     
@@ -197,13 +196,14 @@ async function fetchCandidates(limit: number): Promise<{ candidates: CandidateDa
   }
 
   const total = allLogs.length
+  const hasMore = total > offset + limit
 
-  // Take the last `limit` logs (most recent events are at end of array)
-  const recentLogs = allLogs.slice(-limit).reverse()
+  // Take the slice for pagination (most recent events are at end of array)
+  const paginatedLogs = allLogs.slice(-(offset + limit)).slice(-limit).reverse()
 
   const candidates: CandidateData[] = []
-  let candidateNumber = total
-  for (const log of recentLogs) {
+  let candidateNumber = total - offset
+  for (const log of paginatedLogs) {
     const c = parseLog(log, 0)
     if (c) {
       c.candidateNumber = candidateNumber--
@@ -211,7 +211,7 @@ async function fetchCandidates(limit: number): Promise<{ candidates: CandidateDa
     }
   }
 
-  return { candidates, total }
+  return { candidates, total, hasMore }
 }
     } catch (err) {
       console.error(`[candidates] Failed to fetch logs for blocks ${fromBlock}-${toBlock}:`, err)
@@ -241,7 +241,8 @@ async function fetchCandidates(limit: number): Promise<{ candidates: CandidateDa
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100)
-  const cacheKey = `candidates_${limit}`
+  const offset = Math.max(0, parseInt(searchParams.get("offset") || "0"))
+  const cacheKey = `candidates_${limit}_${offset}`
 
   // Return cached data if available (6 hour TTL)
   if (cache[cacheKey] && Date.now() - cache[cacheKey].ts < CACHE_TTL) {
@@ -249,8 +250,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { candidates, total } = await fetchCandidates(limit)
-    const result = { candidates, total, source: "rpc-cached" }
+    const { candidates, total, hasMore } = await fetchCandidates(limit, offset)
+    const result = { candidates, total, hasMore, offset, limit, source: "rpc-cached" }
     cache[cacheKey] = { data: result, ts: Date.now() }
     return NextResponse.json(result)
   } catch (error: any) {
@@ -268,7 +269,7 @@ export async function GET(request: Request) {
     
     // Return empty result gracefully instead of error
     return NextResponse.json(
-      { candidates: [], total: 0, error: error?.message },
+      { candidates: [], total: 0, hasMore: false, offset, limit, error: error?.message },
       { status: 200 }
     )
   }
