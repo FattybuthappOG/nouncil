@@ -245,6 +245,102 @@ function ProposalContentInner({
           </CardContent>
         </Card>
 
+        {/* Voting Section */}
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-4">{t.castYourVote}</h2>
+            
+            <div className="space-y-4">
+              {!isConnected ? (
+                <div className="flex justify-center w-full py-4">
+                  <button
+                    onClick={connectWallet}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] rounded-lg font-medium hover:brightness-110 active:scale-95 transition-all"
+                  >
+                    Connect wallet to vote
+                  </button>
+                </div>
+              ) : isConfirmed ? (
+                <div className="flex items-center justify-center gap-2 w-full py-4">
+                  <Badge className="bg-green-500/20 text-green-300">Vote Submitted!</Badge>
+                </div>
+              ) : votingIsActive ? (
+                <>
+                  {!showVoteForm ? (
+                    <div className="flex gap-2 flex-col sm:flex-row">
+                      <button
+                        onClick={() => handleVote(1)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                        <span className="hidden sm:inline">For</span>
+                      </button>
+                      <button
+                        onClick={() => handleVote(0)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        <ThumbsDown className="w-4 h-4" />
+                        <span className="hidden sm:inline">Against</span>
+                      </button>
+                      <button
+                        onClick={() => handleVote(2)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        <Minus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Abstain</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">
+                          Voting:{" "}
+                          <span className="font-semibold">
+                            {selectedSupport === 1 ? "For" : selectedSupport === 0 ? "Against" : "Abstain"}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowVoteForm(false)
+                            setSelectedSupport(null)
+                            setVoteReason("")
+                          }}
+                          className="text-gray-400 hover:text-white h-8 px-2"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">{t.reasonForVote}</label>
+                        <Textarea
+                          value={voteReason}
+                          onChange={(e) => setVoteReason(e.target.value)}
+                          placeholder={t.explainYourVote}
+                          className="min-h-[80px] text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <Button
+                        onClick={submitVote}
+                        disabled={isPending || isConfirming}
+                        className="w-full bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110"
+                      >
+                        {isPending || isConfirming ? "Submitting..." : t.submitVote}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-sm text-center py-4 text-muted-foreground">
+                  {t.votingClosed}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
           <CardContent className="pt-6 space-y-4">
             <h2 className="text-lg font-semibold">{t.votingResults}</h2>
@@ -377,102 +473,6 @@ function ProposalContentInner({
               >
                 {body || proposal.fullDescription || ""}
               </ReactMarkdown>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Voting Section */}
-        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
-          <CardContent className="pt-6">
-            <h2 className="text-lg font-semibold mb-4">{t.castYourVote}</h2>
-            
-            <div className="space-y-4">
-              {!isConnected ? (
-                <div className="flex justify-center w-full py-4">
-                  <button
-                    onClick={connectWallet}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] rounded-lg font-medium hover:brightness-110 active:scale-95 transition-all"
-                  >
-                    Connect wallet to vote
-                  </button>
-                </div>
-              ) : isConfirmed ? (
-                <div className="flex items-center justify-center gap-2 w-full py-4">
-                  <Badge className="bg-green-500/20 text-green-300">Vote Submitted!</Badge>
-                </div>
-              ) : votingIsActive ? (
-                <>
-                  {!showVoteForm ? (
-                    <div className="flex gap-2 flex-col sm:flex-row">
-                      <button
-                        onClick={() => handleVote(1)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        <ThumbsUp className="w-4 h-4" />
-                        <span className="hidden sm:inline">For</span>
-                      </button>
-                      <button
-                        onClick={() => handleVote(0)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        <ThumbsDown className="w-4 h-4" />
-                        <span className="hidden sm:inline">Against</span>
-                      </button>
-                      <button
-                        onClick={() => handleVote(2)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                        <span className="hidden sm:inline">Abstain</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">
-                          Voting:{" "}
-                          <span className="font-semibold">
-                            {selectedSupport === 1 ? "For" : selectedSupport === 0 ? "Against" : "Abstain"}
-                          </span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setShowVoteForm(false)
-                            setSelectedSupport(null)
-                            setVoteReason("")
-                          }}
-                          className="text-gray-400 hover:text-white h-8 px-2"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-2 block">{t.reasonForVote}</label>
-                        <Textarea
-                          value={voteReason}
-                          onChange={(e) => setVoteReason(e.target.value)}
-                          placeholder={t.explainYourVote}
-                          className="min-h-[80px] text-sm"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      <Button
-                        onClick={submitVote}
-                        disabled={isPending || isConfirming}
-                        className="w-full bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110"
-                      >
-                        {isPending || isConfirming ? "Submitting..." : t.submitVote}
-                      </Button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-sm text-center py-4 text-muted-foreground">
-                  {t.votingClosed}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
