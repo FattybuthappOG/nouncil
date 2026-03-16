@@ -4,13 +4,15 @@ const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
 const NOUNS_TOKEN = "0x9C8fF314C9B9B91F60f4d9A12eAf51B0C1ABc08e"
 
 // RPC endpoints - ordered by reliability. Use env var if available.
+// Remove unreliable endpoints like ethereum.publicnode.com and ethereum-rpc.publicnode.com
 const RPC_URLS = [
   process.env.ETH_RPC_URL,
   "https://eth.drpc.org",
   "https://cloudflare-eth.com",
   "https://eth.llamarpc.com",
   "https://1rpc.io/eth",
-  "https://ethereum.publicnode.com",
+  "https://endpoints.omnirpc.io/eth",
+  "https://eth.meowrpc.com",
 ].filter(Boolean) as string[]
 
 const PROPOSAL_STATES = [

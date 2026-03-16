@@ -19,13 +19,14 @@ const CANDIDATE_CREATED_TOPIC = "0xf1167632f94b4215581a322b86242c468fa7920b4c79e
 // Deployment block of NounsDAOData contract (Aug 2023)
 const DEPLOY_BLOCK = 17812145
 
-// RPC endpoints with fallback strategy
+// RPC endpoints with fallback strategy - remove unreliable endpoints
 const RPC_URLS = [
   process.env.ETH_RPC_URL || "https://eth.drpc.org",
   "https://cloudflare-eth.com",
   "https://eth.llamarpc.com",
   "https://1rpc.io/eth",
-  "https://ethereum.publicnode.com",
+  "https://endpoints.omnirpc.io/eth",
+  "https://eth.meowrpc.com",
 ].filter(Boolean) as string[]
 
 // 1 hour cache to minimize RPC calls
