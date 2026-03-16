@@ -489,7 +489,7 @@ export function useCandidateIds(limit = 20) {
     const fetchCandidates = async () => {
       try {
         const res = await fetch(`/api/nouns/candidates?limit=${limit}&offset=${offset}`, {
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(120000), // 2 minute timeout for initial fetch which may take a while
         })
         
         if (res.ok) {

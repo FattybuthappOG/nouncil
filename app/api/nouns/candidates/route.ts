@@ -19,13 +19,12 @@ const CANDIDATE_CREATED_TOPIC = "0xf1167632f94b4215581a322b86242c468fa7920b4c79e
 // Deployment block of NounsDAOData contract (Aug 2023)
 const DEPLOY_BLOCK = 17812145
 
-// RPC endpoints with fallback strategy
+// RPC endpoints with fallback strategy - removed publicnode (unreliable)
 const RPC_URLS = [
   process.env.ETH_RPC_URL || "https://eth.drpc.org",
   "https://cloudflare-eth.com",
   "https://eth.llamarpc.com",
   "https://1rpc.io/eth",
-  "https://endpoints.omnirpc.io/eth",
   "https://eth.meowrpc.com",
 ].filter(Boolean) as string[]
 
@@ -33,8 +32,8 @@ const RPC_URLS = [
 const cache: Record<string, { data: any; ts: number }> = {}
 const CACHE_TTL = 24 * 60 * 60 * 1000
 
-// Delay between RPC calls to avoid rate limiting (400ms = 2.5 requests/second for safety)
-const RPC_DELAY_MS = 400
+// Delay between RPC calls to avoid rate limiting (3000ms = 1 request/3 seconds for conservative free tier)
+const RPC_DELAY_MS = 3000
 
 // Helper to delay execution
 function delay(ms: number) {
@@ -50,7 +49,7 @@ async function rpcCall(method: string, params: any[]): Promise<any> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30000), // Longer timeout for slow RPC
       })
       
       if (!res.ok) {
@@ -129,11 +128,15 @@ async function fetchAllCandidates(): Promise<CandidateData[]> {
 
   const CHUNK_SIZE = 5000
   const allLogs: any[] = []
+  const totalChunks = Math.ceil((currentBlock - DEPLOY_BLOCK) / CHUNK_SIZE)
+  let failedChunks = 0
   
-  for (let start = DEPLOY_BLOCK; start <= currentBlock; start += CHUNK_SIZE) {
+  for (let i = 0; i < totalChunks; i++) {
+    const start = DEPLOY_BLOCK + i * CHUNK_SIZE
     const end = Math.min(start + CHUNK_SIZE - 1, currentBlock)
     
     try {
+      console.log(`[candidates] Fetching chunk ${i + 1}/${totalChunks} (blocks ${start}-${end})`)
       const logs: any[] = await rpcCall("eth_getLogs", [{
         address: NOUNS_DAO_DATA,
         topics: [CANDIDATE_CREATED_TOPIC],
@@ -143,14 +146,23 @@ async function fetchAllCandidates(): Promise<CandidateData[]> {
       
       if (Array.isArray(logs)) {
         allLogs.push(...logs)
+        console.log(`[candidates] Got ${logs.length} candidates from chunk ${i + 1}/${totalChunks}`)
       }
     } catch (err) {
-      console.error(`[candidates] Failed to fetch logs for blocks ${start}-${end}:`, err)
+      failedChunks++
+      console.error(`[candidates] Failed to fetch chunk ${i + 1}/${totalChunks} (blocks ${start}-${end}):`, err)
+      // Continue with next chunk even if one fails
+      // This allows us to get partial results instead of complete failure
       continue
     }
     
-    await delay(RPC_DELAY_MS)
+    // Add delay between chunk requests to avoid rate limiting
+    if (i < totalChunks - 1) {
+      await delay(RPC_DELAY_MS)
+    }
   }
+
+  console.log(`[candidates] Completed fetch: ${allLogs.length} total candidates, ${failedChunks} failed chunks`)
 
   // Parse all logs and reverse so most recent is first
   const candidates: CandidateData[] = []
@@ -180,12 +192,15 @@ export async function GET(request: Request) {
   let fromCache = false
 
   if (cache[cacheKey] && Date.now() - cache[cacheKey].ts < CACHE_TTL) {
+    console.log("[candidates] Returning cached data")
     allCandidates = cache[cacheKey].data
     fromCache = true
   } else {
     try {
+      console.log("[candidates] Cache miss or expired - fetching from RPC (this may take several minutes)...")
       allCandidates = await fetchAllCandidates()
       cache[cacheKey] = { data: allCandidates, ts: Date.now() }
+      console.log(`[candidates] Successfully fetched and cached ${allCandidates.length} candidates`)
     } catch (error: any) {
       console.error("[candidates] Fetch error:", error?.message)
       
@@ -195,6 +210,7 @@ export async function GET(request: Request) {
         allCandidates = cache[cacheKey].data
         fromCache = true
       } else {
+        console.error("[candidates] No cache available and fetch failed - returning empty")
         return NextResponse.json(
           { candidates: [], total: 0, hasMore: false, offset, limit, error: error?.message },
           { status: 200 }
