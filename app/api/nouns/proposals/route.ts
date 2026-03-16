@@ -218,7 +218,17 @@ async function fetchProposalList(limit: number, statusFilter: string) {
     if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`)
     
     const json = await response.json()
-    if (!json.data?.proposals) throw new Error("Invalid subgraph response")
+    
+    // Check for GraphQL errors first
+    if (json.errors) {
+      console.error("[v0] Subgraph GraphQL errors:", JSON.stringify(json.errors))
+      throw new Error(`Subgraph GraphQL error: ${json.errors[0]?.message || "Unknown"}`)
+    }
+    
+    if (!json.data?.proposals) {
+      console.error("[v0] Subgraph response missing proposals:", JSON.stringify(json))
+      throw new Error("Invalid subgraph response")
+    }
     
     const proposals = json.data.proposals.map((p: any) => ({
       id: Number(p.id),
@@ -252,7 +262,7 @@ async function fetchProposalList(limit: number, statusFilter: string) {
 
     return { proposals: proposals.slice(0, limit), totalCount: proposals.length }
   } catch (err) {
-    console.error("[proposals] Subgraph fetch failed:", err)
+    console.error("[v0] Subgraph fetch failed:", err)
     throw err
   }
 }
@@ -292,6 +302,13 @@ async function fetchSingleProposal(id: number) {
     
     if (response.ok) {
       const json = await response.json()
+      
+      // Check for GraphQL errors
+      if (json.errors) {
+        console.error("[v0] Subgraph GraphQL errors for proposal", id, ":", JSON.stringify(json.errors))
+        throw new Error(`Subgraph GraphQL error: ${json.errors[0]?.message}`)
+      }
+      
       if (json.data?.proposal) {
         const p = json.data.proposal
         const result = {
@@ -315,7 +332,7 @@ async function fetchSingleProposal(id: number) {
       }
     }
   } catch (err) {
-    console.error("[proposals] Subgraph fetch failed for proposal", id, ":", err)
+    console.error("[v0] Subgraph fetch failed for proposal", id, ":", err)
   }
 
   // If we have stale cache, use it
