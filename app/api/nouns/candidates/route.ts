@@ -10,110 +10,68 @@ interface CandidateData {
   slug: string
 }
 
-// 12 hour cache for candidates fetched from subgraph
+// The Graph Nouns subgraph - already has all candidate data indexed
+const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest"
+
+// 12 hour cache for candidates
 const cache: Record<string, { data: any; ts: number }> = {}
 const CACHE_TTL = 12 * 60 * 60 * 1000
 
-const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest"
-
-// Fetch candidates from The Graph subgraph (much faster and no rate limits)
+// Fetch candidates from The Graph subgraph - instant, no rate limits
 async function fetchAllCandidates(): Promise<CandidateData[]> {
-  const candidates: CandidateData[] = []
-  let skip = 0
-  const pageSize = 1000 // Max query size from subgraph
-
-  console.log("[candidates] Fetching from Nouns subgraph...")
-
-  try {
-    let hasMore = true
-    let pageNum = 1
-
-    while (hasMore) {
-      const query = `{
-        proposalCandidates(first: ${pageSize}, skip: ${skip}, orderBy: createdBlock, orderDirection: desc) {
-          id
-          proposer {
-            id
-          }
-          targets
-          values
-          signatures
-          calldatas
-          description
-          reason
-          createdBlock
-          createdTransactionHash
-        }
-      }`
-
-      console.log(
-        `[candidates] Fetching page ${pageNum} (skip: ${skip}, first: ${pageSize})...`
-      )
-
-      const response = await fetch(SUBGRAPH_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-        signal: AbortSignal.timeout(30000),
-      })
-
-      if (!response.ok) {
-        throw new Error(
-          `Subgraph HTTP error: ${response.status} ${response.statusText}`
-        )
-      }
-
-      const json = await response.json()
-
-      if (json.errors) {
-        throw new Error(`Subgraph error: ${json.errors[0]?.message || "Unknown"}`)
-      }
-
-      const candidates_page = json.data?.proposalCandidates || []
-
-      if (candidates_page.length === 0) {
-        hasMore = false
-        console.log(`[candidates] Reached end at page ${pageNum}`)
-        break
-      }
-
-      console.log(
-        `[candidates] Got ${candidates_page.length} candidates on page ${pageNum}`
-      )
-
-      for (const candidate of candidates_page) {
-        const description = candidate.description || ""
-        const title = description
-          .split("\n")[0]
-          .replace(/^#+\s*/, "")
-          .trim()
-
-        candidates.push({
-          id: candidate.id,
-          candidateNumber: candidates.length + 1,
-          proposer: candidate.proposer?.id || "0x0000000000000000000000000000000000000000",
-          title: title || `Candidate ${candidates.length + 1}`,
-          description,
-          createdTimestamp: parseInt(candidate.createdBlock || "0"),
-          slug: title
-            ?.toLowerCase()
-            .replace(/[^\w\s-]/g, "")
-            .replace(/\s+/g, "-") || `candidate-${candidates.length + 1}`,
-        })
-      }
-
-      // Check if we got less than a full page, meaning we've reached the end
-      if (candidates_page.length < pageSize) {
-        hasMore = false
-      } else {
-        skip += pageSize
-        pageNum++
-        // Small delay between pages to be respectful to the subgraph
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
+  const query = `{
+    proposalCandidates(first: 1000, orderBy: createdBlock, orderDirection: desc) {
+      id
+      proposer
+      description
+      createdBlock
+      slug
     }
-
-    console.log(`[candidates] Successfully fetched ${candidates.length} total candidates`)
+  }`
+  
+  try {
+    console.log("[candidates] Fetching from subgraph...")
+    const response = await fetch(SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(15000),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Subgraph HTTP ${response.status}`)
+    }
+    
+    const json = await response.json()
+    
+    if (json.errors) {
+      throw new Error(`Subgraph error: ${json.errors[0]?.message || "Unknown"}`)
+    }
+    
+    if (!json.data?.proposalCandidates) {
+      console.warn("[candidates] No candidates in subgraph response")
+      return []
+    }
+    
+    const candidates: CandidateData[] = json.data.proposalCandidates.map((c: any, index: number) => {
+      let title = c.slug || `Candidate by ${c.proposer.slice(0, 8)}`
+      if (c.description) {
+        const firstLine = c.description.split("\n")[0].replace(/^#+\s*/, "").trim()
+        if (firstLine.length > 0) title = firstLine
+      }
+      
+      return {
+        id: c.id,
+        candidateNumber: index + 1,
+        proposer: c.proposer,
+        title: title.length > 120 ? title.slice(0, 120) + "…" : title,
+        description: c.description || "",
+        createdTimestamp: parseInt(c.createdBlock || "0"),
+        slug: c.slug || c.id,
+      }
+    })
+    
+    console.log(`[candidates] Successfully fetched ${candidates.length} candidates from subgraph`)
     return candidates
   } catch (err) {
     console.error("[candidates] Subgraph fetch error:", err)
@@ -125,7 +83,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100)
   const offset = Math.max(0, parseInt(searchParams.get("offset") || "0"))
-
+  
   const cacheKey = "candidates_all"
 
   // Check cache - fetch all candidates once, then paginate
@@ -141,12 +99,10 @@ export async function GET(request: Request) {
       console.log("[candidates] Cache miss or expired - fetching from subgraph...")
       allCandidates = await fetchAllCandidates()
       cache[cacheKey] = { data: allCandidates, ts: Date.now() }
-      console.log(
-        `[candidates] Successfully fetched and cached ${allCandidates.length} candidates`
-      )
+      console.log(`[candidates] Successfully fetched and cached ${allCandidates.length} candidates`)
     } catch (error: any) {
       console.error("[candidates] Fetch error:", error?.message)
-
+      
       // Use stale cache if available
       if (cache[cacheKey]) {
         console.warn("[candidates] Using stale cache due to subgraph failure")
@@ -174,8 +130,6 @@ export async function GET(request: Request) {
     offset,
     limit,
     source: fromCache ? "cached" : "subgraph-fetched",
-    cacheAge: cache[cacheKey]
-      ? Math.round((Date.now() - cache[cacheKey].ts) / 1000 / 60) + "m"
-      : "unknown",
+    cacheAge: cache[cacheKey] ? Math.round((Date.now() - cache[cacheKey].ts) / 1000 / 60) + "m" : "unknown"
   })
 }
