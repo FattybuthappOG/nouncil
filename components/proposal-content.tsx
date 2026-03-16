@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink } from "lucide-react"
 import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
@@ -12,6 +13,9 @@ import { EnsDisplay } from "@/components/ens-display"
 import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
+import { WalletConnectButton } from "@/components/wallet-connect-button"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -100,6 +104,41 @@ function ProposalContentInner({
   const proposal = useProposalData(Number(proposalId))
   const votes = useProposalVotes(Number(proposalId))
   const feedback = useProposalFeedback(Number(proposalId))
+
+  // Voting state
+  const { isConnected } = useAccount()
+  const [voteReason, setVoteReason] = useState("")
+  const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
+  const [showVoteForm, setShowVoteForm] = useState(false)
+
+  const { data: hash, writeContract, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
+
+  const { data: currentBlockData } = useBlockNumber({
+    watch: true,
+    cacheTime: 10_000,
+  })
+  const currentBlock = currentBlockData ? Number(currentBlockData) : null
+
+  const votingIsActive = proposal.state === 1 || proposal.state === 0
+
+  const handleVote = (support: number) => {
+    if (!isConnected) return
+    setSelectedSupport(support)
+    setShowVoteForm(true)
+  }
+
+  const submitVote = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (selectedSupport === null || !isConnected) return
+
+    writeContract({
+      address: GOVERNOR_CONTRACT.address,
+      abi: GOVERNOR_CONTRACT.abi,
+      functionName: "castRefundableVoteWithReason",
+      args: [BigInt(proposalId), selectedSupport as 0 | 1 | 2, voteReason, 22],
+    })
+  }
 
   if (proposal.error || !proposal.id) {
     return (
@@ -196,6 +235,97 @@ function ProposalContentInner({
               >
                 <ExternalLink className="h-4 w-4" />
               </a>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Voting Section */}
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-4">{t.castYourVote}</h2>
+            
+            <div className="space-y-4">
+              {!isConnected ? (
+                <div className="flex justify-center w-full py-4">
+                  <WalletConnectButton />
+                </div>
+              ) : isConfirmed ? (
+                <div className="flex items-center justify-center gap-2 w-full py-4">
+                  <Badge className="bg-green-500/20 text-green-300">Vote Submitted!</Badge>
+                </div>
+              ) : votingIsActive ? (
+                <>
+                  {!showVoteForm ? (
+                    <div className="flex gap-2 flex-col sm:flex-row">
+                      <button
+                        onClick={() => handleVote(1)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                        <span className="hidden sm:inline">For</span>
+                      </button>
+                      <button
+                        onClick={() => handleVote(0)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        <ThumbsDown className="w-4 h-4" />
+                        <span className="hidden sm:inline">Against</span>
+                      </button>
+                      <button
+                        onClick={() => handleVote(2)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        <Minus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Abstain</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">
+                          Voting:{" "}
+                          <span className="font-semibold">
+                            {selectedSupport === 1 ? "For" : selectedSupport === 0 ? "Against" : "Abstain"}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowVoteForm(false)
+                            setSelectedSupport(null)
+                            setVoteReason("")
+                          }}
+                          className="text-gray-400 hover:text-white h-8 px-2"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">{t.reasonForVote}</label>
+                        <Textarea
+                          value={voteReason}
+                          onChange={(e) => setVoteReason(e.target.value)}
+                          placeholder={t.explainYourVote}
+                          className="min-h-[80px] text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <Button
+                        onClick={submitVote}
+                        disabled={isPending || isConfirming}
+                        className="w-full bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110"
+                      >
+                        {isPending || isConfirming ? "Submitting..." : t.submitVote}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-sm text-center py-4 text-muted-foreground">
+                  {t.votingClosed}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -345,6 +475,7 @@ function ProposalContentInner({
           </Card>
         )}
 
+        {/* Activity Section */}
         <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-4">
