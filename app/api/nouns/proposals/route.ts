@@ -280,7 +280,7 @@ async function fetchProposalList(limit: number, statusFilter: string) {
   return { proposals: proposals.slice(0, limit), totalCount }
 }
 
-// Fetch a single proposal - with subgraph fallback
+// Fetch a single proposal - with subgraph fallback and stale cache
 async function fetchSingleProposal(id: number) {
   // Check cache
   const cacheKey = String(id)
@@ -294,6 +294,7 @@ async function fetchSingleProposal(id: number) {
   // Try RPC first
   let proposalResult: string | null = null
   let stateResult: string | null = null
+  let rpcError: any = null
   
   try {
     const results = await batchRpcCall([
@@ -303,10 +304,12 @@ async function fetchSingleProposal(id: number) {
     proposalResult = results[0]
     stateResult = results[1]
   } catch (err) {
-    console.error("[v0] RPC call failed for proposal", id, "trying subgraph fallback")
+    rpcError = err
+    console.error("[v0] RPC call failed for proposal", id, "trying subgraph fallback:", err)
   }
 
   // Fallback to subgraph if RPC fails
+  let subgraphError: any = null
   if (!proposalResult || !stateResult) {
     try {
       const subgraphUrl = "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest"
@@ -353,10 +356,17 @@ async function fetchSingleProposal(id: number) {
         return result
       }
     } catch (err) {
-      console.error("[v0] Subgraph fallback failed for proposal", id)
+      subgraphError = err
+      console.error("[v0] Subgraph fallback failed for proposal", id, ":", err)
     }
     
-    // If both fail, throw error
+    // If both fail but we have stale cache, use it
+    if (cache.single[cacheKey]) {
+      console.warn(`[proposals] Using stale cache for proposal ${id}. RPC error: ${rpcError?.message}; Subgraph error: ${subgraphError?.message}`)
+      return { ...cache.single[cacheKey].data, stale: true, error: "Using cached data - both sources failed" }
+    }
+    
+    // Both sources failed and no cache - throw error
     throw new Error(`Failed to read proposal ${id} from RPC and subgraph`)
   }
 
@@ -445,9 +455,14 @@ export async function GET(request: Request) {
     }
   } catch (error: any) {
     console.error("Error fetching Nouns proposals:", error?.message || error)
+    // Return 200 with error object for graceful client handling instead of 500
     return NextResponse.json(
-      { error: "Failed to fetch proposals", details: error?.message },
-      { status: 500 },
+      {
+        error: "Failed to fetch proposals",
+        details: error?.message,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 200 }
     )
   }
 }
