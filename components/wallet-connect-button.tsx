@@ -44,17 +44,19 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
     )
   }
 
+  // Try WalletConnect first, fall back to injected
   const walletConnectConnector = connectors.find((c) => c.id === "walletConnect")
   const injectedConnector = connectors.find((c) => c.id === "injected")
+  const preferredConnector = walletConnectConnector || injectedConnector
 
-  if (!walletConnectConnector) {
+  if (!preferredConnector) {
     return null
   }
 
   if (compact) {
     return (
       <Button 
-        onClick={() => connect({ connector: walletConnectConnector })}
+        onClick={() => connect({ connector: preferredConnector })}
         size="sm"
         className={`p-2 ${colorScheme === "pink" ? pinkClasses : ""}`}
       >
@@ -66,7 +68,7 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
   return (
     <div className="flex gap-2">
       <Button 
-        onClick={() => connect({ connector: walletConnectConnector })}
+        onClick={() => connect({ connector: preferredConnector })}
         className={colorScheme === "pink" ? pinkClasses : ""}
       >
         Connect Wallet
