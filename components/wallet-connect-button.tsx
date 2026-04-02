@@ -65,23 +65,35 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
     )
   }
 
+  // Handler for Ambire V2 connection
+  const handleAmbireConnect = () => {
+    // Check if Ambire extension is installed
+    if ((window as any).ambire?.provider || (window as any).ethereum?.isAmbire) {
+      // Ambire is installed, use injected connector
+      if (injectedConnector) {
+        connect({ connector: injectedConnector })
+      }
+    } else {
+      // Ambire not installed, open the wallet website
+      window.open("https://wallet.ambire.com", "_blank")
+    }
+  }
+
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 flex-wrap">
       <Button 
         onClick={() => connect({ connector: preferredConnector })}
         className={colorScheme === "pink" ? pinkClasses : ""}
       >
         Connect Wallet
       </Button>
-      {injectedConnector && (window as any).ambire?.provider && (
-        <Button 
-          onClick={() => connect({ connector: injectedConnector })}
-          className="bg-purple-600 hover:bg-purple-700 text-white"
-          title="Connect with Ambire V2"
-        >
-          Ambire V2
-        </Button>
-      )}
+      <Button 
+        onClick={handleAmbireConnect}
+        className="bg-purple-600 hover:bg-purple-700 text-white"
+        title="Connect with Ambire V2 Wallet"
+      >
+        Ambire V2
+      </Button>
     </div>
   )
 }
