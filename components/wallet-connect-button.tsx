@@ -45,6 +45,7 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
   }
 
   const walletConnectConnector = connectors.find((c) => c.id === "walletConnect")
+  const injectedConnector = connectors.find((c) => c.id === "injected")
 
   if (!walletConnectConnector) {
     return null
@@ -63,12 +64,23 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
   }
 
   return (
-    <Button 
-      onClick={() => connect({ connector: walletConnectConnector })}
-      className={colorScheme === "pink" ? pinkClasses : ""}
-    >
-      Connect Wallet
-    </Button>
+    <div className="flex gap-2">
+      <Button 
+        onClick={() => connect({ connector: walletConnectConnector })}
+        className={colorScheme === "pink" ? pinkClasses : ""}
+      >
+        Connect Wallet
+      </Button>
+      {injectedConnector && (window as any).ambire?.provider && (
+        <Button 
+          onClick={() => connect({ connector: injectedConnector })}
+          className="bg-purple-600 hover:bg-purple-700 text-white"
+          title="Connect with Ambire V2"
+        >
+          Ambire V2
+        </Button>
+      )}
+    </div>
   )
 }
 
