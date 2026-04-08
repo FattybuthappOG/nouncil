@@ -75,9 +75,20 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
 
   const handleWalletConnectConnect = () => {
     setShowModal(false)
-    const connector = walletConnectConnector || injectedConnector
-    if (connector) {
-      connect({ connector })
+    // Prefer WalletConnect for QR code scanning on desktop
+    if (walletConnectConnector) {
+      connect({ connector: walletConnectConnector })
+    } else if (injectedConnector) {
+      // Fallback to injected if WalletConnect is not available
+      connect({ connector: injectedConnector })
+    }
+  }
+
+  const handleInjectedConnect = () => {
+    setShowModal(false)
+    // Use injected connector for browser extensions (MetaMask, etc.)
+    if (injectedConnector) {
+      connect({ connector: injectedConnector })
     }
   }
 
@@ -93,12 +104,22 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
         </Button>
         {showModal && (
           <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-border bg-background shadow-lg p-2 flex flex-col gap-1">
-            <WalletOption
-              label="WalletConnect"
-              description="Scan with any wallet"
-              icon={<WalletConnectIcon />}
-              onClick={handleWalletConnectConnect}
-            />
+            {injectedConnector && (
+              <WalletOption
+                label="Browser Wallet"
+                description="MetaMask, etc."
+                icon={<BrowserWalletIcon />}
+                onClick={handleInjectedConnect}
+              />
+            )}
+            {walletConnectConnector && (
+              <WalletOption
+                label="WalletConnect"
+                description="Scan QR code"
+                icon={<WalletConnectIcon />}
+                onClick={handleWalletConnectConnect}
+              />
+            )}
             <WalletOption
               label="Ambire V2"
               description="Smart contract wallet"
@@ -128,12 +149,22 @@ function WalletConnectButtonInner({ colorScheme = "default", compact = false }: 
             </button>
           </div>
           <div className="p-2 flex flex-col gap-1">
-            <WalletOption
-              label="WalletConnect"
-              description="Scan with any wallet"
-              icon={<WalletConnectIcon />}
-              onClick={handleWalletConnectConnect}
-            />
+            {injectedConnector && (
+              <WalletOption
+                label="Browser Wallet"
+                description="MetaMask, etc."
+                icon={<BrowserWalletIcon />}
+                onClick={handleInjectedConnect}
+              />
+            )}
+            {walletConnectConnector && (
+              <WalletOption
+                label="WalletConnect"
+                description="Scan QR code"
+                icon={<WalletConnectIcon />}
+                onClick={handleWalletConnectConnect}
+              />
+            )}
             <WalletOption
               label="Ambire V2"
               description="Smart contract wallet"
@@ -161,6 +192,16 @@ function WalletOption({ label, description, icon, onClick }: { label: string; de
         <div className="text-xs text-muted-foreground">{description}</div>
       </div>
     </button>
+  )
+}
+
+function BrowserWalletIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="12" cy="12" r="3" fill="currentColor"/>
+      <path d="M6 8h2M16 8h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
   )
 }
 
