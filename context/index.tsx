@@ -2,37 +2,34 @@
 
 import { getConfig } from "@/config"
 import type { ReactNode } from "react"
-import { useState, useEffect } from "react"
-import { WagmiProvider } from "wagmi"
+import { useState } from "react"
+import { WagmiProvider, cookieToInitialState } from "wagmi"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeProvider } from "@/components/theme-provider"
 
 type Props = {
   children: ReactNode
+  cookies?: string | null
 }
 
-function ContextProvider({ children }: Props) {
+function ContextProvider({ children, cookies }: Props) {
   const [config] = useState(() => getConfig())
-  const [queryClient] = useState(() => new QueryClient())
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60 * 1000,
+          },
+        },
+      })
+  )
 
-  // Suppress WalletConnect telemetry errors in browser environment
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const originalFetch = window.fetch
-      window.fetch = function (...args) {
-        const url = args[0]
-        // Block WalletConnect telemetry requests but allow other fetches
-        if (typeof url === "string" && url.includes("pulse.walletconnect.org")) {
-          return Promise.reject(new Error("WalletConnect telemetry disabled"))
-        }
-        return originalFetch.apply(this, args)
-      }
-    }
-  }, [])
+  const initialState = cookies ? cookieToInitialState(config, cookies) : undefined
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <WagmiProvider config={config}>
+      <WagmiProvider config={config} initialState={initialState}>
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       </WagmiProvider>
     </ThemeProvider>
