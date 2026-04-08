@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
-import { parseEther, parseUnits, encodeFunctionData, encodeAbiParameters, parseAbi, parseAbiItem, isAddress } from "viem"
+import { parseEther, parseUnits, encodeFunctionData, isAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
@@ -171,13 +171,29 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
     if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for ETH transfer")
     return { target: action.recipient as `0x${string}`, value: parseEther(action.amount || "0"), signature: "", calldata: "0x" }
   }
-  if (action.type === "weth" || action.type === "usdc") {
-    if (!isAddress(action.recipient || "")) throw new Error(`Invalid recipient address for ${action.type.toUpperCase()} transfer`)
-    const tokenAddress = action.type === "weth" ? WETH : USDC
-    const decimals = action.type === "usdc" ? 6 : 18
-    const transferAbi = parseAbi(["function transfer(address to, uint256 amount) returns (bool)"])
-    const data = encodeFunctionData({ abi: transferAbi, functionName: "transfer", args: [action.recipient as `0x${string}`, parseUnits(action.amount || "0", decimals)] })
-    return { target: tokenAddress, value: 0n, signature: "", calldata: data }
+  if (action.type === "usdc") {
+    if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for USDC transfer")
+    // USDC uses 6 decimals
+    const amountInUnits = parseUnits(action.amount || "0", 6)
+    // ERC20 transfer ABI - standard interface
+    const erc20TransferAbi = [
+      {
+        name: "transfer",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "to", type: "address" },
+          { name: "amount", type: "uint256" }
+        ],
+        outputs: [{ name: "", type: "bool" }]
+      }
+    ] as const
+    const data = encodeFunctionData({
+      abi: erc20TransferAbi,
+      functionName: "transfer",
+      args: [action.recipient as `0x${string}`, amountInUnits]
+    })
+    return { target: USDC, value: 0n, signature: "", calldata: data }
   }
   // custom: encode from fetched ABI + selected function + arg values
   if (!isAddress(action.target || "")) throw new Error("Invalid target address for custom call")
