@@ -163,9 +163,10 @@ function ProposalVotingCardContent({
   const forNouns = Number(proposal.forVotes)
   const againstNouns = Number(proposal.againstVotes)
   const abstainNouns = Number(proposal.abstainVotes)
-  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 72
-  const totalVotes = forNouns + againstNouns + abstainNouns
-  const quorumMet = totalVotes >= quorumNeeded
+  // Quorum is the number of For votes needed to pass - fetched from contract via quorumVotes(proposalId)
+  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 0
+  // Quorum is met when For votes >= required quorum
+  const quorumMet = forNouns >= quorumNeeded
 
   return (
     <Card
@@ -247,7 +248,7 @@ function ProposalVotingCardContent({
         </div>
 
         <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
+          Quorum: {forNouns} / {quorumNeeded} For votes {quorumMet ? "✓" : "needed"}
         </div>
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>

@@ -23,21 +23,37 @@ const PROPOSAL_STATES = [
 const cache: { 
   proposals?: { data: any; timestamp: number }
   single: Record<string, { data: any; timestamp: number }>
-  quorumBPS?: { data: bigint; timestamp: number }
-  nounsCount?: { data: bigint; timestamp: number }
-} = { single: {} }
+  quorum: Record<string, { data: bigint; timestamp: number }>
+} = { single: {}, quorum: {} }
 const CACHE_TTL_LIST = 60_000 // 1 minute for list
 const CACHE_TTL_SINGLE = 120_000 // 2 minutes for single proposal
-const CACHE_TTL_QUORUM = 86400_000 // 24 hours for quorum data (stable governance params)
+const CACHE_TTL_QUORUM = 60_000 // 1 minute for quorum (can change as votes come in)
 
-// Nouns DAO quorum: 10% (1000 BPS) of total supply
-// Current approximate Nouns in circulation: ~1100
-// Therefore base quorum is approximately 110 Nouns
-const NOUNS_BASE_QUORUM = 110n // Hardcoded to avoid rate limiting RPC calls
-
-// Calculate dynamic quorum: baseQuorum + againstVotes
-function calculateDynamicQuorum(againstVotes: bigint): bigint {
-  return NOUNS_BASE_QUORUM + againstVotes
+// Fetch dynamic quorum for a proposal directly from the contract
+// This uses the quorumVotes(proposalId) function which returns the exact quorum needed
+async function fetchProposalQuorum(proposalId: number): Promise<bigint> {
+  const cacheKey = String(proposalId)
+  if (cache.quorum[cacheKey] && Date.now() - cache.quorum[cacheKey].timestamp < CACHE_TTL_QUORUM) {
+    return cache.quorum[cacheKey].data
+  }
+  
+  try {
+    // quorumVotes(uint256 proposalId) -> uint256
+    const QUORUM_VOTES_SEL = "0x56781388" // keccak256("quorumVotes(uint256)")[:4]
+    const data = encodeFunctionCall(QUORUM_VOTES_SEL, BigInt(proposalId))
+    const result = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data }, "latest"])
+    
+    if (result && result !== "0x") {
+      const quorum = BigInt(result)
+      cache.quorum[cacheKey] = { data: quorum, timestamp: Date.now() }
+      return quorum
+    }
+  } catch (err) {
+    console.error("[v0] Failed to fetch quorum for proposal", proposalId, ":", err)
+  }
+  
+  // Fallback: return 0 to indicate quorum couldn't be fetched
+  return BigInt(0)
 }
 
 // Batch JSON-RPC: send multiple calls, chunked to respect provider limits
@@ -336,6 +352,8 @@ async function fetchSingleProposal(id: number) {
       
       if (json.data?.proposal) {
         const p = json.data.proposal
+        // Fetch actual quorum from contract even when using subgraph for other data
+        const quorumValue = await fetchProposalQuorum(id)
         const result = {
           id: Number(p.id),
           proposer: p.proposer?.id || "0x0000000000000000000000000000000000000000",
@@ -344,7 +362,7 @@ async function fetchSingleProposal(id: number) {
           forVotes: p.forVotes || "0",
           againstVotes: p.againstVotes || "0",
           abstainVotes: p.abstainVotes || "0",
-          quorumVotes: (BigInt(p.againstVotes || "0") / BigInt(4) * BigInt(100) + BigInt(72)).toString(),
+          quorumVotes: quorumValue.toString(),
           status: (PROPOSAL_STATES[Number(p.state)] || "Unknown").toUpperCase(),
           stateNumber: Number(p.state) || 0,
           startBlock: p.startBlock || "0",
@@ -412,9 +430,9 @@ async function fetchSingleProposal(id: number) {
     }
   } catch { /* description stays as fallback */ }
 
-  // Calculate dynamic quorum: base quorum + against votes
-  const dynamicQuorum = calculateDynamicQuorum(againstVotes)
-  const quorumVotes = dynamicQuorum.toString()
+  // Fetch the actual quorum from the contract
+  const quorumValue = await fetchProposalQuorum(id)
+  const quorumVotes = quorumValue.toString()
 
   const result = {
     id,
