@@ -1,24 +1,16 @@
 import { NextResponse } from "next/server"
 
-// The Graph decentralized network - requires API key for access
-// Get a free API key at https://thegraph.com/studio/apikeys/
-const GRAPH_API_KEY = process.env.GRAPH_API_KEY || ""
-const SUBGRAPH_ID = "5qcR6rAfDMZCVGuZ6DDois7y4zyXqsyqvaqhE6NRRraW"
+// Goldsky public endpoint - same as nouns.wtf uses (free, no API key required)
+const GOLDSKY_URL = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
 
 // Cache for candidates
 const cache: {
   candidates?: { data: any[]; timestamp: number; total: number }
 } = {}
-const CACHE_TTL = 300_000 // 5 minute cache
+const CACHE_TTL = 120_000 // 2 minute cache
 
-// Query The Graph for candidates
-async function fetchCandidatesFromGraph(): Promise<{ candidates: any[]; total: number }> {
-  if (!GRAPH_API_KEY) {
-    return { candidates: [], total: 0 }
-  }
-
-  const url = `https://gateway-arbitrum.network.thegraph.com/api/${GRAPH_API_KEY}/subgraphs/id/${SUBGRAPH_ID}`
-  
+// Query Goldsky for candidates (same endpoint nouns.wtf uses)
+async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total: number }> {
   const query = `{
     proposalCandidates(first: 100, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
       id
@@ -37,14 +29,19 @@ async function fetchCandidatesFromGraph(): Promise<{ candidates: any[]; total: n
   }`
 
   try {
-    const response = await fetch(url, {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    
+    const response = await fetch(GOLDSKY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
 
     if (!response.ok) {
-      console.error("[candidates] Graph API error:", response.status)
+      console.error("[candidates] Goldsky API error:", response.status)
       return { candidates: [], total: 0 }
     }
 
@@ -76,7 +73,7 @@ async function fetchCandidatesFromGraph(): Promise<{ candidates: any[]; total: n
 
     return { candidates, total: candidates.length }
   } catch (err: any) {
-    console.error("[candidates] Failed to fetch from Graph:", err.message)
+    console.error("[candidates] Failed to fetch from Goldsky:", err.message)
     return { candidates: [], total: 0 }
   }
 }
@@ -116,8 +113,8 @@ export async function GET(request: Request) {
     })
   }
 
-  // Try to fetch from The Graph if API key is available
-  const { candidates, total } = await fetchCandidatesFromGraph()
+  // Fetch from Goldsky (free public endpoint)
+  const { candidates, total } = await fetchCandidatesFromGoldsky()
   
   if (candidates.length > 0) {
     // Update cache
@@ -133,7 +130,7 @@ export async function GET(request: Request) {
     })
   }
 
-  // Return unavailable message if no API key or fetch failed
+  // Return unavailable message if fetch failed
   return NextResponse.json({
     candidates: [],
     total: 0,
