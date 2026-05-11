@@ -165,56 +165,6 @@ async function fetchCandidatesFromBlockchain(): Promise<any[]> {
     throw err
   }
 }
-    
-    console.log(`[candidates] Found ${logs.length} candidate creation events`)
-    
-    // Parse the logs into candidate objects
-    const candidates = logs.map((log: any, index: number) => {
-      try {
-        const proposer = "0x" + (log.topics[1]?.slice(-40) || "0")
-        const blockNumber = parseInt(log.blockNumber, 16)
-        const transactionHash = log.transactionHash
-        
-        // Extract data from the ABI-encoded log data
-        // Data contains: targets, values, signatures, calldatas, description, slug, proposalIdToUpdate, encodedProposalHash
-        // For simplicity, extract slug and description from data
-        let slug = ""
-        let description = ""
-        
-        try {
-          // The data is ABI encoded. For a better implementation, we'd decode it properly.
-          // For now, use a placeholder based on transaction
-          slug = `candidate-${logs.length - index}`
-          description = `Proposal candidate by ${proposer.slice(0, 6)}...${proposer.slice(-4)}`
-        } catch {
-          slug = `candidate-${logs.length - index}`
-        }
-        
-        return {
-          id: transactionHash + "-" + log.logIndex,
-          candidateNumber: logs.length - index, // Newest first = highest number
-          slug,
-          proposer,
-          title: `Candidate #${logs.length - index}`,
-          description,
-          createdTimestamp: 0, // Would need to fetch block timestamp separately
-          createdBlock: blockNumber.toString(),
-          createdTransactionHash: transactionHash,
-          canceled: false,
-        }
-      } catch (err: any) {
-        console.error("[candidates] Error parsing log:", err.message)
-        return null
-      }
-    }).filter(Boolean)
-    
-    console.log(`[candidates] Successfully parsed ${candidates.length} candidates from events`)
-    return candidates
-  } catch (err: any) {
-    console.error("[candidates] Failed to fetch candidates from blockchain:", err.message)
-    throw err
-  }
-}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
