@@ -478,6 +478,8 @@ export function useCandidateIds(limit = 20) {
   const [isFetchingMore, setIsFetchingMore] = useState(false)
   const [offset, setOffset] = useState(0)
   const [mounted, setMounted] = useState(false)
+  const [unavailable, setUnavailable] = useState(false)
+  const [externalUrl, setExternalUrl] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -489,20 +491,31 @@ export function useCandidateIds(limit = 20) {
     const fetchCandidates = async () => {
       try {
         const res = await fetch(`/api/nouns/candidates?limit=${limit}&offset=${offset}`, {
-          signal: AbortSignal.timeout(120000), // 2 minute timeout for initial fetch which may take a while
+          signal: AbortSignal.timeout(30000), // 30 second timeout
         })
         
         if (res.ok) {
           const data = await res.json()
-          if (offset === 0) {
-            // First load: replace candidates
-            setCandidates(data.candidates || [])
+          
+          // Check if data is unavailable (requires Graph API key)
+          if (data.unavailable) {
+            setUnavailable(true)
+            setExternalUrl(data.externalUrl || "https://nouns.wtf/vote#candidates")
+            setCandidates([])
+            setTotalCount(0)
+            setHasMore(false)
           } else {
-            // Pagination: append candidates
-            setCandidates(prev => [...prev, ...(data.candidates || [])])
+            setUnavailable(false)
+            if (offset === 0) {
+              // First load: replace candidates
+              setCandidates(data.candidates || [])
+            } else {
+              // Pagination: append candidates
+              setCandidates(prev => [...prev, ...(data.candidates || [])])
+            }
+            setTotalCount(data.total || 0)
+            setHasMore(data.hasMore || false)
           }
-          setTotalCount(data.total || 0)
-          setHasMore(data.hasMore || false)
         } else {
           if (offset === 0) {
             setCandidates([])
@@ -516,6 +529,8 @@ export function useCandidateIds(limit = 20) {
           setCandidates([])
           setTotalCount(0)
           setHasMore(false)
+          setUnavailable(true)
+          setExternalUrl("https://nouns.wtf/vote#candidates")
         }
       } finally {
         offset === 0 ? setIsLoading(false) : setIsFetchingMore(false)
@@ -536,7 +551,7 @@ export function useCandidateIds(limit = 20) {
     }
   }
 
-  return { candidates, totalCount, hasMore, isLoading, isFetchingMore, loadMore }
+  return { candidates, totalCount, hasMore, isLoading, isFetchingMore, loadMore, unavailable, externalUrl }
 }
 
 export function useCandidateData(candidateId: string) {

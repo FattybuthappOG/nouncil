@@ -440,6 +440,8 @@ function LiveGovernanceDashboardContent() {
 
   const safeCandidates = candidateIdsData?.candidates || []
   const totalCandidates = candidateIdsData?.totalCount || 0
+  const candidatesUnavailable = candidateIdsData?.unavailable || false
+  const candidatesExternalUrl = candidateIdsData?.externalUrl || "https://nouns.wtf/vote#candidates"
 
   const hasMoreCandidates = displayedCandidates < totalCandidates
 
@@ -988,18 +990,42 @@ function LiveGovernanceDashboardContent() {
             </div>
           )}
 
-          {activeTab === "candidates" && (
-            <>
-              {candidateIdsData?.isLoading ? (
-                <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  <p className="mt-4 text-gray-500">{t("loading")}</p>
-                </div>
-              ) : safeCandidates.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("noCandidatesFound")}</p>
-                </div>
-              ) : (
+{activeTab === "candidates" && (
+  <>
+  {candidateIdsData?.isLoading ? (
+  <div className="text-center py-12">
+  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+  <p className="mt-4 text-gray-500">{t("loading")}</p>
+  </div>
+  ) : candidatesUnavailable ? (
+  <div className="text-center py-12">
+  <div className={`rounded-lg p-8 ${isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"}`}>
+    <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+      Candidates Temporarily Unavailable
+    </h3>
+    <p className={`mb-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+      Candidate data requires access to The Graph&apos;s decentralized network which needs an API key.
+      <br />
+      You can view all candidates on the official Nouns website.
+    </p>
+    <a
+      href={candidatesExternalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110"
+    >
+      View Candidates on nouns.wtf
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+      </svg>
+    </a>
+  </div>
+  </div>
+  ) : safeCandidates.length === 0 ? (
+  <div className="text-center py-12">
+  <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("noCandidatesFound")}</p>
+  </div>
+  ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {safeCandidates.map((candidate) => (
