@@ -171,7 +171,8 @@ async function fetchProposalQuorum(proposalId: number): Promise<bigint> {
   
   try {
     // quorumVotes(uint256 proposalId) -> uint256
-    const QUORUM_VOTES_SEL = "0x56781388" // keccak256("quorumVotes(uint256)")[:4]
+    // Correct function selector: keccak256("quorumVotes(uint256)")[:4] = 0x0f7b1f08
+    const QUORUM_VOTES_SEL = "0x0f7b1f08"
     const data = encodeFunctionCall(QUORUM_VOTES_SEL, BigInt(proposalId))
     const result = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data }, "latest"])
     
