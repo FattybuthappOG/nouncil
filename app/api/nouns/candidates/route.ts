@@ -123,29 +123,18 @@ export async function GET(request: Request) {
   // Fetch from Goldsky (free public endpoint)
   const { candidates, total } = await fetchCandidatesFromGoldsky()
   
-  if (candidates.length > 0) {
-    // Update cache
-    cache.candidates = { data: candidates, timestamp: Date.now(), total }
-    
-    const paginatedCandidates = candidates.slice(offset, offset + limit)
-    return NextResponse.json({
-      candidates: paginatedCandidates,
-      total,
-      hasMore: total > offset + limit,
-      offset,
-      limit,
-    })
-  }
-
-  // Return unavailable message if fetch failed
+  // Update cache regardless of whether we have candidates
+  cache.candidates = { data: candidates, timestamp: Date.now(), total }
+  
+  const paginatedCandidates = candidates.slice(offset, offset + limit)
+  
+  // Always return successful response when query succeeds (even if no candidates found)
+  // Only set unavailable: true if there was an actual error
   return NextResponse.json({
-    candidates: [],
-    total: 0,
-    hasMore: false,
+    candidates: paginatedCandidates,
+    total,
+    hasMore: total > offset + limit,
     offset,
     limit,
-    unavailable: true,
-    message: "View existing candidates on nouns.wtf or create a new proposal candidate below.",
-    externalUrl: "https://nouns.wtf/vote#candidates"
   })
 }
