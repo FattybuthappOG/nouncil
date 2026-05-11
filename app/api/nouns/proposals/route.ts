@@ -29,33 +29,6 @@ const CACHE_TTL_LIST = 60_000 // 1 minute for list
 const CACHE_TTL_SINGLE = 120_000 // 2 minutes for single proposal
 const CACHE_TTL_QUORUM = 60_000 // 1 minute for quorum (can change as votes come in)
 
-// Fetch dynamic quorum for a proposal directly from the contract
-// This uses the quorumVotes(proposalId) function which returns the exact quorum needed
-async function fetchProposalQuorum(proposalId: number): Promise<bigint> {
-  const cacheKey = String(proposalId)
-  if (cache.quorum[cacheKey] && Date.now() - cache.quorum[cacheKey].timestamp < CACHE_TTL_QUORUM) {
-    return cache.quorum[cacheKey].data
-  }
-  
-  try {
-    // quorumVotes(uint256 proposalId) -> uint256
-    const QUORUM_VOTES_SEL = "0x56781388" // keccak256("quorumVotes(uint256)")[:4]
-    const data = encodeFunctionCall(QUORUM_VOTES_SEL, BigInt(proposalId))
-    const result = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data }, "latest"])
-    
-    if (result && result !== "0x") {
-      const quorum = BigInt(result)
-      cache.quorum[cacheKey] = { data: quorum, timestamp: Date.now() }
-      return quorum
-    }
-  } catch (err) {
-    console.error("[v0] Failed to fetch quorum for proposal", proposalId, ":", err)
-  }
-  
-  // Fallback: return 0 to indicate quorum couldn't be fetched
-  return BigInt(0)
-}
-
 // Batch JSON-RPC: send multiple calls, chunked to respect provider limits
 // drpc.org free tier: max 3 requests per batch
 // llamarpc.com: max 25 requests per batch
@@ -186,6 +159,33 @@ function decodeSlot(hex: string, slot: number): bigint {
 function decodeAddress(hex: string, slot: number): string {
   const start = 2 + slot * 64
   return "0x" + hex.slice(start + 24, start + 64)
+}
+
+// Fetch dynamic quorum for a proposal directly from the contract
+// This uses the quorumVotes(proposalId) function which returns the exact quorum needed
+async function fetchProposalQuorum(proposalId: number): Promise<bigint> {
+  const cacheKey = String(proposalId)
+  if (cache.quorum[cacheKey] && Date.now() - cache.quorum[cacheKey].timestamp < CACHE_TTL_QUORUM) {
+    return cache.quorum[cacheKey].data
+  }
+  
+  try {
+    // quorumVotes(uint256 proposalId) -> uint256
+    const QUORUM_VOTES_SEL = "0x56781388" // keccak256("quorumVotes(uint256)")[:4]
+    const data = encodeFunctionCall(QUORUM_VOTES_SEL, BigInt(proposalId))
+    const result = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data }, "latest"])
+    
+    if (result && result !== "0x") {
+      const quorum = BigInt(result)
+      cache.quorum[cacheKey] = { data: quorum, timestamp: Date.now() }
+      return quorum
+    }
+  } catch (err) {
+    console.error("[v0] Failed to fetch quorum for proposal", proposalId, ":", err)
+  }
+  
+  // Fallback: return 0 to indicate quorum couldn't be fetched
+  return BigInt(0)
 }
 
 // Fetch proposal list using batch RPC (2 HTTP requests total: 1 for count, 1 batch for all proposal data)
