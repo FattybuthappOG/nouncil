@@ -65,88 +65,54 @@ const PROPOSAL_CANDIDATE_CREATED_ABI = {
   ]
 }
 
-// Fetch candidates from blockchain events
+// Fetch candidates from blockchain events - optimized for recent candidates only
 async function fetchCandidatesFromBlockchain(): Promise<any[]> {
-  console.log("[candidates] Fetching candidates from blockchain events...")
+  console.log("[candidates] Fetching recent candidates from blockchain events...")
   
   try {
     // Get current block number
     const blockNum = await rpcCall("eth_blockNumber", [])
     const currentBlock = parseInt(blockNum, 16)
     
-    // Look back ~10 days (approximately 43200 blocks on Ethereum)
-    // Most RPC providers limit eth_getLogs to 10000 blocks per query
-    const MAX_BLOCK_RANGE = 5000 // Conservative limit for compatibility
-    const lookbackBlocks = 43200
+    // Look back only ~2 days (approximately 14400 blocks on Ethereum) to get recent candidates
+    // This is much faster than querying all candidates
+    const lookbackBlocks = 14400
     const fromBlock = Math.max(0, currentBlock - lookbackBlocks)
     
-    console.log(`[candidates] Querying logs from block ${fromBlock} to ${currentBlock}`)
+    console.log(`[candidates] Querying recent logs from block ${fromBlock} to ${currentBlock}`)
     
     // ProposalCandidateCreated event selector
     const CANDIDATE_CREATED = "0x1e5b6e5f97b93ce8eafaa1e14a7d6f9e8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a"
     
-    // Fetch logs in chunks to avoid RPC limits
-    let allLogs: any[] = []
-    let chunk = 0
-    const totalChunks = Math.ceil((currentBlock - fromBlock) / MAX_BLOCK_RANGE)
+    // Single query for recent events (should be well under 10000 block limit)
+    const logs = await rpcCall("eth_getLogs", [{
+      address: NOUNS_DAO_DATA,
+      topics: [CANDIDATE_CREATED],
+      fromBlock: "0x" + fromBlock.toString(16),
+      toBlock: "latest",
+    }])
     
-    for (let i = 0; i < totalChunks; i++) {
-      const chunkFromBlock = Math.max(fromBlock, currentBlock - MAX_BLOCK_RANGE * (i + 1))
-      const chunkToBlock = Math.min(currentBlock, currentBlock - MAX_BLOCK_RANGE * i)
-      
-      try {
-        console.log(`[candidates] Querying chunk ${i + 1}/${totalChunks}: blocks ${chunkFromBlock} to ${chunkToBlock}`)
-        
-        const logs = await rpcCall("eth_getLogs", [{
-          address: NOUNS_DAO_DATA,
-          topics: [CANDIDATE_CREATED],
-          fromBlock: "0x" + chunkFromBlock.toString(16),
-          toBlock: "0x" + chunkToBlock.toString(16),
-        }])
-        
-        if (logs && Array.isArray(logs)) {
-          allLogs = allLogs.concat(logs)
-          console.log(`[candidates] Chunk ${i + 1}: found ${logs.length} events`)
-        }
-      } catch (err: any) {
-        console.error(`[candidates] Error querying chunk ${i + 1}:`, err.message)
-        // Continue with other chunks even if one fails
-        continue
-      }
-    }
+    console.log(`[candidates] Found ${logs?.length || 0} recent candidate creation events`)
     
-    console.log(`[candidates] Found ${allLogs.length} total candidate creation events`)
-    
-    if (!allLogs || allLogs.length === 0) {
-      console.log("[candidates] No logs returned from eth_getLogs")
+    if (!logs || !Array.isArray(logs) || logs.length === 0) {
+      console.log("[candidates] No recent candidates found")
       return []
     }
     
-    // Parse the logs into candidate objects
-    const candidates = allLogs.map((log: any, index: number) => {
+    // Parse the logs into candidate objects - newest first
+    const candidates = logs.map((log: any, index: number) => {
       try {
         const proposer = "0x" + (log.topics[1]?.slice(-40) || "0")
         const blockNumber = parseInt(log.blockNumber, 16)
         const transactionHash = log.transactionHash
         
-        // Extract data from the ABI-encoded log data
-        let slug = ""
-        let description = ""
-        
-        try {
-          slug = `candidate-${allLogs.length - index}`
-          description = `Proposal candidate by ${proposer.slice(0, 6)}...${proposer.slice(-4)}`
-        } catch {
-          slug = `candidate-${allLogs.length - index}`
-        }
-        
         return {
           id: transactionHash + "-" + log.logIndex,
-          candidateNumber: allLogs.length - index,
-          slug,
+          candidateNumber: logs.length - index,
+          slug: `candidate-${logs.length - index}`,
           proposer,
-          title: `Candidate #${allLogs.length - index}`,
-          description,
+          title: `Candidate #${logs.length - index}`,
+          description: `Proposed by ${proposer.slice(0, 6)}...${proposer.slice(-4)}`,
           createdTimestamp: 0,
           createdBlock: blockNumber.toString(),
           createdTransactionHash: transactionHash,
@@ -156,9 +122,9 @@ async function fetchCandidatesFromBlockchain(): Promise<any[]> {
         console.error("[candidates] Error parsing log:", err.message)
         return null
       }
-    }).filter(Boolean)
+    }).filter(Boolean).reverse() // Reverse to show newest first (highest number first)
     
-    console.log(`[candidates] Successfully parsed ${candidates.length} candidates from events`)
+    console.log(`[candidates] Successfully parsed ${candidates.length} recent candidates`)
     return candidates
   } catch (err: any) {
     console.error("[candidates] Failed to fetch candidates from blockchain:", err.message)
