@@ -935,19 +935,21 @@ function LiveGovernanceDashboardContent() {
 
           {activeTab === "candidates" && (
             <div className="flex items-center gap-2">
-              <a
-                href="https://nouns.wtf/vote#candidates"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-                  isDarkMode
-                    ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-              >
-                <span className="hidden sm:inline">View on nouns.wtf</span>
-                <span className="sm:hidden">nouns.wtf</span>
-              </a>
+              {candidatesUnavailable && (
+                <a
+                  href="https://nouns.wtf/vote#candidates"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    isDarkMode
+                      ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+                >
+                  <span className="hidden sm:inline">View on nouns.wtf</span>
+                  <span className="sm:hidden">nouns.wtf</span>
+                </a>
+              )}
               <Link
                 href="/create"
                 className="flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
