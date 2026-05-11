@@ -12,8 +12,11 @@ const CACHE_TTL = 120_000 // 2 minute cache
 // Query Goldsky for candidates (same endpoint nouns.wtf uses)
 async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total: number }> {
   // Fetch candidates with the 'number' field which is the real candidate number
-  // This number includes all candidates (canceled, promoted to proposals, etc.)
+  // Also query governance entity to get the total candidates count (includes canceled/promoted)
   const query = `{
+    governance(id: "GOVERNANCE") {
+      totalProposalCandidates
+    }
     proposalCandidates(first: 100, orderBy: number, orderDirection: desc, where: { canceled: false }) {
       id
       number
@@ -57,6 +60,11 @@ async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total:
 
     const rawCandidates = json.data?.proposalCandidates || []
     
+    // Get total from governance entity, or fallback to highest candidate number
+    const governanceTotal = json.data?.governance?.totalProposalCandidates
+    const highestNumber = rawCandidates.length > 0 ? Number(rawCandidates[0].number) : 0
+    const total = governanceTotal ? Number(governanceTotal) : highestNumber
+    
     const candidates = rawCandidates.map((c: any) => {
       const title = c.latestVersion?.content?.title || 
                    parseTitle(c.latestVersion?.content?.description || c.slug || "")
@@ -74,7 +82,7 @@ async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total:
       }
     })
 
-    return { candidates, total: candidates.length }
+    return { candidates, total }
   } catch (err: any) {
     console.error("[candidates] Failed to fetch from Goldsky:", err.message)
     return { candidates: [], total: 0 }
