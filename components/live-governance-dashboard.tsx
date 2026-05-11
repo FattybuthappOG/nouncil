@@ -997,33 +997,47 @@ function LiveGovernanceDashboardContent() {
   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
   <p className="mt-4 text-gray-500">{t("loading")}</p>
   </div>
-  ) : candidatesUnavailable ? (
+  ) : candidatesUnavailable || safeCandidates.length === 0 ? (
   <div className="text-center py-12">
-  <div className={`rounded-lg p-8 ${isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"}`}>
+  <div className={`rounded-lg p-8 max-w-md mx-auto ${isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"}`}>
     <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-      Candidates Temporarily Unavailable
+      Create or View Candidates
     </h3>
-    <p className={`mb-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-      Candidate data requires access to The Graph&apos;s decentralized network which needs an API key.
-      <br />
-      You can view all candidates on the official Nouns website.
+    <p className={`mb-6 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+      Submit proposal candidates here or view existing candidates on the official platforms.
     </p>
-    <a
-      href={candidatesExternalUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110"
-    >
-      View Candidates on nouns.wtf
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-      </svg>
-    </a>
+    <div className="flex flex-col gap-3">
+      <a
+        href="https://nouns.wtf/vote#candidates"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors bg-blue-600 text-white hover:bg-blue-700"
+      >
+        View on nouns.wtf
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </a>
+      <a
+        href="https://nouns.camp/candidates"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors bg-slate-600 text-white hover:bg-slate-700"
+      >
+        View on nouns.camp
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </a>
+      <Link
+        href="/create"
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110"
+      >
+        <PenLine className="w-4 h-4" />
+        Create Candidate
+      </Link>
+    </div>
   </div>
-  </div>
-  ) : safeCandidates.length === 0 ? (
-  <div className="text-center py-12">
-  <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("noCandidatesFound")}</p>
   </div>
   ) : (
                 <>
