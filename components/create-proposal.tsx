@@ -517,8 +517,8 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
               className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
             <p className="text-xs text-muted-foreground mt-1">
               Enter the token ID of a Noun held by the treasury. Check{" "}
-              <a href="https://nouns.wtf/noun/1" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">nouns.wtf</a>
-              {" "}to find treasury-owned Nouns.
+              <a href="https://nouns.wtf/explore?owner=0xb1a32fc9f9d8b2cf86c068cae13108809547ef71" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">treasury Nouns</a>
+              {" "}to find available Nouns.
             </p>
           </div>
           <div className="flex flex-col gap-1">
