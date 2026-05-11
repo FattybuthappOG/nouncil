@@ -11,9 +11,12 @@ const CACHE_TTL = 120_000 // 2 minute cache
 
 // Query Goldsky for candidates (same endpoint nouns.wtf uses)
 async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total: number }> {
+  // Fetch candidates with the 'number' field which is the real candidate number
+  // This number includes all candidates (canceled, promoted to proposals, etc.)
   const query = `{
-    proposalCandidates(first: 100, orderBy: createdTimestamp, orderDirection: desc, where: { canceled: false }) {
+    proposalCandidates(first: 100, orderBy: number, orderDirection: desc, where: { canceled: false }) {
       id
+      number
       slug
       proposer
       createdTimestamp
@@ -54,13 +57,13 @@ async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total:
 
     const rawCandidates = json.data?.proposalCandidates || []
     
-    const candidates = rawCandidates.map((c: any, index: number) => {
+    const candidates = rawCandidates.map((c: any) => {
       const title = c.latestVersion?.content?.title || 
                    parseTitle(c.latestVersion?.content?.description || c.slug || "")
       
       return {
         id: c.id,
-        candidateNumber: rawCandidates.length - index,
+        candidateNumber: Number(c.number), // Use the real candidate number from subgraph
         slug: c.slug,
         proposer: c.proposer,
         title,

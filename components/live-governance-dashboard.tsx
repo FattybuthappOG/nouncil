@@ -997,14 +997,14 @@ function LiveGovernanceDashboardContent() {
   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
   <p className="mt-4 text-gray-500">{t("loading")}</p>
   </div>
-  ) : candidatesUnavailable || safeCandidates.length === 0 ? (
+  ) : candidatesUnavailable ? (
   <div className="text-center py-12">
   <div className={`rounded-lg p-8 max-w-md mx-auto ${isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"}`}>
     <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-      Create or View Candidates
+      Candidates Temporarily Unavailable
     </h3>
     <p className={`mb-6 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-      Submit proposal candidates here or view existing candidates on the official platforms.
+      View existing candidates on nouns.wtf or create a new proposal candidate.
     </p>
     <div className="flex flex-col gap-3">
       <a
