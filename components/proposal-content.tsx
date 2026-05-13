@@ -160,7 +160,7 @@ function ProposalContentInner({
     )
   }
 
-  const { title, body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
+  const { title, content: body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
   const stateLabel = proposal.stateName || getProposalStateLabel(proposal.state?.toString() || "1")
 
   // Show loading if we don't have a title yet (real description not loaded)
@@ -222,12 +222,6 @@ function ProposalContentInner({
             className="gap-2 text-gray-300 hover:text-white"
             onClick={() => {
               if (proposal) {
-                console.log("[v0] Use as Template clicked")
-                console.log("[v0] Title:", title)
-                console.log("[v0] Body length:", body?.length)
-                console.log("[v0] Targets:", proposal.targets)
-                console.log("[v0] Values:", proposal.values)
-                console.log("[v0] Calldatas:", proposal.calldatas)
                 // Store template data and navigate
                 const url = storeTemplateData({
                   type: "proposal",

@@ -35,7 +35,7 @@ export function decodeReplicationData(encoded: string): ProposalReplicationData 
     const jsonStr = new TextDecoder().decode(bytes)
     return JSON.parse(jsonStr)
   } catch (e) {
-    console.error("[v0] Failed to decode replication data:", e)
+    console.error("Failed to decode replication data:", e)
     return null
   }
 }
@@ -47,10 +47,9 @@ export function storeTemplateData(data: ProposalReplicationData): string {
   try {
     const encoded = encodeReplicationData(data)
     localStorage.setItem(STORAGE_KEY, encoded)
-    console.log("[v0] Stored template data, length:", encoded.length)
     return `/create?replicate=${data.type}`
   } catch (e) {
-    console.error("[v0] Failed to store template data:", e)
+    console.error("Failed to store template data:", e)
     return `/create`
   }
 }
@@ -61,12 +60,11 @@ export function storeTemplateData(data: ProposalReplicationData): string {
 export function getReplicationData(): ProposalReplicationData | null {
   try {
     const encoded = localStorage.getItem(STORAGE_KEY)
-    console.log("[v0] Getting template data, found:", !!encoded)
     if (!encoded) return null
     localStorage.removeItem(STORAGE_KEY)
     return decodeReplicationData(encoded)
   } catch (e) {
-    console.error("[v0] Failed to get replication data:", e)
+    console.error("Failed to get replication data:", e)
     return null
   }
 }

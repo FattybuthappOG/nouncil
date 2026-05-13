@@ -613,25 +613,16 @@ export default function CreateProposal() {
   // Load replicated data on mount if available
   useEffect(() => {
     const replicationType = searchParams.get("replicate")
-    console.log("[v0] Loading template, type:", replicationType)
     if (replicationType) {
       const data = getReplicationData()
-      console.log("[v0] Template data retrieved:", {
-        title: data?.title,
-        descLen: data?.description?.length,
-        targetsLen: data?.targets?.length
-      })
       if (data) {
         // Title comes directly from template
         setTitle(data.title || "")
         
         // Convert description markdown to HTML for the TipTap editor
         const htmlContent = marked.parse(data.description || "", { async: false }) as string
-        console.log("[v0] Converted HTML length:", htmlContent.length)
         setBodyHtml(htmlContent)
         
-        setProposalType(data.type === "candidate" ? "candidate" : "onchain")
-        setBodyHtml(htmlContent)
         setProposalType(data.type === "candidate" ? "candidate" : "onchain")
         
         // Reconstruct actions from targets/values/signatures/calldatas
