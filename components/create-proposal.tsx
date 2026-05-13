@@ -8,7 +8,7 @@ import { parseEther, parseUnits, encodeFunctionData, isAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
-  Send, ChevronDown, ChevronUp, Coins, Banknote, AlertCircle, CheckCircle2, Wallet, Copy,
+  Send, ChevronDown, ChevronUp, Coins, Banknote, AlertCircle, CheckCircle2, Wallet,
 } from "lucide-react"
 import Link from "next/link"
 import { useEditor, EditorContent } from "@tiptap/react"
@@ -600,7 +600,6 @@ export default function CreateProposal() {
   const [showActions, setShowActions] = useState(false)
   const [txError, setTxError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
-  const [isReplicated, setIsReplicated] = useState(false)
 
   // Load replicated data on mount if available
   useEffect(() => {
@@ -611,7 +610,6 @@ export default function CreateProposal() {
         setTitle(data.title)
         setBodyHtml(data.description)
         setProposalType(data.type === "candidate" ? "candidate" : "onchain")
-        setIsReplicated(true)
         
         // Reconstruct actions from targets/values/signatures/calldatas
         const newActions: Action[] = data.targets.map((target, idx) => ({
@@ -764,24 +762,6 @@ export default function CreateProposal() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
-        {/* Replication banner */}
-        {isReplicated && (
-          <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-            <Copy className="w-5 h-5 text-blue-400 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-blue-300">Replicated {proposalType === "candidate" ? "Candidate" : "Proposal"}</p>
-              <p className="text-xs text-blue-400/70">All fields have been pre-filled. Edit as needed before submitting.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsReplicated(false)}
-              className="text-xs text-blue-400 hover:text-blue-300 underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
         {/* Title */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Title</label>
