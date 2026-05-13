@@ -8,7 +8,7 @@ import { parseEther, parseUnits, encodeFunctionData, isAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
-  Send, ChevronDown, ChevronUp, Coins, Banknote, AlertCircle, CheckCircle2, Wallet,
+  Send, ChevronDown, ChevronUp, Coins, Banknote, AlertCircle, CheckCircle2, Wallet, Copy,
 } from "lucide-react"
 import Link from "next/link"
 import { useEditor, EditorContent } from "@tiptap/react"
