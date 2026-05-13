@@ -44,6 +44,7 @@ export function decodeReplicationData(encoded: string): ProposalReplicationData 
  * Store replication data in localStorage and return the URL to navigate to
  */
 export function storeTemplateData(data: ProposalReplicationData): string {
+  if (typeof window === "undefined") return `/create`
   try {
     const encoded = encodeReplicationData(data)
     localStorage.setItem(STORAGE_KEY, encoded)
@@ -58,6 +59,7 @@ export function storeTemplateData(data: ProposalReplicationData): string {
  * Get replication data from localStorage and clear it
  */
 export function getReplicationData(): ProposalReplicationData | null {
+  if (typeof window === "undefined") return null
   try {
     const encoded = localStorage.getItem(STORAGE_KEY)
     if (!encoded) return null
