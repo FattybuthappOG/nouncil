@@ -348,6 +348,13 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                         return (
                           <div key={vote.id} className="flex items-center gap-3 px-4 py-2.5">
                             <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${supportConfig.color}`} />
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              vote.support === 1 ? (isDarkMode ? "bg-green-500/10 text-green-400" : "bg-green-50 text-green-600") :
+                              vote.support === 0 ? (isDarkMode ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600") :
+                              (isDarkMode ? "bg-gray-500/10 text-gray-400" : "bg-gray-100 text-gray-500")
+                            }`}>
+                              {supportConfig.label}
+                            </span>
                             <div className="flex-1 min-w-0">
                               <EnsDisplay
                                 address={vote.voter}

@@ -10,7 +10,8 @@ export async function GET(request: Request) {
 
   try {
     const etherscanApiKey = process.env.ETHERSCAN_API_KEY || "YourApiKeyToken"
-    const url = `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${etherscanApiKey}`
+    // Using Etherscan API V2 endpoint
+    const url = `https://api.etherscan.io/v2/api?chainid=1&module=contract&action=getabi&address=${address}&apikey=${etherscanApiKey}`
 
     const response = await fetch(url, { signal: AbortSignal.timeout(10000) })
     if (!response.ok) {
