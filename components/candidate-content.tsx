@@ -101,16 +101,16 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             size="sm"
             className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
             onClick={() => {
-              if (candidate?.latestVersion) {
+              if (candidate) {
                 replicateProposal(
                   {
                     type: "candidate",
-                    title: candidate.latestVersion.content?.title || "",
-                    description: candidate.latestVersion.content?.description || "",
-                    targets: candidate.latestVersion.targets || [],
-                    values: candidate.latestVersion.values?.map(v => v.toString()) || [],
-                    signatures: candidate.latestVersion.signatures || [],
-                    calldatas: candidate.latestVersion.calldatas || [],
+                    title: candidate.description || "", // This is the title from useCandidateData
+                    description: candidate.fullDescription || "", // This is the full description
+                    targets: candidate.targets || [],
+                    values: candidate.values?.map(v => v.toString()) || [],
+                    signatures: candidate.signatures || [],
+                    calldatas: candidate.calldatas || [],
                   },
                   "/create?tab=candidates"
                 )

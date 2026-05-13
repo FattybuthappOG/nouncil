@@ -17,6 +17,7 @@ import TiptapLink from "@tiptap/extension-link"
 import TiptapImage from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
 import { getReplicationData } from "@/lib/proposal-replication"
+import { marked } from "marked"
 
 // NounsDAOData proxy — creates proposal candidates (no clientId param on this contract)
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
@@ -395,14 +396,16 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
           const writeFns: AbiFunction[] = (data.abi as AbiFunction[]).filter(
             f => f.type === "function" && ["nonpayable", "payable"].includes(f.stateMutability)
           )
-          onChange({ ...action, target: addr, isFetching: false, fetchError: undefined, fetchedAbi: writeFns, selectedFunction: writeFns[0]?.name, argValues: {} })
+          // Store index as selectedFunction to handle overloaded functions
+          onChange({ ...action, target: addr, isFetching: false, fetchError: undefined, fetchedAbi: writeFns, selectedFunction: "0", argValues: {} })
         }
       })
       .catch(() => onChange({ ...action, target: addr, isFetching: false, fetchError: "Failed to fetch ABI", fetchedAbi: undefined }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action.target])
 
-  const selectedFn = action.fetchedAbi?.find(f => f.name === action.selectedFunction)
+  const selectedFnIndex = parseInt(action.selectedFunction || "0", 10)
+  const selectedFn = action.fetchedAbi?.[selectedFnIndex]
   const isPayable = selectedFn?.stateMutability === "payable"
 
   const setArg = (name: string, val: string) =>
@@ -439,7 +442,7 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
             Function <span className="text-muted-foreground/70">({action.fetchedAbi.length} available)</span>
           </label>
           <select
-            value={action.selectedFunction || ""}
+            value={action.selectedFunction || "0"}
             onChange={e => onChange({ ...action, selectedFunction: e.target.value, argValues: {} })}
             className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
           >
@@ -448,7 +451,7 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
               const inputs = fn.inputs?.map(i => i.type).join(", ") || ""
               const signature = `${fn.name}(${inputs})`
               return (
-                <option key={`${fn.name}-${idx}`} value={fn.name}>
+                <option key={idx} value={String(idx)}>
                   {signature}
                 </option>
               )
@@ -608,7 +611,9 @@ export default function CreateProposal() {
       const data = getReplicationData()
       if (data) {
         setTitle(data.title)
-        setBodyHtml(data.description)
+        // Convert markdown to HTML for the TipTap editor
+        const htmlContent = marked.parse(data.description || "", { async: false }) as string
+        setBodyHtml(htmlContent)
         setProposalType(data.type === "candidate" ? "candidate" : "onchain")
         
         // Reconstruct actions from targets/values/signatures/calldatas
