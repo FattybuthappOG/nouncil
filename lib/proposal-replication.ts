@@ -12,17 +12,26 @@ export interface ProposalReplicationData {
 
 /**
  * Encode proposal/candidate data to store in sessionStorage
+ * Uses TextEncoder to handle UTF-8 characters properly
  */
 export function encodeReplicationData(data: ProposalReplicationData): string {
-  return btoa(JSON.stringify(data))
+  const jsonStr = JSON.stringify(data)
+  // Convert to UTF-8 bytes, then to base64-safe string
+  const bytes = new TextEncoder().encode(jsonStr)
+  const binString = Array.from(bytes, (b) => String.fromCodePoint(b)).join('')
+  return btoa(binString)
 }
 
 /**
  * Decode proposal/candidate data from sessionStorage
+ * Uses TextDecoder to handle UTF-8 characters properly
  */
 export function decodeReplicationData(encoded: string): ProposalReplicationData | null {
   try {
-    return JSON.parse(atob(encoded))
+    const binString = atob(encoded)
+    const bytes = Uint8Array.from(binString, (c) => c.charCodeAt(0))
+    const jsonStr = new TextDecoder().decode(bytes)
+    return JSON.parse(jsonStr)
   } catch {
     return null
   }

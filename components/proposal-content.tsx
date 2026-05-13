@@ -240,7 +240,7 @@ function ProposalContentInner({
             }}
           >
             <Copy className="h-4 w-4" />
-            <span className="hidden sm:inline">Replicate</span>
+            <span className="hidden sm:inline">Use as Template</span>
           </Button>
         </div>
       </div>
