@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, Clock, ExternalLink } from "lucide-react"
+import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
+import { ActivitySection } from "@/components/activity-section"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
@@ -67,16 +68,33 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   const candidateNumber = candidateId.split("-").pop() || candidateId
 
   return (
-    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
-      <div className="max-w-4xl mx-auto w-full">
-        <Button
-          variant="ghost"
-          className={`mb-6 gap-2 ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-[#252540]" : ""}`}
-          onClick={() => router.push("/?tab=candidates")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Candidates
-        </Button>
+    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"}`}>
+      <div className={`sticky top-0 z-50 backdrop-blur-sm border-b ${isDarkMode ? "bg-[#1a1a2e]/95 border-[#3a3a5a]" : "bg-gray-50/95 border-gray-200"}`}>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between w-full">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
+            onClick={() => router.push("/?tab=candidates")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
+            onClick={() => {
+              document.getElementById("activity-section")?.scrollIntoView({ behavior: "smooth" })
+            }}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Activity</span>
+          </Button>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-6 w-full">
 
         <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
           <CardHeader>
@@ -211,6 +229,9 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             )}
           </CardContent>
         </Card>
+
+        {/* Activity Section - Signals for candidates */}
+        <ActivitySection candidateId={candidateId} isDarkMode={isDarkMode} />
       </div>
     </div>
   )

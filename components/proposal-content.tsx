@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink } from "lucide-react"
+import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare } from "lucide-react"
 import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
@@ -14,6 +14,7 @@ import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
+import { ActivitySection } from "@/components/activity-section"
 import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
@@ -198,6 +199,17 @@ function ProposalContentInner({
           >
             <ArrowLeft className="h-4 w-4" />
             {t.back}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-gray-300 hover:text-white"
+            onClick={() => {
+              document.getElementById("activity-section")?.scrollIntoView({ behavior: "smooth" })
+            }}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Activity</span>
           </Button>
         </div>
       </div>
@@ -476,67 +488,7 @@ function ProposalContentInner({
         )}
 
         {/* Activity Section */}
-        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">{t.activity}</h2>
-              {votes.votes && votes.votes.length > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {votes.votes.length} vote{votes.votes.length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-            {votes.isLoading ? (
-              <p className="text-muted-foreground">{t.loadingVotes}</p>
-            ) : votes.votes && votes.votes.length > 0 ? (
-              <div className="space-y-3">
-                {(showAllVotes ? votes.votes : votes.votes.slice(0, 10)).map(
-                  (
-                    vote: { voter: string; support: number; supportLabel: string; votes: string; reason?: string },
-                    index: number,
-                  ) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-700">
-                      <div className="flex items-center gap-2">
-                        {vote.support === 1 ? (
-                          <ThumbsUp className="h-4 w-4 text-green-400" />
-                        ) : vote.support === 0 ? (
-                          <ThumbsDown className="h-4 w-4 text-red-400" />
-                        ) : (
-                          <Minus className="h-4 w-4 text-gray-400" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <EnsDisplay
-                            address={vote.voter}
-                            showAvatar
-                            avatarSize={20}
-                            className="font-medium truncate"
-                          />
-                          <span className="font-mono text-sm text-muted-foreground whitespace-nowrap">
-                            {vote.votes} votes
-                          </span>
-                        </div>
-                        {vote.reason && <p className="text-sm text-muted-foreground mt-1 break-words">{vote.reason}</p>}
-                      </div>
-                    </div>
-                  ),
-                )}
-                {votes.votes.length > 10 && (
-                  <Button
-                    variant="ghost"
-                    className="w-full text-muted-foreground hover:text-white"
-                    onClick={() => setShowAllVotes(!showAllVotes)}
-                  >
-                    {showAllVotes ? "Show Less" : `Show All ${votes.votes.length} Votes`}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">{t.noVotesYet}</p>
-            )}
-          </CardContent>
-        </Card>
+        <ActivitySection proposalId={proposalId} isDarkMode={isDarkMode} />
       </div>
     </div>
   )
