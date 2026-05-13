@@ -205,7 +205,11 @@ function ProposalContentInner({
             size="sm"
             className="gap-2 text-gray-300 hover:text-white"
             onClick={() => {
-              document.getElementById("activity-section")?.scrollIntoView({ behavior: "smooth" })
+              const el = document.getElementById("activity-section")
+              if (el) {
+                const top = el.getBoundingClientRect().top + window.scrollY - 64
+                window.scrollTo({ top, behavior: "smooth" })
+              }
             }}
           >
             <MessageSquare className="h-4 w-4" />

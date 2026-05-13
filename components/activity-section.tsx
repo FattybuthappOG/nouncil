@@ -313,18 +313,14 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
           <>
             {/* Votes tab */}
             {activeTab === "votes" && (
-              <div className="space-y-3">
-                {votesWithReasons.length === 0 && votes.length > 0 && (
-                  <p className={`text-sm text-center py-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                    {votes.length} votes cast, none with reasons
-                  </p>
-                )}
-                {votesWithReasons.length === 0 && votes.length === 0 && (
+              <div className="space-y-2">
+                {votes.length === 0 && (
                   <p className={`text-sm text-center py-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
                     No votes yet
                   </p>
                 )}
-                {votesWithReasons.map((vote) => (
+                {/* Votes with reasons - full card */}
+                {votes.filter(v => v.reason?.trim()).map((vote) => (
                   <FeedbackItem
                     key={vote.id}
                     voter={vote.voter}
@@ -335,10 +331,39 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                     isDarkMode={isDarkMode}
                   />
                 ))}
-                {votes.length > votesWithReasons.length && votesWithReasons.length > 0 && (
-                  <p className={`text-xs text-center pt-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                    + {votes.length - votesWithReasons.length} more votes without reasons
-                  </p>
+                {/* Votes without reasons - compact rows */}
+                {votes.filter(v => !v.reason?.trim()).length > 0 && (
+                  <div className={`rounded-lg border ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                    <div className={`px-4 py-2 text-xs font-medium border-b ${isDarkMode ? "text-gray-400 border-gray-700" : "text-gray-500 border-gray-200"}`}>
+                      {votes.filter(v => !v.reason?.trim()).length} votes without reason
+                    </div>
+                    <div className="divide-y divide-gray-700/50">
+                      {votes.filter(v => !v.reason?.trim()).map((vote) => {
+                        const supportConfig = {
+                          0: { label: "Against", icon: ThumbsDown, color: "text-red-500" },
+                          1: { label: "For", icon: ThumbsUp, color: "text-green-500" },
+                          2: { label: "Abstain", icon: Minus, color: "text-gray-400" },
+                        }[vote.support] || { label: "Unknown", icon: Minus, color: "text-gray-400" }
+                        const Icon = supportConfig.icon
+                        return (
+                          <div key={vote.id} className="flex items-center gap-3 px-4 py-2.5">
+                            <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${supportConfig.color}`} />
+                            <div className="flex-1 min-w-0">
+                              <EnsDisplay
+                                address={vote.voter}
+                                showAvatar
+                                avatarSize={16}
+                                className={`text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}
+                              />
+                            </div>
+                            <span className={`text-xs tabular-nums flex-shrink-0 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                              {vote.votes} {vote.votes === 1 ? "vote" : "votes"}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
