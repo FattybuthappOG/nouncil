@@ -440,21 +440,51 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
       )}
 
       {/* Step 3: per-argument inputs */}
-      {selectedFn && selectedFn.inputs.map(inp => (
-        <div key={inp.name} className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{inp.name}</span>
-            <span className="ml-1 text-muted-foreground/70">({inp.type})</span>
-          </label>
-          <input
-            type="text"
-            value={(action.argValues || {})[inp.name] || ""}
-            onChange={e => setArg(inp.name, e.target.value)}
-            placeholder={inp.type === "address" ? "0x..." : inp.type.startsWith("uint") || inp.type.startsWith("int") ? "0" : inp.type === "bool" ? "true / false" : "..."}
-            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-          />
-        </div>
-      ))}
+      {selectedFn && selectedFn.inputs.map(inp => {
+        const isArray = inp.type.endsWith("[]")
+        const baseType = inp.type.replace("[]", "")
+        let placeholder = "..."
+        let helpText = ""
+        
+        if (baseType === "address") {
+          placeholder = "0x..."
+          helpText = "Ethereum address"
+        } else if (baseType.startsWith("uint") || baseType.startsWith("int")) {
+          placeholder = "0"
+          helpText = baseType
+        } else if (baseType === "bool") {
+          placeholder = "true / false"
+          helpText = "Boolean value"
+        } else if (baseType === "bytes" || baseType.startsWith("bytes")) {
+          placeholder = "0x..."
+          helpText = "Hex encoded bytes"
+        } else if (baseType === "string") {
+          placeholder = "text"
+          helpText = "Text string"
+        }
+        
+        if (isArray) {
+          helpText += " (array - use JSON format like [\"addr1\", \"addr2\"])"
+          placeholder = isArray && baseType === "address" ? "[\"0x...\", \"0x...\"]" : "[...]"
+        }
+        
+        return (
+          <div key={inp.name} className="flex flex-col gap-1.5">
+            <label className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{inp.name}</span>
+              <span className="ml-1 text-muted-foreground/70">({inp.type})</span>
+            </label>
+            <input
+              type="text"
+              value={(action.argValues || {})[inp.name] || ""}
+              onChange={e => setArg(inp.name, e.target.value)}
+              placeholder={placeholder}
+              className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+            {helpText && <p className="text-[10px] text-muted-foreground/60">{helpText}</p>}
+          </div>
+        )
+      })}
 
       {/* Step 4: ETH value — only for payable functions */}
       {isPayable && (
