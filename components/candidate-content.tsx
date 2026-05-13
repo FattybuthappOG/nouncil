@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, Clock, ExternalLink } from "lucide-react"
+import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
+import { ActivitySection } from "@/components/activity-section"
+import { storeTemplateData } from "@/lib/proposal-replication"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
@@ -67,16 +69,59 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   const candidateNumber = candidateId.split("-").pop() || candidateId
 
   return (
-    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
-      <div className="max-w-4xl mx-auto w-full">
-        <Button
-          variant="ghost"
-          className={`mb-6 gap-2 ${isDarkMode ? "text-gray-300 hover:text-white hover:bg-[#252540]" : ""}`}
-          onClick={() => router.push("/?tab=candidates")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Candidates
-        </Button>
+    <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"}`}>
+      <div className={`sticky top-0 z-50 backdrop-blur-sm border-b ${isDarkMode ? "bg-[#1a1a2e]/95 border-[#3a3a5a]" : "bg-gray-50/95 border-gray-200"}`}>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between w-full">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
+            onClick={() => router.push("/?tab=candidates")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
+            onClick={() => {
+              const el = document.getElementById("activity-section")
+              if (el) {
+                const top = el.getBoundingClientRect().top + window.scrollY - 64
+                window.scrollTo({ top, behavior: "smooth" })
+              }
+            }}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Activity</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
+            onClick={() => {
+              if (candidate?.id) {
+                const url = storeTemplateData({
+                  type: "candidate",
+                  title: candidate.description || "",
+                  description: candidate.fullDescription || "",
+                  targets: candidate.targets || [],
+                  values: candidate.values?.map((v: any) => v.toString()) || [],
+                  signatures: candidate.signatures || [],
+                  calldatas: candidate.calldatas || [],
+                })
+                router.push(url)
+              }
+            }}
+          >
+            <Copy className="h-4 w-4" />
+            <span className="hidden sm:inline">Use as Template</span>
+          </Button>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-6 w-full">
 
         <Card className={isDarkMode ? "bg-[#252540] border-[#3a3a5a]" : ""}>
           <CardHeader>
@@ -98,7 +143,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             <div className="flex items-center gap-6 text-sm flex-wrap">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{signatures.data?.length || 0} signatures</span>
+                <span>{signatures.signatures?.length || 0} signatures</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -191,18 +236,18 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               </div>
             </div>
 
-            {signatures.data && signatures.data.length > 0 && (
+            {signatures.signatures && signatures.signatures.length > 0 && (
               <>
                 <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
                 <div>
                   <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Signers</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {signatures.data.map((sig: { signer: { id: string } }, index: number) => (
+                    {signatures.signatures.map((sig: { signer: string }, index: number) => (
                       <div
                         key={index}
                         className={`flex items-center gap-2 p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-muted"}`}
                       >
-                        <EnsDisplay address={sig.signer.id} showAvatar avatarSize={24} />
+                        <EnsDisplay address={sig.signer} showAvatar avatarSize={24} />
                       </div>
                     ))}
                   </div>
@@ -211,6 +256,9 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             )}
           </CardContent>
         </Card>
+
+        {/* Activity Section - Signals for candidates */}
+        <ActivitySection candidateId={candidateId} isDarkMode={isDarkMode} />
       </div>
     </div>
   )

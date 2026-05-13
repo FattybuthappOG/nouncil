@@ -23,22 +23,11 @@ const PROPOSAL_STATES = [
 const cache: { 
   proposals?: { data: any; timestamp: number }
   single: Record<string, { data: any; timestamp: number }>
-  quorumBPS?: { data: bigint; timestamp: number }
-  nounsCount?: { data: bigint; timestamp: number }
-} = { single: {} }
+  quorum: Record<string, { data: bigint; timestamp: number }>
+} = { single: {}, quorum: {} }
 const CACHE_TTL_LIST = 60_000 // 1 minute for list
 const CACHE_TTL_SINGLE = 120_000 // 2 minutes for single proposal
-const CACHE_TTL_QUORUM = 86400_000 // 24 hours for quorum data (stable governance params)
-
-// Nouns DAO quorum: 10% (1000 BPS) of total supply
-// Current approximate Nouns in circulation: ~1100
-// Therefore base quorum is approximately 110 Nouns
-const NOUNS_BASE_QUORUM = 110n // Hardcoded to avoid rate limiting RPC calls
-
-// Calculate dynamic quorum: baseQuorum + againstVotes
-function calculateDynamicQuorum(againstVotes: bigint): bigint {
-  return NOUNS_BASE_QUORUM + againstVotes
-}
+const CACHE_TTL_QUORUM = 60_000 // 1 minute for quorum (can change as votes come in)
 
 // Batch JSON-RPC: send multiple calls, chunked to respect provider limits
 // drpc.org free tier: max 3 requests per batch
@@ -172,6 +161,34 @@ function decodeAddress(hex: string, slot: number): string {
   return "0x" + hex.slice(start + 24, start + 64)
 }
 
+// Fetch dynamic quorum for a proposal directly from the contract
+// This uses the quorumVotes(proposalId) function which returns the exact quorum needed
+async function fetchProposalQuorum(proposalId: number): Promise<bigint> {
+  const cacheKey = String(proposalId)
+  if (cache.quorum[cacheKey] && Date.now() - cache.quorum[cacheKey].timestamp < CACHE_TTL_QUORUM) {
+    return cache.quorum[cacheKey].data
+  }
+  
+  try {
+    // quorumVotes(uint256 proposalId) -> uint256
+    // Correct function selector: keccak256("quorumVotes(uint256)")[:4] = 0x0f7b1f08
+    const QUORUM_VOTES_SEL = "0x0f7b1f08"
+    const data = encodeFunctionCall(QUORUM_VOTES_SEL, BigInt(proposalId))
+    const result = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data }, "latest"])
+    
+    if (result && result !== "0x") {
+      const quorum = BigInt(result)
+      cache.quorum[cacheKey] = { data: quorum, timestamp: Date.now() }
+      return quorum
+    }
+  } catch (err) {
+    console.error("[v0] Failed to fetch quorum for proposal", proposalId, ":", err)
+  }
+  
+  // Fallback: return 0 to indicate quorum couldn't be fetched
+  return BigInt(0)
+}
+
 // Fetch proposal list using batch RPC (2 HTTP requests total: 1 for count, 1 batch for all proposal data)
 async function fetchProposalList(limit: number, statusFilter: string) {
   // Check cache
@@ -288,6 +305,70 @@ async function fetchSingleProposal(id: number) {
     return cache.single[cacheKey].data
   }
 
+  // Try Goldsky subgraph first (same as nouns.wtf uses) - has full description + tx data
+  try {
+    const subgraphUrl = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
+    const query = `{
+      proposal(id: "${id}") {
+        id
+        proposer { id }
+        signers { id }
+        startBlock
+        endBlock
+        forVotes
+        againstVotes
+        abstainVotes
+        status
+        createdBlock
+        createdTransactionHash
+        description
+        targets
+        values
+        signatures
+        calldatas
+      }
+    }`
+    const response = await fetch(subgraphUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(8000),
+    })
+    const json = await response.json()
+    
+    if (json.data?.proposal) {
+      const p = json.data.proposal
+      // Fetch actual quorum from contract
+      const quorumValue = await fetchProposalQuorum(id)
+      const stateNumber = ["PENDING", "ACTIVE", "CANCELED", "DEFEATED", "SUCCEEDED", "QUEUED", "EXPIRED", "EXECUTED", "VETOED"].indexOf(p.status?.toUpperCase() || "PENDING")
+      const result = {
+        id: Number(p.id),
+        proposer: p.proposer?.id || "0x0000000000000000000000000000000000000000",
+        signers: (p.signers || []).map((s: any) => s.id),
+        description: p.description || `# Proposal ${id}`,
+        forVotes: p.forVotes || "0",
+        againstVotes: p.againstVotes || "0",
+        abstainVotes: p.abstainVotes || "0",
+        quorumVotes: quorumValue.toString(),
+        status: (p.status || "PENDING").toUpperCase(),
+        stateNumber: stateNumber >= 0 ? stateNumber : 0,
+        startBlock: p.startBlock || "0",
+        endBlock: p.endBlock || "0",
+        creationBlock: p.createdBlock || "0",
+        createdTransactionHash: p.createdTransactionHash || "",
+        targets: p.targets || [],
+        values: p.values || [],
+        signatures: p.signatures || [],
+        calldatas: p.calldatas || [],
+      }
+      cache.single[cacheKey] = { data: result, timestamp: Date.now() }
+      return result
+    }
+  } catch (err) {
+    console.error("[v0] Goldsky subgraph failed for proposal", id, ":", err)
+  }
+
+  // Fallback to RPC + event logs (doesn't have tx data)
   const PROPOSALS_SEL = "0x013cf08b"
   const STATE_SEL = "0x3e4f49e6"
 
@@ -336,6 +417,8 @@ async function fetchSingleProposal(id: number) {
       
       if (json.data?.proposal) {
         const p = json.data.proposal
+        // Fetch actual quorum from contract even when using subgraph for other data
+        const quorumValue = await fetchProposalQuorum(id)
         const result = {
           id: Number(p.id),
           proposer: p.proposer?.id || "0x0000000000000000000000000000000000000000",
@@ -344,21 +427,25 @@ async function fetchSingleProposal(id: number) {
           forVotes: p.forVotes || "0",
           againstVotes: p.againstVotes || "0",
           abstainVotes: p.abstainVotes || "0",
-          quorumVotes: (BigInt(p.againstVotes || "0") / BigInt(4) * BigInt(100) + BigInt(72)).toString(),
+          quorumVotes: quorumValue.toString(),
           status: (PROPOSAL_STATES[Number(p.state)] || "Unknown").toUpperCase(),
           stateNumber: Number(p.state) || 0,
           startBlock: p.startBlock || "0",
           endBlock: p.endBlock || "0",
           creationBlock: p.createdBlock || "0",
-          createdTransactionHash: "",
-        }
-        cache.single[cacheKey] = { data: result, timestamp: Date.now() }
-        return result
+        createdTransactionHash: "",
+        targets: [],
+        values: [],
+        signatures: [],
+        calldatas: [],
       }
-    } catch (err) {
-      subgraphError = err
-      console.error("[v0] Subgraph fallback failed for proposal", id, ":", err)
+      cache.single[cacheKey] = { data: result, timestamp: Date.now() }
+      return result
     }
+  } catch (err) {
+    subgraphError = err
+    console.error("[v0] Studio subgraph fallback failed for proposal", id, ":", err)
+  }
     
     // If both fail but we have stale cache, use it
     if (cache.single[cacheKey]) {
@@ -412,9 +499,9 @@ async function fetchSingleProposal(id: number) {
     }
   } catch { /* description stays as fallback */ }
 
-  // Calculate dynamic quorum: base quorum + against votes
-  const dynamicQuorum = calculateDynamicQuorum(againstVotes)
-  const quorumVotes = dynamicQuorum.toString()
+  // Fetch the actual quorum from the contract
+  const quorumValue = await fetchProposalQuorum(id)
+  const quorumVotes = quorumValue.toString()
 
   const result = {
     id,
@@ -431,6 +518,10 @@ async function fetchSingleProposal(id: number) {
     endBlock: endBlock.toString(),
     creationBlock: creationBlock.toString(),
     createdTransactionHash: "",
+    targets: [],
+    values: [],
+    signatures: [],
+    calldatas: [],
   }
 
   // Cache it

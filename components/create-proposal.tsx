@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
 import { parseEther, parseUnits, encodeFunctionData, isAddress } from "viem"
@@ -15,6 +16,8 @@ import StarterKit from "@tiptap/starter-kit"
 import TiptapLink from "@tiptap/extension-link"
 import TiptapImage from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
+import { marked } from "marked"
+import { getReplicationData } from "@/lib/proposal-replication"
 
 // NounsDAOData proxy — creates proposal candidates (no clientId param on this contract)
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
@@ -94,16 +97,21 @@ const NOUNS_TOKEN_ABI = [
 const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as const
 const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const
 
-type ActionType = "eth" | "usdc" | "custom"
+// Nouns Treasury holds Nouns NFTs and can transfer them via proposals
+const NOUNS_TREASURY = "0xb1a32FC9F9D8b2cf86C068Cae13108809547ef71" as const
+
+type ActionType = "eth" | "usdc" | "noun" | "custom"
 
 interface AbiInput { name: string; type: string; components?: AbiInput[] }
 interface AbiFunction { name: string; type: string; stateMutability: string; inputs: AbiInput[] }
 
 interface Action {
   type: ActionType
-  // transfer actions
+  // transfer actions (ETH/USDC)
   recipient?: string
   amount?: string
+  // Noun NFT transfer
+  nounId?: string
   // custom call
   target?: string
   ethValue?: string          // only for payable functions
@@ -195,6 +203,34 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
     })
     return { target: USDC, value: 0n, signature: "", calldata: data }
   }
+  if (action.type === "noun") {
+    // Request a Noun NFT from the treasury
+    // The treasury calls transferFrom on the Nouns token contract
+    if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for Noun transfer")
+    const nounId = BigInt(action.nounId || "0")
+    // ERC721 transferFrom: treasury transfers Noun to recipient
+    // The treasury must call transferFrom(treasury, recipient, tokenId) on Nouns token
+    const erc721TransferAbi = [
+      {
+        name: "transferFrom",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "from", type: "address" },
+          { name: "to", type: "address" },
+          { name: "tokenId", type: "uint256" }
+        ],
+        outputs: []
+      }
+    ] as const
+    const data = encodeFunctionData({
+      abi: erc721TransferAbi,
+      functionName: "transferFrom",
+      args: [NOUNS_TREASURY, action.recipient as `0x${string}`, nounId]
+    })
+    // Target is the Nouns NFT contract, treasury executes the call
+    return { target: NOUNS_TOKEN, value: 0n, signature: "", calldata: data }
+  }
   // custom: encode from fetched ABI + selected function + arg values
   if (!isAddress(action.target || "")) throw new Error("Invalid target address for custom call")
   const fn = action.fetchedAbi?.find(f => f.name === action.selectedFunction)
@@ -263,10 +299,12 @@ function LinkDialog({ onConfirm, onClose, initialText }: {
 }
 
 // --- Rich text editor ---
-function RichEditor({ onChange }: { onChange: (html: string) => void }) {
+function RichEditor({ onChange, initialContent }: { onChange: (html: string) => void; initialContent?: string }) {
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; selectedText: string }>({ open: false, selectedText: "" })
+  const [lastAppliedContent, setLastAppliedContent] = useState<string | null>(null)
 
   const editor = useEditor({
+    immediatelyRender: false, // Avoid SSR hydration mismatches
     extensions: [
       StarterKit,
       TiptapLink.configure({ openOnClick: true, autolink: true, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } }),
@@ -278,6 +316,14 @@ function RichEditor({ onChange }: { onChange: (html: string) => void }) {
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
+
+  // Set initial content when editor is ready and initialContent changes
+  useEffect(() => {
+    if (editor && initialContent && initialContent !== lastAppliedContent) {
+      editor.commands.setContent(initialContent)
+      setLastAppliedContent(initialContent)
+    }
+  }, [editor, initialContent, lastAppliedContent])
 
   const openLinkDialog = useCallback(() => {
     if (!editor) return
@@ -350,14 +396,20 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
           const writeFns: AbiFunction[] = (data.abi as AbiFunction[]).filter(
             f => f.type === "function" && ["nonpayable", "payable"].includes(f.stateMutability)
           )
-          onChange({ ...action, target: addr, isFetching: false, fetchError: undefined, fetchedAbi: writeFns, selectedFunction: writeFns[0]?.name, argValues: {} })
+          // Use signature as key to properly handle overloaded functions
+          const firstSig = writeFns[0] ? `${writeFns[0].name}(${writeFns[0].inputs?.map(i => i.type).join(",") || ""})` : undefined
+          onChange({ ...action, target: addr, isFetching: false, fetchError: undefined, fetchedAbi: writeFns, selectedFunction: firstSig, argValues: {} })
         }
       })
       .catch(() => onChange({ ...action, target: addr, isFetching: false, fetchError: "Failed to fetch ABI", fetchedAbi: undefined }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action.target])
 
-  const selectedFn = action.fetchedAbi?.find(f => f.name === action.selectedFunction)
+  // Find selected function by signature (handles overloaded functions)
+  const selectedFn = action.fetchedAbi?.find(f => {
+    const sig = `${f.name}(${f.inputs?.map(i => i.type).join(",") || ""})`
+    return sig === action.selectedFunction
+  })
   const isPayable = selectedFn?.stateMutability === "payable"
 
   const setArg = (name: string, val: string) =>
@@ -390,37 +442,82 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
       {/* Step 2: function selector — only shown after ABI is loaded */}
       {action.fetchedAbi && action.fetchedAbi.length > 0 && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Function</label>
+          <label className="text-xs text-muted-foreground">
+            Function <span className="text-muted-foreground/70">({action.fetchedAbi.length} available)</span>
+          </label>
           <select
             value={action.selectedFunction || ""}
             onChange={e => onChange({ ...action, selectedFunction: e.target.value, argValues: {} })}
-            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
           >
-            {action.fetchedAbi.map(fn => (
-              <option key={fn.name} value={fn.name}>
-                {fn.name}({fn.inputs.map(i => `${i.type} ${i.name}`).join(", ")})
-              </option>
-            ))}
+            <option value="">Select a function</option>
+            {action.fetchedAbi.map((fn, idx) => {
+              // Use comma without space for signature matching
+              const sigValue = `${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`
+              // Display with space for readability
+              const sigDisplay = `${fn.name}(${fn.inputs?.map(i => i.type).join(", ") || ""})`
+              return (
+                <option key={`${fn.name}-${idx}`} value={sigValue}>
+                  {sigDisplay}
+                </option>
+              )
+            })}
           </select>
+          {selectedFn && (
+            <p className="text-[10px] text-muted-foreground/70">
+              {selectedFn.stateMutability === "payable" ? "💰 Payable" : "Write function"}
+              {selectedFn.outputs && selectedFn.outputs.length > 0 && ` • Returns: ${selectedFn.outputs.map(o => o.type).join(", ")}`}
+            </p>
+          )}
         </div>
       )}
 
       {/* Step 3: per-argument inputs */}
-      {selectedFn && selectedFn.inputs.map(inp => (
-        <div key={inp.name} className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{inp.name}</span>
-            <span className="ml-1 text-muted-foreground/70">({inp.type})</span>
-          </label>
-          <input
-            type="text"
-            value={(action.argValues || {})[inp.name] || ""}
-            onChange={e => setArg(inp.name, e.target.value)}
-            placeholder={inp.type === "address" ? "0x..." : inp.type.startsWith("uint") || inp.type.startsWith("int") ? "0" : inp.type === "bool" ? "true / false" : "..."}
-            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-          />
-        </div>
-      ))}
+      {selectedFn && selectedFn.inputs.map(inp => {
+        const isArray = inp.type.endsWith("[]")
+        const baseType = inp.type.replace("[]", "")
+        let placeholder = "..."
+        let helpText = ""
+        
+        if (baseType === "address") {
+          placeholder = "0x..."
+          helpText = "Ethereum address"
+        } else if (baseType.startsWith("uint") || baseType.startsWith("int")) {
+          placeholder = "0"
+          helpText = baseType
+        } else if (baseType === "bool") {
+          placeholder = "true / false"
+          helpText = "Boolean value"
+        } else if (baseType === "bytes" || baseType.startsWith("bytes")) {
+          placeholder = "0x..."
+          helpText = "Hex encoded bytes"
+        } else if (baseType === "string") {
+          placeholder = "text"
+          helpText = "Text string"
+        }
+        
+        if (isArray) {
+          helpText += " (array - use JSON format like [\"addr1\", \"addr2\"])"
+          placeholder = isArray && baseType === "address" ? "[\"0x...\", \"0x...\"]" : "[...]"
+        }
+        
+        return (
+          <div key={inp.name} className="flex flex-col gap-1.5">
+            <label className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{inp.name}</span>
+              <span className="ml-1 text-muted-foreground/70">({inp.type})</span>
+            </label>
+            <input
+              type="text"
+              value={(action.argValues || {})[inp.name] || ""}
+              onChange={e => setArg(inp.name, e.target.value)}
+              placeholder={placeholder}
+              className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+            {helpText && <p className="text-[10px] text-muted-foreground/60">{helpText}</p>}
+          </div>
+        )
+      })}
 
       {/* Step 4: ETH value — only for payable functions */}
       {isPayable && (
@@ -444,6 +541,7 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
   const types: { value: ActionType; label: string }[] = [
     { value: "eth",    label: "Send ETH" },
     { value: "usdc",   label: "Send USDC" },
+    { value: "noun",   label: "Request Noun NFT" },
     { value: "custom", label: "Custom Call" },
   ]
   return (
@@ -474,6 +572,26 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
         </>
       )}
 
+      {action.type === "noun" && (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Noun ID to request from treasury</label>
+            <input type="text" value={action.nounId || ""} onChange={e => onChange({ ...action, nounId: e.target.value })} placeholder="e.g. 42"
+              className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter the token ID of a Noun held by the treasury. Check{" "}
+              <a href="https://nouns.wtf/explore?owner=0xb1a32fc9f9d8b2cf86c068cae13108809547ef71" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">treasury Nouns</a>
+              {" "}to find available Nouns.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Recipient address</label>
+            <input type="text" value={action.recipient || ""} onChange={e => onChange({ ...action, recipient: e.target.value })} placeholder="0x..."
+              className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
+          </div>
+        </>
+      )}
+
       {action.type === "custom" && <CustomCallForm action={action} onChange={onChange} />}
     </div>
   )
@@ -481,6 +599,7 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
 
 // --- Main component ---
 export default function CreateProposal() {
+  const searchParams = useSearchParams()
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
   const [title, setTitle] = useState("")
@@ -490,6 +609,43 @@ export default function CreateProposal() {
   const [showActions, setShowActions] = useState(false)
   const [txError, setTxError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+
+  // Load replicated data on mount if available
+  useEffect(() => {
+    const replicationType = searchParams.get("replicate")
+    if (replicationType) {
+      const data = getReplicationData()
+      if (data) {
+        // Title comes directly from template
+        setTitle(data.title || "")
+        
+        // Convert description markdown to HTML for the TipTap editor
+        const htmlContent = marked.parse(data.description || "", { async: false }) as string
+        setBodyHtml(htmlContent)
+        
+        setProposalType(data.type === "candidate" ? "candidate" : "onchain")
+        
+        // Reconstruct actions from targets/values/signatures/calldatas
+        const newActions: Action[] = data.targets.map((target, idx) => ({
+          type: "custom" as ActionType,
+          target,
+          value: data.values?.[idx] || "0",
+          signature: data.signatures?.[idx] || "",
+          calldata: data.calldatas?.[idx] || "",
+          isFetching: false,
+          fetchError: undefined,
+          fetchedAbi: undefined,
+          selectedFunction: undefined,
+          argValues: {},
+        }))
+        
+        if (newActions.length > 0) {
+          setActions(newActions)
+          setShowActions(true)
+        }
+      }
+    }
+  }, [searchParams])
 
   const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
@@ -630,11 +786,6 @@ export default function CreateProposal() {
             placeholder="Give your proposal a clear, descriptive title..."
             className="w-full bg-transparent text-lg sm:text-2xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none border-b border-border pb-2 focus:border-primary transition-colors"
           />
-          {title && (
-            <p className="text-xs text-muted-foreground">
-              Slug: <code className="bg-muted px-1 rounded">{slugify(title)}</code>
-            </p>
-          )}
         </div>
 
         {/* Rich-text editor */}
@@ -656,7 +807,7 @@ export default function CreateProposal() {
               dangerouslySetInnerHTML={{ __html: bodyHtml || "<p class='text-muted-foreground'>Nothing to preview yet.</p>" }}
             />
           ) : (
-            <RichEditor onChange={setBodyHtml} />
+            <RichEditor onChange={setBodyHtml} initialContent={bodyHtml} />
           )}
         </div>
 
@@ -684,6 +835,9 @@ export default function CreateProposal() {
                 </button>
                 <button type="button" onClick={() => addAction("usdc")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Banknote className="w-3.5 h-3.5" /> Send USDC
+                </button>
+                <button type="button" onClick={() => addAction("noun")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <Image className="w-3.5 h-3.5" /> Request Noun
                 </button>
                 <button type="button" onClick={() => addAction("custom")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Plus className="w-3.5 h-3.5" /> Custom call

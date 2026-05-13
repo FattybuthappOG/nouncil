@@ -43,10 +43,19 @@ export default async function RootLayout({
   const cookies = headersObj.get("cookie")
 
   return (
-    <html lang="en" className="bg-background">
+    <html lang="en" className="dark bg-background" suppressHydrationWarning>
       <head>
         <meta property="fc:miniapp" content="https://nouncil.wtf/.well-known/farcaster.json" />
         <meta property="miniapp:version" content="1.0.0" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                document.documentElement.classList.add('dark');
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={`${inter.className} overflow-x-hidden`}>
         <ContextProvider cookies={cookies}>
