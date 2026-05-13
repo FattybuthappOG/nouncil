@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import useSWR from "swr"
 import { ThumbsUp, ThumbsDown, Minus, MessageSquare, Clock, ExternalLink, CheckCircle2 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
+import { EnsDisplay } from "@/components/ens-display"
 
 // Types
 interface Vote {
@@ -130,7 +131,6 @@ function FeedbackItem({
 
   const Icon = supportConfig.icon
   const timeAgo = timestamp > 0 ? formatDistanceToNow(new Date(timestamp * 1000), { addSuffix: true }) : ""
-  const shortVoter = `${voter.slice(0, 6)}...${voter.slice(-4)}`
 
   return (
     <div className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800/50" : "bg-gray-50"}`}>
@@ -140,14 +140,12 @@ function FeedbackItem({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <a
-              href={`https://etherscan.io/address/${voter}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`font-medium text-sm hover:underline ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
-            >
-              {shortVoter}
-            </a>
+            <EnsDisplay 
+              address={voter} 
+              showAvatar 
+              avatarSize={20}
+              className={`font-medium text-sm ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
+            />
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${supportConfig.bg} ${supportConfig.color}`}>
               {supportConfig.label}
             </span>
