@@ -233,7 +233,11 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
   }
   // custom: encode from fetched ABI + selected function + arg values
   if (!isAddress(action.target || "")) throw new Error("Invalid target address for custom call")
-  const fn = action.fetchedAbi?.find(f => f.name === action.selectedFunction)
+  // Find function by matching signature (handles overloaded functions)
+  const fn = action.fetchedAbi?.find(f => {
+    const sig = `${f.name}(${f.inputs?.map(i => i.type).join(",") || ""})`
+    return sig === action.selectedFunction
+  })
   if (!fn) throw new Error("Select a function")
   const argVals = action.argValues || {}
   const encodedArgs = fn.inputs.map(inp => coerceArg(argVals[inp.name] || "", inp.type))
