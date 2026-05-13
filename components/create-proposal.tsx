@@ -16,6 +16,7 @@ import StarterKit from "@tiptap/starter-kit"
 import TiptapLink from "@tiptap/extension-link"
 import TiptapImage from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
+import { marked } from "marked"
 import { getReplicationData } from "@/lib/proposal-replication"
 
 // NounsDAOData proxy — creates proposal candidates (no clientId param on this contract)
@@ -395,14 +396,20 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
           const writeFns: AbiFunction[] = (data.abi as AbiFunction[]).filter(
             f => f.type === "function" && ["nonpayable", "payable"].includes(f.stateMutability)
           )
-          onChange({ ...action, target: addr, isFetching: false, fetchError: undefined, fetchedAbi: writeFns, selectedFunction: writeFns[0]?.name, argValues: {} })
+          // Use signature as key to properly handle overloaded functions
+          const firstSig = writeFns[0] ? `${writeFns[0].name}(${writeFns[0].inputs?.map(i => i.type).join(",") || ""})` : undefined
+          onChange({ ...action, target: addr, isFetching: false, fetchError: undefined, fetchedAbi: writeFns, selectedFunction: firstSig, argValues: {} })
         }
       })
       .catch(() => onChange({ ...action, target: addr, isFetching: false, fetchError: "Failed to fetch ABI", fetchedAbi: undefined }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action.target])
 
-  const selectedFn = action.fetchedAbi?.find(f => f.name === action.selectedFunction)
+  // Find selected function by signature (handles overloaded functions)
+  const selectedFn = action.fetchedAbi?.find(f => {
+    const sig = `${f.name}(${f.inputs?.map(i => i.type).join(",") || ""})`
+    return sig === action.selectedFunction
+  })
   const isPayable = selectedFn?.stateMutability === "payable"
 
   const setArg = (name: string, val: string) =>
@@ -445,11 +452,13 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
           >
             <option value="">Select a function</option>
             {action.fetchedAbi.map((fn, idx) => {
-              const inputs = fn.inputs?.map(i => i.type).join(", ") || ""
-              const signature = `${fn.name}(${inputs})`
+              // Use comma without space for signature matching
+              const sigValue = `${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`
+              // Display with space for readability
+              const sigDisplay = `${fn.name}(${fn.inputs?.map(i => i.type).join(", ") || ""})`
               return (
-                <option key={`${fn.name}-${idx}`} value={fn.name}>
-                  {signature}
+                <option key={`${fn.name}-${idx}`} value={sigValue}>
+                  {sigDisplay}
                 </option>
               )
             })}
@@ -607,8 +616,26 @@ export default function CreateProposal() {
     if (replicationType) {
       const data = getReplicationData()
       if (data) {
-        setTitle(data.title)
-        setBodyHtml(data.description)
+        // Parse description to extract title and body separately
+        const lines = data.description?.split("\n") || []
+        let parsedTitle = data.title
+        let bodyContent = data.description || ""
+        
+        // If description starts with # heading, use that as title and remove from body
+        if (lines[0]?.startsWith("#")) {
+          parsedTitle = lines[0].replace(/^#+\s*/, "").trim()
+          bodyContent = lines.slice(1).join("\n").trim()
+        } else if (lines[0]?.trim() && !data.title) {
+          // First line might be title
+          parsedTitle = lines[0].trim()
+          bodyContent = lines.slice(1).join("\n").trim()
+        }
+        
+        // Convert markdown to HTML for the TipTap editor
+        const htmlContent = marked.parse(bodyContent, { async: false }) as string
+        
+        setTitle(parsedTitle)
+        setBodyHtml(htmlContent)
         setProposalType(data.type === "candidate" ? "candidate" : "onchain")
         
         // Reconstruct actions from targets/values/signatures/calldatas
