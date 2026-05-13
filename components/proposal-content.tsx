@@ -222,11 +222,13 @@ function ProposalContentInner({
             className="gap-2 text-gray-300 hover:text-white"
             onClick={() => {
               if (proposal) {
+                // Use the full raw description for replication to preserve all markdown/images
+                const fullDescription = proposal.fullDescription || proposal.description || ""
                 replicateProposal(
                   {
                     type: "proposal",
-                    title: proposal.title || "",
-                    description: proposal.description || "",
+                    title: title || "",
+                    description: fullDescription,
                     targets: proposal.targets || [],
                     values: proposal.values?.map(v => v.toString()) || [],
                     signatures: proposal.signatures || [],

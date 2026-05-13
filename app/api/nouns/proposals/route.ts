@@ -305,6 +305,70 @@ async function fetchSingleProposal(id: number) {
     return cache.single[cacheKey].data
   }
 
+  // Try Goldsky subgraph first (same as nouns.wtf uses) - has full description + tx data
+  try {
+    const subgraphUrl = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
+    const query = `{
+      proposal(id: "${id}") {
+        id
+        proposer { id }
+        signers { id }
+        startBlock
+        endBlock
+        forVotes
+        againstVotes
+        abstainVotes
+        status
+        createdBlock
+        createdTransactionHash
+        description
+        targets
+        values
+        signatures
+        calldatas
+      }
+    }`
+    const response = await fetch(subgraphUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(8000),
+    })
+    const json = await response.json()
+    
+    if (json.data?.proposal) {
+      const p = json.data.proposal
+      // Fetch actual quorum from contract
+      const quorumValue = await fetchProposalQuorum(id)
+      const stateNumber = ["PENDING", "ACTIVE", "CANCELED", "DEFEATED", "SUCCEEDED", "QUEUED", "EXPIRED", "EXECUTED", "VETOED"].indexOf(p.status?.toUpperCase() || "PENDING")
+      const result = {
+        id: Number(p.id),
+        proposer: p.proposer?.id || "0x0000000000000000000000000000000000000000",
+        signers: (p.signers || []).map((s: any) => s.id),
+        description: p.description || `# Proposal ${id}`,
+        forVotes: p.forVotes || "0",
+        againstVotes: p.againstVotes || "0",
+        abstainVotes: p.abstainVotes || "0",
+        quorumVotes: quorumValue.toString(),
+        status: (p.status || "PENDING").toUpperCase(),
+        stateNumber: stateNumber >= 0 ? stateNumber : 0,
+        startBlock: p.startBlock || "0",
+        endBlock: p.endBlock || "0",
+        creationBlock: p.createdBlock || "0",
+        createdTransactionHash: p.createdTransactionHash || "",
+        targets: p.targets || [],
+        values: p.values || [],
+        signatures: p.signatures || [],
+        calldatas: p.calldatas || [],
+      }
+      cache.single[cacheKey] = { data: result, timestamp: Date.now() }
+      return result
+    }
+  } catch (err) {
+    console.error("[v0] Goldsky subgraph failed for proposal", id, ":", err)
+  }
+
+  // Fallback to RPC + event logs (doesn't have tx data)
   const PROPOSALS_SEL = "0x013cf08b"
   const STATE_SEL = "0x3e4f49e6"
 
@@ -369,15 +433,19 @@ async function fetchSingleProposal(id: number) {
           startBlock: p.startBlock || "0",
           endBlock: p.endBlock || "0",
           creationBlock: p.createdBlock || "0",
-          createdTransactionHash: "",
-        }
-        cache.single[cacheKey] = { data: result, timestamp: Date.now() }
-        return result
+        createdTransactionHash: "",
+        targets: [],
+        values: [],
+        signatures: [],
+        calldatas: [],
       }
-    } catch (err) {
-      subgraphError = err
-      console.error("[v0] Subgraph fallback failed for proposal", id, ":", err)
+      cache.single[cacheKey] = { data: result, timestamp: Date.now() }
+      return result
     }
+  } catch (err) {
+    subgraphError = err
+    console.error("[v0] Studio subgraph fallback failed for proposal", id, ":", err)
+  }
     
     // If both fail but we have stale cache, use it
     if (cache.single[cacheKey]) {
@@ -450,6 +518,10 @@ async function fetchSingleProposal(id: number) {
     endBlock: endBlock.toString(),
     creationBlock: creationBlock.toString(),
     createdTransactionHash: "",
+    targets: [],
+    values: [],
+    signatures: [],
+    calldatas: [],
   }
 
   // Cache it

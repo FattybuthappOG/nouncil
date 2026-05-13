@@ -300,7 +300,7 @@ function LinkDialog({ onConfirm, onClose, initialText }: {
 // --- Rich text editor ---
 function RichEditor({ onChange, initialContent }: { onChange: (html: string) => void; initialContent?: string }) {
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; selectedText: string }>({ open: false, selectedText: "" })
-  const [initialized, setInitialized] = useState(false)
+  const [lastAppliedContent, setLastAppliedContent] = useState<string | null>(null)
 
   const editor = useEditor({
     immediatelyRender: false, // Avoid SSR hydration mismatches
@@ -316,13 +316,13 @@ function RichEditor({ onChange, initialContent }: { onChange: (html: string) => 
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
 
-  // Set initial content when editor is ready and initialContent is provided
+  // Set initial content when editor is ready and initialContent changes
   useEffect(() => {
-    if (editor && initialContent && !initialized) {
+    if (editor && initialContent && initialContent !== lastAppliedContent) {
       editor.commands.setContent(initialContent)
-      setInitialized(true)
+      setLastAppliedContent(initialContent)
     }
-  }, [editor, initialContent, initialized])
+  }, [editor, initialContent, lastAppliedContent])
 
   const openLinkDialog = useCallback(() => {
     if (!editor) return
