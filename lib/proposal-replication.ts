@@ -10,8 +10,10 @@ export interface ProposalReplicationData {
   calldatas: string[]
 }
 
+const STORAGE_KEY = 'nouncil_template_data'
+
 /**
- * Encode proposal/candidate data to store in sessionStorage
+ * Encode proposal/candidate data to store in localStorage
  * Uses TextEncoder to handle UTF-8 characters properly
  */
 export function encodeReplicationData(data: ProposalReplicationData): string {
@@ -23,7 +25,7 @@ export function encodeReplicationData(data: ProposalReplicationData): string {
 }
 
 /**
- * Decode proposal/candidate data from sessionStorage
+ * Decode proposal/candidate data from localStorage
  * Uses TextDecoder to handle UTF-8 characters properly
  */
 export function decodeReplicationData(encoded: string): ProposalReplicationData | null {
@@ -32,26 +34,48 @@ export function decodeReplicationData(encoded: string): ProposalReplicationData 
     const bytes = Uint8Array.from(binString, (c) => c.charCodeAt(0))
     const jsonStr = new TextDecoder().decode(bytes)
     return JSON.parse(jsonStr)
-  } catch {
+  } catch (e) {
+    console.error("[v0] Failed to decode replication data:", e)
     return null
   }
 }
 
 /**
- * Store replication data and redirect to create page
+ * Store replication data in localStorage and return the URL to navigate to
  */
-export function replicateProposal(data: ProposalReplicationData, createPageUrl: string) {
-  const encoded = encodeReplicationData(data)
-  sessionStorage.setItem('proposalReplicationData', encoded)
-  window.location.href = `${createPageUrl}?replicate=${data.type}`
+export function storeTemplateData(data: ProposalReplicationData): string {
+  try {
+    const encoded = encodeReplicationData(data)
+    localStorage.setItem(STORAGE_KEY, encoded)
+    console.log("[v0] Stored template data, length:", encoded.length)
+    return `/create?replicate=${data.type}`
+  } catch (e) {
+    console.error("[v0] Failed to store template data:", e)
+    return `/create`
+  }
 }
 
 /**
- * Get replication data from sessionStorage and clear it
+ * Get replication data from localStorage and clear it
  */
 export function getReplicationData(): ProposalReplicationData | null {
-  const encoded = sessionStorage.getItem('proposalReplicationData')
-  if (!encoded) return null
-  sessionStorage.removeItem('proposalReplicationData')
-  return decodeReplicationData(encoded)
+  try {
+    const encoded = localStorage.getItem(STORAGE_KEY)
+    console.log("[v0] Getting template data, found:", !!encoded)
+    if (!encoded) return null
+    localStorage.removeItem(STORAGE_KEY)
+    return decodeReplicationData(encoded)
+  } catch (e) {
+    console.error("[v0] Failed to get replication data:", e)
+    return null
+  }
+}
+
+/**
+ * Legacy function for backwards compatibility
+ * @deprecated Use storeTemplateData instead
+ */
+export function replicateProposal(data: ProposalReplicationData, createPageUrl: string) {
+  const url = storeTemplateData(data)
+  window.location.href = url
 }

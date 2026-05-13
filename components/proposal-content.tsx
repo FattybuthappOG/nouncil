@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { ActivitySection } from "@/components/activity-section"
-import { replicateProposal } from "@/lib/proposal-replication"
+import { storeTemplateData } from "@/lib/proposal-replication"
 import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
@@ -222,19 +222,23 @@ function ProposalContentInner({
             className="gap-2 text-gray-300 hover:text-white"
             onClick={() => {
               if (proposal) {
-                // Pass the parsed body (without title line) to avoid duplication
-                replicateProposal(
-                  {
-                    type: "proposal",
-                    title: title || "",
-                    description: body || "",
-                    targets: proposal.targets || [],
-                    values: proposal.values?.map(v => v.toString()) || [],
-                    signatures: proposal.signatures || [],
-                    calldatas: proposal.calldatas || [],
-                  },
-                  "/create"
-                )
+                console.log("[v0] Use as Template clicked")
+                console.log("[v0] Title:", title)
+                console.log("[v0] Body length:", body?.length)
+                console.log("[v0] Targets:", proposal.targets)
+                console.log("[v0] Values:", proposal.values)
+                console.log("[v0] Calldatas:", proposal.calldatas)
+                // Store template data and navigate
+                const url = storeTemplateData({
+                  type: "proposal",
+                  title: title || "",
+                  description: body || "",
+                  targets: proposal.targets || [],
+                  values: proposal.values?.map(v => v.toString()) || [],
+                  signatures: proposal.signatures || [],
+                  calldatas: proposal.calldatas || [],
+                })
+                router.push(url)
               }
             }}
           >

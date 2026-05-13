@@ -13,7 +13,7 @@ import remarkGfm from "remark-gfm"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
 import { ActivitySection } from "@/components/activity-section"
-import { replicateProposal } from "@/lib/proposal-replication"
+import { storeTemplateData } from "@/lib/proposal-replication"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
@@ -102,18 +102,16 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
             onClick={() => {
               if (candidate?.latestVersion) {
-                replicateProposal(
-                  {
-                    type: "candidate",
-                    title: candidate.latestVersion.content?.title || "",
-                    description: candidate.latestVersion.content?.description || "",
-                    targets: candidate.latestVersion.targets || [],
-                    values: candidate.latestVersion.values?.map(v => v.toString()) || [],
-                    signatures: candidate.latestVersion.signatures || [],
-                    calldatas: candidate.latestVersion.calldatas || [],
-                  },
-                  "/create?tab=candidates"
-                )
+                const url = storeTemplateData({
+                  type: "candidate",
+                  title: candidate.latestVersion.content?.title || "",
+                  description: candidate.latestVersion.content?.description || "",
+                  targets: candidate.latestVersion.targets || [],
+                  values: candidate.latestVersion.values?.map(v => v.toString()) || [],
+                  signatures: candidate.latestVersion.signatures || [],
+                  calldatas: candidate.latestVersion.calldatas || [],
+                })
+                router.push(url)
               }
             }}
           >

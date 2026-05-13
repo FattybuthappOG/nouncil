@@ -613,28 +613,24 @@ export default function CreateProposal() {
   // Load replicated data on mount if available
   useEffect(() => {
     const replicationType = searchParams.get("replicate")
+    console.log("[v0] Loading template, type:", replicationType)
     if (replicationType) {
       const data = getReplicationData()
+      console.log("[v0] Template data retrieved:", {
+        title: data?.title,
+        descLen: data?.description?.length,
+        targetsLen: data?.targets?.length
+      })
       if (data) {
-        // Parse description to extract title and body separately
-        const lines = data.description?.split("\n") || []
-        let parsedTitle = data.title
-        let bodyContent = data.description || ""
+        // Title comes directly from template
+        setTitle(data.title || "")
         
-        // If description starts with # heading, use that as title and remove from body
-        if (lines[0]?.startsWith("#")) {
-          parsedTitle = lines[0].replace(/^#+\s*/, "").trim()
-          bodyContent = lines.slice(1).join("\n").trim()
-        } else if (lines[0]?.trim() && !data.title) {
-          // First line might be title
-          parsedTitle = lines[0].trim()
-          bodyContent = lines.slice(1).join("\n").trim()
-        }
+        // Convert description markdown to HTML for the TipTap editor
+        const htmlContent = marked.parse(data.description || "", { async: false }) as string
+        console.log("[v0] Converted HTML length:", htmlContent.length)
+        setBodyHtml(htmlContent)
         
-        // Convert markdown to HTML for the TipTap editor
-        const htmlContent = marked.parse(bodyContent, { async: false }) as string
-        
-        setTitle(parsedTitle)
+        setProposalType(data.type === "candidate" ? "candidate" : "onchain")
         setBodyHtml(htmlContent)
         setProposalType(data.type === "candidate" ? "candidate" : "onchain")
         
@@ -799,11 +795,6 @@ export default function CreateProposal() {
             placeholder="Give your proposal a clear, descriptive title..."
             className="w-full bg-transparent text-lg sm:text-2xl font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none border-b border-border pb-2 focus:border-primary transition-colors"
           />
-          {title && (
-            <p className="text-xs text-muted-foreground">
-              Slug: <code className="bg-muted px-1 rounded">{slugify(title)}</code>
-            </p>
-          )}
         </div>
 
         {/* Rich-text editor */}
