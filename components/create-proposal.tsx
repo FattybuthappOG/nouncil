@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
-import { parseEther, parseUnits, encodeFunctionData, isAddress } from "viem"
+import { parseEther, parseUnits, encodeFunctionData, isAddress, getAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
@@ -164,7 +164,13 @@ function htmlToMarkdown(html: string): string {
 }
 
 function coerceArg(value: string, type: string): unknown {
-  if (type === "address") return value as `0x${string}`
+  if (type === "address") {
+    try {
+      return getAddress(value) as `0x${string}`
+    } catch {
+      return value as `0x${string}`
+    }
+  }
   if (type === "bool") return value === "true"
   if (type.startsWith("uint") || type.startsWith("int")) return BigInt(value || "0")
   if (type === "bytes" || type.startsWith("bytes")) return value as `0x${string}`
@@ -233,6 +239,8 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
   }
   // custom: encode from fetched ABI + selected function + arg values
   if (!isAddress(action.target || "")) throw new Error("Invalid target address for custom call")
+  // Normalize target address to proper checksum format
+  const normalizedTarget = getAddress(action.target!) as `0x${string}`
   // Find function by matching signature (handles overloaded functions)
   const fn = action.fetchedAbi?.find(f => {
     const sig = `${f.name}(${f.inputs?.map(i => i.type).join(",") || ""})`
@@ -247,7 +255,7 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
     args: encodedArgs,
   })
   const ethValue = fn.stateMutability === "payable" ? parseEther(action.ethValue || "0") : 0n
-  return { target: action.target as `0x${string}`, value: ethValue, signature: "", calldata }
+  return { target: normalizedTarget, value: ethValue, signature: "", calldata }
 }
 
 // --- Toolbar button ---
