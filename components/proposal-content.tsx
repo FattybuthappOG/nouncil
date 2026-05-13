@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare } from "lucide-react"
+import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare, Copy } from "lucide-react"
 import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { ActivitySection } from "@/components/activity-section"
+import { replicateProposal } from "@/lib/proposal-replication"
 import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
@@ -214,6 +215,30 @@ function ProposalContentInner({
           >
             <MessageSquare className="h-4 w-4" />
             <span className="hidden sm:inline">Activity</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-gray-300 hover:text-white"
+            onClick={() => {
+              if (proposal) {
+                replicateProposal(
+                  {
+                    type: "proposal",
+                    title: proposal.title || "",
+                    description: proposal.description || "",
+                    targets: proposal.targets || [],
+                    values: proposal.values?.map(v => v.toString()) || [],
+                    signatures: proposal.signatures || [],
+                    calldatas: proposal.calldatas || [],
+                  },
+                  "/create"
+                )
+              }
+            }}
+          >
+            <Copy className="h-4 w-4" />
+            <span className="hidden sm:inline">Replicate</span>
           </Button>
         </div>
       </div>

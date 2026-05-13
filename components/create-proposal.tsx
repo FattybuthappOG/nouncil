@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
 import { parseEther, parseUnits, encodeFunctionData, isAddress } from "viem"
@@ -15,6 +16,7 @@ import StarterKit from "@tiptap/starter-kit"
 import TiptapLink from "@tiptap/extension-link"
 import TiptapImage from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
+import { getReplicationData } from "@/lib/proposal-replication"
 
 // NounsDAOData proxy — creates proposal candidates (no clientId param on this contract)
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
@@ -424,18 +426,31 @@ function CustomCallForm({ action, onChange }: { action: Action; onChange: (a: Ac
       {/* Step 2: function selector — only shown after ABI is loaded */}
       {action.fetchedAbi && action.fetchedAbi.length > 0 && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Function</label>
+          <label className="text-xs text-muted-foreground">
+            Function <span className="text-muted-foreground/70">({action.fetchedAbi.length} available)</span>
+          </label>
           <select
             value={action.selectedFunction || ""}
             onChange={e => onChange({ ...action, selectedFunction: e.target.value, argValues: {} })}
-            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="px-3 py-2 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
           >
-            {action.fetchedAbi.map(fn => (
-              <option key={fn.name} value={fn.name}>
-                {fn.name}({fn.inputs.map(i => `${i.type} ${i.name}`).join(", ")})
-              </option>
-            ))}
+            <option value="">Select a function</option>
+            {action.fetchedAbi.map((fn, idx) => {
+              const inputs = fn.inputs?.map(i => i.type).join(", ") || ""
+              const signature = `${fn.name}(${inputs})`
+              return (
+                <option key={`${fn.name}-${idx}`} value={fn.name}>
+                  {signature}
+                </option>
+              )
+            })}
           </select>
+          {selectedFn && (
+            <p className="text-[10px] text-muted-foreground/70">
+              {selectedFn.stateMutability === "payable" ? "💰 Payable" : "Write function"}
+              {selectedFn.outputs && selectedFn.outputs.length > 0 && ` • Returns: ${selectedFn.outputs.map(o => o.type).join(", ")}`}
+            </p>
+          )}
         </div>
       )}
 
@@ -566,6 +581,7 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
 
 // --- Main component ---
 export default function CreateProposal() {
+  const searchParams = useSearchParams()
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
   const [title, setTitle] = useState("")
@@ -575,6 +591,38 @@ export default function CreateProposal() {
   const [showActions, setShowActions] = useState(false)
   const [txError, setTxError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+
+  // Load replicated data on mount if available
+  useEffect(() => {
+    const replicationType = searchParams.get("replicate")
+    if (replicationType) {
+      const data = getReplicationData()
+      if (data) {
+        setTitle(data.title)
+        setBodyHtml(data.description)
+        setProposalType(data.type === "candidate" ? "candidate" : "onchain")
+        
+        // Reconstruct actions from targets/values/signatures/calldatas
+        const newActions: Action[] = data.targets.map((target, idx) => ({
+          type: "custom" as ActionType,
+          target,
+          value: data.values?.[idx] || "0",
+          signature: data.signatures?.[idx] || "",
+          calldata: data.calldatas?.[idx] || "",
+          isFetching: false,
+          fetchError: undefined,
+          fetchedAbi: undefined,
+          selectedFunction: undefined,
+          argValues: {},
+        }))
+        
+        if (newActions.length > 0) {
+          setActions(newActions)
+          setShowActions(true)
+        }
+      }
+    }
+  }, [searchParams])
 
   const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash })

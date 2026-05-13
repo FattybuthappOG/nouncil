@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare } from "lucide-react"
+import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
 import { ActivitySection } from "@/components/activity-section"
+import { replicateProposal } from "@/lib/proposal-replication"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
@@ -94,6 +95,30 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
           >
             <MessageSquare className="h-4 w-4" />
             <span className="hidden sm:inline">Activity</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
+            onClick={() => {
+              if (candidate?.latestVersion) {
+                replicateProposal(
+                  {
+                    type: "candidate",
+                    title: candidate.latestVersion.content?.title || "",
+                    description: candidate.latestVersion.content?.description || "",
+                    targets: candidate.latestVersion.targets || [],
+                    values: candidate.latestVersion.values?.map(v => v.toString()) || [],
+                    signatures: candidate.latestVersion.signatures || [],
+                    calldatas: candidate.latestVersion.calldatas || [],
+                  },
+                  "/create?tab=candidates"
+                )
+              }
+            }}
+          >
+            <Copy className="h-4 w-4" />
+            <span className="hidden sm:inline">Replicate</span>
           </Button>
         </div>
       </div>
