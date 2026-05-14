@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
-import { parseEther, parseUnits, encodeFunctionData, isAddress, getAddress } from "viem"
+import { parseEther, parseUnits, encodeFunctionData, decodeFunctionData, isAddress, getAddress } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
@@ -100,7 +100,7 @@ const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const
 // Nouns Treasury holds Nouns NFTs and can transfer them via proposals
 const NOUNS_TREASURY = "0xb1a32FC9F9D8b2cf86C068Cae13108809547ef71" as const
 
-type ActionType = "eth" | "usdc" | "noun" | "custom"
+type ActionType = "eth" | "usdc" | "noun" | "custom" | "raw"
 
 interface AbiInput { name: string; type: string; components?: AbiInput[] }
 interface AbiFunction { name: string; type: string; stateMutability: string; inputs: AbiInput[] }
@@ -118,8 +118,12 @@ interface Action {
   fetchedAbi?: AbiFunction[] // fetched from Etherscan
   fetchError?: string
   isFetching?: boolean
-  selectedFunction?: string  // function name
+  selectedFunction?: string  // function signature e.g. "pause()"
   argValues?: Record<string, string> // inputName → value
+  // raw pre-encoded calldata (used when loading from template)
+  rawCalldata?: string
+  rawValue?: string
+  signature?: string
 }
 
 function slugify(text: string): string {
@@ -181,6 +185,18 @@ function coerceArg(value: string, type: string): unknown {
 }
 
 function resolveAction(action: Action): { target: `0x${string}`; value: bigint; signature: string; calldata: `0x${string}` } {
+  if (action.type === "raw") {
+    // Pre-encoded calldata from template - pass through directly
+    if (!isAddress(action.target || "")) throw new Error("Invalid target address for raw call")
+    const normalizedTarget = getAddress(action.target!) as `0x${string}`
+    const value = action.rawValue ? BigInt(action.rawValue) : 0n
+    return {
+      target: normalizedTarget,
+      value,
+      signature: action.signature || "",
+      calldata: (action.rawCalldata || "0x") as `0x${string}`,
+    }
+  }
   if (action.type === "eth") {
     if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for ETH transfer")
     return { target: action.recipient as `0x${string}`, value: parseEther(action.amount || "0"), signature: "", calldata: "0x" }
@@ -555,6 +571,7 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
     { value: "usdc",   label: "Send USDC" },
     { value: "noun",   label: "Request Noun NFT" },
     { value: "custom", label: "Custom Call" },
+    { value: "raw",    label: "Custom Call (raw)" },
   ]
   return (
     <div className="border border-border rounded-lg p-3 flex flex-col gap-3 bg-card">
@@ -605,6 +622,26 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
       )}
 
       {action.type === "custom" && <CustomCallForm action={action} onChange={onChange} />}
+
+      {action.type === "raw" && (
+        <div className="flex flex-col gap-2">
+          {action.isFetching ? (
+            <p className="text-xs text-muted-foreground animate-pulse">Decoding transaction...</p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">Target contract address</label>
+                <p className="px-3 py-2 rounded-md border border-border bg-muted text-xs font-mono text-foreground">{action.target}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">Calldata</label>
+                <p className="px-3 py-2 rounded-md border border-border bg-muted text-xs font-mono text-foreground break-all">{action.rawCalldata}</p>
+              </div>
+              <p className="text-xs text-amber-500">Could not decode ABI. Transaction will be submitted with raw calldata.</p>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -625,38 +662,100 @@ export default function CreateProposal() {
   // Load replicated data on mount if available
   useEffect(() => {
     const replicationType = searchParams.get("replicate")
-    if (replicationType) {
-      const data = getReplicationData()
-      if (data) {
-        // Title comes directly from template
-        setTitle(data.title || "")
-        
-        // Convert description markdown to HTML for the TipTap editor
-        const htmlContent = marked.parse(data.description || "", { async: false }) as string
-        setBodyHtml(htmlContent)
-        
-        setProposalType(data.type === "candidate" ? "candidate" : "onchain")
-        
-        // Reconstruct actions from targets/values/signatures/calldatas
-        const newActions: Action[] = data.targets.map((target, idx) => ({
-          type: "custom" as ActionType,
-          target,
-          value: data.values?.[idx] || "0",
-          signature: data.signatures?.[idx] || "",
-          calldata: data.calldatas?.[idx] || "",
-          isFetching: false,
-          fetchError: undefined,
-          fetchedAbi: undefined,
-          selectedFunction: undefined,
-          argValues: {},
-        }))
-        
-        if (newActions.length > 0) {
-          setActions(newActions)
-          setShowActions(true)
-        }
-      }
-    }
+    if (!replicationType) return
+    const data = getReplicationData()
+    if (!data) return
+
+    setTitle(data.title || "")
+    const htmlContent = marked.parse(data.description || "", { async: false }) as string
+    setBodyHtml(htmlContent)
+    setProposalType(data.type === "candidate" ? "candidate" : "onchain")
+
+    if (!data.targets?.length) return
+
+    // Start all actions as "raw" (passes through calldata directly) while we
+    // try to decode them in the background via the ABI endpoint.
+    const rawActions: Action[] = data.targets.map((target, idx) => ({
+      type: "raw" as ActionType,
+      target,
+      rawValue: data.values?.[idx] || "0",
+      signature: data.signatures?.[idx] || "",
+      rawCalldata: data.calldatas?.[idx] || "0x",
+      isFetching: true,
+    }))
+    setActions(rawActions)
+    setShowActions(true)
+
+    // For each unique target, fetch the ABI and decode the calldata
+    const uniqueTargets = [...new Set(data.targets)]
+    const abiCache: Record<string, AbiFunction[]> = {}
+
+    Promise.all(
+      uniqueTargets.map(target =>
+        fetch(`/api/etherscan-abi?address=${target}`)
+          .then(r => r.json())
+          .then(d => {
+            if (!d.error && d.abi) {
+              const writeFns: AbiFunction[] = (d.abi as AbiFunction[]).filter(
+                f => f.type === "function" && ["nonpayable", "payable"].includes(f.stateMutability)
+              )
+              abiCache[target.toLowerCase()] = writeFns
+            }
+          })
+          .catch(() => {})
+      )
+    ).then(() => {
+      setActions(prev =>
+        prev.map((action, idx) => {
+          if (action.type !== "raw") return action
+          const target = data.targets[idx]
+          const calldata = data.calldatas?.[idx] || "0x"
+          const writeFns = abiCache[target?.toLowerCase()]
+
+          if (!writeFns || !calldata || calldata === "0x") {
+            // No ABI or empty calldata - keep as raw but stop loading
+            return { ...action, isFetching: false }
+          }
+
+          // Try to decode calldata against each function ABI
+          for (const fn of writeFns) {
+            try {
+              const decoded = decodeFunctionData({ abi: [fn] as any, data: calldata as `0x${string}` })
+              // Build argValues from decoded result
+              const argValues: Record<string, string> = {}
+              fn.inputs.forEach((inp, i) => {
+                const val = (decoded.args as any[])?.[i]
+                argValues[inp.name] = val !== undefined ? String(val) : ""
+              })
+              const sig = `${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`
+              return {
+                ...action,
+                type: "custom" as ActionType,
+                fetchedAbi: writeFns,
+                selectedFunction: sig,
+                argValues,
+                isFetching: false,
+                fetchError: undefined,
+              }
+            } catch {
+              // Try next function
+            }
+          }
+
+          // Decoding failed - keep as raw with full ABI for manual editing
+          return {
+            ...action,
+            type: "custom" as ActionType,
+            fetchedAbi: writeFns,
+            selectedFunction: writeFns[0]
+              ? `${writeFns[0].name}(${writeFns[0].inputs?.map(i => i.type).join(",") || ""})`
+              : undefined,
+            argValues: {},
+            isFetching: false,
+          }
+        })
+      )
+    })
   }, [searchParams])
 
   const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract()
