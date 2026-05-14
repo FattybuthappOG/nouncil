@@ -664,8 +664,6 @@ export default function CreateProposal() {
     const replicationType = searchParams.get("replicate")
     if (!replicationType) return
     const data = getReplicationData()
-    console.log("[v0] Template data loaded:", data)
-    console.log("[v0] Signatures from data:", data?.signatures)
     if (!data) return
 
     setTitle(data.title || "")
@@ -719,12 +717,6 @@ export default function CreateProposal() {
           const calldata = calldatas[idx] || "0x"
           const signature = signatures[idx] || ""
           const writeFns = abiCache[target?.toLowerCase()]
-          
-          console.log("[v0] Processing action", idx)
-          console.log("[v0] - target:", target)
-          console.log("[v0] - signature:", signature)
-          console.log("[v0] - calldata:", calldata)
-          console.log("[v0] - writeFns:", writeFns?.length)
 
           if (!writeFns || writeFns.length === 0) {
             // No ABI available - convert to custom anyway so user can manually enter target
@@ -743,14 +735,11 @@ export default function CreateProposal() {
           // and calldatas contain only the encoded parameters without the selector
           // Use the signature to find the matching function
           if (signature) {
-            console.log("[v0] Trying to match signature:", signature)
             // Parse the signature to extract function name and param types
             const sigMatch = signature.match(/^(\w+)\((.*)\)$/)
-            console.log("[v0] sigMatch:", sigMatch)
             if (sigMatch) {
               const [, fnName, paramTypesStr] = sigMatch
               const paramTypes = paramTypesStr ? paramTypesStr.split(",").map(t => t.trim()) : []
-              console.log("[v0] fnName:", fnName, "paramTypes:", paramTypes)
               
               // Find matching function in ABI
               const matchingFn = writeFns.find(fn => {

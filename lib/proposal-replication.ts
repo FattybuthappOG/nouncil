@@ -11,7 +11,6 @@ export interface ProposalReplicationData {
 }
 
 const STORAGE_KEY = 'nouncil_template_data'
-const READ_FLAG_KEY = 'nouncil_template_read'
 
 /**
  * Encode proposal/candidate data to store in localStorage
@@ -49,7 +48,6 @@ export function storeTemplateData(data: ProposalReplicationData): string {
   try {
     const encoded = encodeReplicationData(data)
     localStorage.setItem(STORAGE_KEY, encoded)
-    localStorage.removeItem(READ_FLAG_KEY) // Clear read flag for new data
     return `/create?replicate=${data.type}`
   } catch (e) {
     console.error("Failed to store template data:", e)
@@ -59,25 +57,32 @@ export function storeTemplateData(data: ProposalReplicationData): string {
 
 /**
  * Get replication data from localStorage
- * Only returns data once per stored value (tracks with a read flag to handle React double-renders)
+ * Returns cached decode on subsequent calls within same session
  */
+let cachedData: ProposalReplicationData | null = null
+let cacheKey: string | null = null
+
 export function getReplicationData(): ProposalReplicationData | null {
   if (typeof window === "undefined") return null
   try {
     const encoded = localStorage.getItem(STORAGE_KEY)
-    if (!encoded) return null
+    if (!encoded) return cachedData // Return cached if storage was cleared
     
-    // Check if we've already read this data (React Strict Mode double-render protection)
-    const readFlag = localStorage.getItem(READ_FLAG_KEY)
-    if (readFlag === encoded) {
-      return null // Already consumed this data
+    // Return cached data if same key (handles React double-renders)
+    if (cacheKey === encoded && cachedData) {
+      return cachedData
     }
     
-    // Mark as read and clear storage
-    localStorage.setItem(READ_FLAG_KEY, encoded)
-    localStorage.removeItem(STORAGE_KEY)
+    // Decode and cache
+    const data = decodeReplicationData(encoded)
+    if (data) {
+      cachedData = data
+      cacheKey = encoded
+      // Clear storage after successful decode
+      localStorage.removeItem(STORAGE_KEY)
+    }
     
-    return decodeReplicationData(encoded)
+    return data
   } catch (e) {
     console.error("Failed to get replication data:", e)
     return null
