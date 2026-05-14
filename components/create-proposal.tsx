@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
-import { parseEther, parseUnits, encodeFunctionData, decodeFunctionData, isAddress, getAddress } from "viem"
+import { parseEther, parseUnits, encodeFunctionData, decodeFunctionData, isAddress, getAddress, toFunctionSelector } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
@@ -742,17 +742,29 @@ export default function CreateProposal() {
             }
           }
 
-          // Try to decode calldata against each function ABI
-          for (const fn of writeFns) {
+          // Extract 4-byte function selector from calldata
+          const calldataSelector = calldata.slice(0, 10).toLowerCase()
+          
+          // Find the function that matches this exact selector
+          const matchingFn = writeFns.find(fn => {
             try {
-              const decoded = decodeFunctionData({ abi: [fn] as any, data: calldata as `0x${string}` })
+              const fnSelector = toFunctionSelector(`${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`)
+              return fnSelector.toLowerCase() === calldataSelector
+            } catch {
+              return false
+            }
+          })
+          
+          if (matchingFn) {
+            try {
+              const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: calldata as `0x${string}` })
               // Build argValues from decoded result
               const argValues: Record<string, string> = {}
-              fn.inputs.forEach((inp, i) => {
+              matchingFn.inputs.forEach((inp, i) => {
                 const val = (decoded.args as any[])?.[i]
                 argValues[inp.name] = val !== undefined ? String(val) : ""
               })
-              const sig = `${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`
+              const sig = `${matchingFn.name}(${matchingFn.inputs?.map(i => i.type).join(",") || ""})`
               return {
                 ...action,
                 type: "custom" as ActionType,
@@ -763,7 +775,7 @@ export default function CreateProposal() {
                 fetchError: undefined,
               }
             } catch {
-              // Try next function
+              // Selector matched but decode failed - fall through
             }
           }
 
