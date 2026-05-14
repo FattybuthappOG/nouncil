@@ -222,6 +222,8 @@ function ProposalContentInner({
             className="gap-2 text-gray-300 hover:text-white"
             onClick={() => {
               if (proposal) {
+                console.log("[v0] Storing template - signatures:", proposal.signatures)
+                console.log("[v0] Storing template - calldatas:", proposal.calldatas)
                 // Store template data and navigate
                 const url = storeTemplateData({
                   type: "proposal",
