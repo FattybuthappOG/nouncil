@@ -715,6 +715,7 @@ export default function CreateProposal() {
           if (action.type !== "raw") return action
           const target = targets[idx]
           const calldata = calldatas[idx] || "0x"
+          const signature = signatures[idx] || ""
           const writeFns = abiCache[target?.toLowerCase()]
 
           if (!writeFns || writeFns.length === 0) {
@@ -730,52 +731,90 @@ export default function CreateProposal() {
             }
           }
           
-          if (!calldata || calldata === "0x") {
-            // Empty calldata - convert to custom with ABI for selection
-            return {
-              ...action,
-              type: "custom" as ActionType,
-              fetchedAbi: writeFns,
-              selectedFunction: undefined,
-              argValues: {},
-              isFetching: false,
+          // Nouns DAO stores signatures separately (e.g., "setReservePrice(uint192)")
+          // and calldatas contain only the encoded parameters without the selector
+          // Use the signature to find the matching function
+          if (signature) {
+            // Parse the signature to extract function name and param types
+            const sigMatch = signature.match(/^(\w+)\((.*)\)$/)
+            if (sigMatch) {
+              const [, fnName, paramTypesStr] = sigMatch
+              const paramTypes = paramTypesStr ? paramTypesStr.split(",").map(t => t.trim()) : []
+              
+              // Find matching function in ABI
+              const matchingFn = writeFns.find(fn => {
+                if (fn.name !== fnName) return false
+                if (fn.inputs.length !== paramTypes.length) return false
+                return fn.inputs.every((inp, i) => inp.type === paramTypes[i])
+              })
+              
+              if (matchingFn) {
+                // Decode the calldata (which contains only params, no selector)
+                const argValues: Record<string, string> = {}
+                
+                if (calldata && calldata !== "0x" && matchingFn.inputs.length > 0) {
+                  try {
+                    // Build full calldata with selector for decoding
+                    const fnSelector = toFunctionSelector(signature)
+                    const fullCalldata = fnSelector + calldata.slice(2) // Add selector to params
+                    const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: fullCalldata as `0x${string}` })
+                    matchingFn.inputs.forEach((inp, i) => {
+                      const val = (decoded.args as any[])?.[i]
+                      argValues[inp.name] = val !== undefined ? String(val) : ""
+                    })
+                  } catch {
+                    // Failed to decode params - leave argValues empty
+                  }
+                }
+                
+                const sig = `${matchingFn.name}(${matchingFn.inputs?.map(i => i.type).join(",") || ""})`
+                return {
+                  ...action,
+                  type: "custom" as ActionType,
+                  fetchedAbi: writeFns,
+                  selectedFunction: sig,
+                  argValues,
+                  isFetching: false,
+                  fetchError: undefined,
+                }
+              }
             }
           }
-
-          // Extract 4-byte function selector from calldata
-          const calldataSelector = calldata.slice(0, 10).toLowerCase()
           
-          // Find the function that matches this exact selector
-          const matchingFn = writeFns.find(fn => {
-            try {
-              const fnSelector = toFunctionSelector(`${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`)
-              return fnSelector.toLowerCase() === calldataSelector
-            } catch {
-              return false
-            }
-          })
-          
-          if (matchingFn) {
-            try {
-              const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: calldata as `0x${string}` })
-              // Build argValues from decoded result
-              const argValues: Record<string, string> = {}
-              matchingFn.inputs.forEach((inp, i) => {
-                const val = (decoded.args as any[])?.[i]
-                argValues[inp.name] = val !== undefined ? String(val) : ""
-              })
-              const sig = `${matchingFn.name}(${matchingFn.inputs?.map(i => i.type).join(",") || ""})`
-              return {
-                ...action,
-                type: "custom" as ActionType,
-                fetchedAbi: writeFns,
-                selectedFunction: sig,
-                argValues,
-                isFetching: false,
-                fetchError: undefined,
+          // Fallback: try to match by calldata selector (for newer format with full calldata)
+          if (calldata && calldata.length >= 10 && calldata !== "0x") {
+            const calldataSelector = calldata.slice(0, 10).toLowerCase()
+            
+            const matchingFn = writeFns.find(fn => {
+              try {
+                const fnSelector = toFunctionSelector(`${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`)
+                return fnSelector.toLowerCase() === calldataSelector
+              } catch {
+                return false
               }
-            } catch {
-              // Selector matched but decode failed - fall through
+            })
+            
+            if (matchingFn) {
+              try {
+                const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: calldata as `0x${string}` })
+                const argValues: Record<string, string> = {}
+                matchingFn.inputs.forEach((inp, i) => {
+                  const val = (decoded.args as any[])?.[i]
+                  argValues[inp.name] = val !== undefined ? String(val) : ""
+                })
+                const sig = `${matchingFn.name}(${matchingFn.inputs?.map(i => i.type).join(",") || ""})`
+                return {
+                  ...action,
+                  type: "custom" as ActionType,
+                  fetchedAbi: writeFns,
+                  selectedFunction: sig,
+                  argValues,
+                  isFetching: false,
+                  fetchError: undefined,
+                }
+              } catch {
+                // Decode failed
+              }
             }
           }
 
