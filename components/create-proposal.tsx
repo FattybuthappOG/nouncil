@@ -673,21 +673,26 @@ export default function CreateProposal() {
 
     if (!data.targets?.length) return
 
-    // Start all actions as "raw" (passes through calldata directly) while we
-    // try to decode them in the background via the ABI endpoint.
-    const rawActions: Action[] = data.targets.map((target, idx) => ({
+    // Capture data for async operations
+    const targets = data.targets
+    const calldatas = data.calldatas || []
+    const values = data.values || []
+    const signatures = data.signatures || []
+
+    // Start all actions as "raw" while we decode in background
+    const rawActions: Action[] = targets.map((target, idx) => ({
       type: "raw" as ActionType,
       target,
-      rawValue: data.values?.[idx] || "0",
-      signature: data.signatures?.[idx] || "",
-      rawCalldata: data.calldatas?.[idx] || "0x",
+      rawValue: values[idx] || "0",
+      signature: signatures[idx] || "",
+      rawCalldata: calldatas[idx] || "0x",
       isFetching: true,
     }))
     setActions(rawActions)
     setShowActions(true)
 
     // For each unique target, fetch the ABI and decode the calldata
-    const uniqueTargets = [...new Set(data.targets)]
+    const uniqueTargets = [...new Set(targets)]
     const abiCache: Record<string, AbiFunction[]> = {}
 
     Promise.all(
@@ -708,13 +713,33 @@ export default function CreateProposal() {
       setActions(prev =>
         prev.map((action, idx) => {
           if (action.type !== "raw") return action
-          const target = data.targets[idx]
-          const calldata = data.calldatas?.[idx] || "0x"
+          const target = targets[idx]
+          const calldata = calldatas[idx] || "0x"
           const writeFns = abiCache[target?.toLowerCase()]
 
-          if (!writeFns || !calldata || calldata === "0x") {
-            // No ABI or empty calldata - keep as raw but stop loading
-            return { ...action, isFetching: false }
+          if (!writeFns || writeFns.length === 0) {
+            // No ABI available - convert to custom anyway so user can manually enter target
+            return {
+              ...action,
+              type: "custom" as ActionType,
+              fetchedAbi: [],
+              fetchError: "Could not fetch contract ABI",
+              selectedFunction: undefined,
+              argValues: {},
+              isFetching: false,
+            }
+          }
+          
+          if (!calldata || calldata === "0x") {
+            // Empty calldata - convert to custom with ABI for selection
+            return {
+              ...action,
+              type: "custom" as ActionType,
+              fetchedAbi: writeFns,
+              selectedFunction: undefined,
+              argValues: {},
+              isFetching: false,
+            }
           }
 
           // Try to decode calldata against each function ABI
@@ -742,7 +767,7 @@ export default function CreateProposal() {
             }
           }
 
-          // Decoding failed - keep as raw with full ABI for manual editing
+          // Decoding failed - convert to custom with full ABI for manual editing
           return {
             ...action,
             type: "custom" as ActionType,
