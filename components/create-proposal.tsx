@@ -23,7 +23,7 @@ import { getReplicationData } from "@/lib/proposal-replication"
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
 
 // Nouns Governor V3 — propose with clientId 22 for Nouncil rewards
-const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223E" as const
+const NOUNS_GOVERNOR = "0x6f3E6272A167E8accb32072D08e0957f9C79223e" as const
 const CLIENT_ID = 22 // Nouncil client ID — registered for DAO rewards
 
 const NOUNS_DAO_DATA_ABI = [
