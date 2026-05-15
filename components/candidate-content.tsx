@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy, Pencil, PenLine, Rocket } from "lucide-react"
+import { WalletConnectButton } from "@/components/wallet-connect-button"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -157,6 +158,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               <span className="hidden sm:inline">Edit</span>
             </Button>
           )}
+          <WalletConnectButton compact />
         </div>
       </div>
 
@@ -195,15 +197,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                 className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
               >
                 <ExternalLink className="h-4 w-4" />
-                View on{" "}
-                <a
-                  href={`https://nouns.wtf/candidates/${candidateId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300"
-                >
-                  Nouns
-                </a>
+                View on Nouns
               </a>
             </div>
 
@@ -226,12 +220,12 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                     }}
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center flex-wrap">
                   {canSponsor && (
                     <Button
                       size="sm"
                       onClick={() => setSponsorDialogOpen(true)}
-                      className="gap-2 bg-nouns-blue hover:bg-nouns-blue/90"
+                      className="gap-2 bg-transparent border border-[#4ade80] text-[#4ade80] hover:bg-[#4ade80]/10 font-semibold"
                     >
                       <PenLine className="h-4 w-4" />
                       Sponsor ({votingPower} {votingPower === 1 ? "vote" : "votes"})
@@ -241,17 +235,17 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                     <Button
                       size="sm"
                       onClick={() => setPromoteDialogOpen(true)}
-                      className="gap-2 bg-green-600 hover:bg-green-700"
+                      className="gap-2 bg-[#4ade80] text-black hover:bg-[#4ade80]/90 font-semibold"
                     >
                       <Rocket className="h-4 w-4" />
                       Promote to On-Chain
                     </Button>
                   )}
                   {!isConnected && (
-                    <p className="text-sm text-gray-500">Connect wallet to sponsor</p>
+                    <span className="text-sm text-gray-500">Connect wallet to sponsor</span>
                   )}
                   {isConnected && votingPower === 0 && (
-                    <p className="text-sm text-gray-500">Hold a Noun to sponsor</p>
+                    <span className="text-sm text-gray-500">Hold a Noun to sponsor</span>
                   )}
                 </div>
               </div>
