@@ -195,7 +195,15 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                 className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
               >
                 <ExternalLink className="h-4 w-4" />
-                View on nouns.wtf
+                View on{" "}
+                <a
+                  href={`https://nouns.wtf/candidates/${candidateId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300"
+                >
+                  Nouns
+                </a>
               </a>
             </div>
 

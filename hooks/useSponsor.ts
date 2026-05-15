@@ -114,16 +114,11 @@ export interface ProposalCandidate {
  * Hook to get the proposal threshold (minimum votes needed to create a proposal)
  */
 export function useProposalThreshold() {
-  const { data, isLoading, error } = useReadContract({
-    address: GOVERNOR_CONTRACT.address,
-    abi: GOVERNOR_CONTRACT.abi,
-    functionName: "proposalThreshold",
-  })
-
+  // Hardcoded threshold of 4 sponsors needed for promotion to on-chain
   return {
-    threshold: data ? Number(data) : 0,
-    isLoading,
-    error,
+    threshold: 4,
+    isLoading: false,
+    error: null,
   }
 }
 
