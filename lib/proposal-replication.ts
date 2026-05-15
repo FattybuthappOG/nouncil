@@ -49,7 +49,6 @@ export function storeTemplateData(data: ProposalReplicationData): string {
     // Clear any previous cache
     clearReplicationCache()
     const encoded = encodeReplicationData(data)
-    console.log("[v0] storeTemplateData - signatures:", data.signatures)
     localStorage.setItem(STORAGE_KEY, encoded)
     return `/create?replicate=${data.type}`
   } catch (e) {
@@ -74,22 +73,18 @@ export function getReplicationData(): ProposalReplicationData | null {
   if (typeof window === "undefined") return null
   try {
     const encoded = localStorage.getItem(STORAGE_KEY)
-    console.log("[v0] getReplicationData - encoded exists:", !!encoded, "cacheKey:", cacheKey?.substring(0, 20))
     
     if (!encoded) {
-      console.log("[v0] No encoded data, returning cached:", cachedData?.signatures)
       return cachedData // Return cached if storage was cleared
     }
     
     // Return cached data if same key (handles React double-renders)
     if (cacheKey === encoded && cachedData) {
-      console.log("[v0] Returning cached data with signatures:", cachedData.signatures)
       return cachedData
     }
     
     // Decode and cache
     const data = decodeReplicationData(encoded)
-    console.log("[v0] Decoded fresh data with signatures:", data?.signatures)
     if (data) {
       cachedData = data
       cacheKey = encoded

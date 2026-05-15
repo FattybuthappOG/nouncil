@@ -24,6 +24,13 @@ export const GOVERNOR_CONTRACT = {
       type: "function",
     },
     {
+      inputs: [],
+      name: "proposalThreshold",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
       inputs: [{ internalType: "uint256", name: "proposalId", type: "uint256" }],
       name: "proposals",
       outputs: [
@@ -173,6 +180,30 @@ export const GOVERNOR_CONTRACT = {
       ],
       name: "ProposalUpdated",
       type: "event",
+    },
+    {
+      inputs: [
+        {
+          components: [
+            { internalType: "bytes", name: "sig", type: "bytes" },
+            { internalType: "address", name: "signer", type: "address" },
+            { internalType: "uint256", name: "expirationTimestamp", type: "uint256" },
+          ],
+          internalType: "struct NounsDAOTypes.ProposerSignature[]",
+          name: "proposerSignatures",
+          type: "tuple[]",
+        },
+        { internalType: "address[]", name: "targets", type: "address[]" },
+        { internalType: "uint256[]", name: "values", type: "uint256[]" },
+        { internalType: "string[]", name: "signatures", type: "string[]" },
+        { internalType: "bytes[]", name: "calldatas", type: "bytes[]" },
+        { internalType: "string", name: "description", type: "string" },
+        { internalType: "uint32", name: "clientId", type: "uint32" },
+      ],
+      name: "proposeBySigs",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "nonpayable",
+      type: "function",
     },
   ],
 } as const

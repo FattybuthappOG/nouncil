@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare, Copy } from "lucide-react"
+import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare, Copy, Pencil } from "lucide-react"
 import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
@@ -16,7 +16,7 @@ import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { ActivitySection } from "@/components/activity-section"
 import { storeTemplateData } from "@/lib/proposal-replication"
-import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -108,7 +108,7 @@ function ProposalContentInner({
   const feedback = useProposalFeedback(Number(proposalId))
 
   // Voting state
-  const { isConnected } = useAccount()
+  const { isConnected, address } = useAccount()
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
@@ -121,6 +121,43 @@ function ProposalContentInner({
     cacheTime: 10_000,
   })
   const currentBlock = currentBlockData ? Number(currentBlockData) : null
+
+  // Fetch proposalsV3 data to get updatePeriodEndBlock
+  const { data: proposalV3Data } = useReadContract({
+    address: GOVERNOR_CONTRACT.address,
+    abi: [{
+      name: "proposalsV3",
+      type: "function",
+      stateMutability: "view",
+      inputs: [{ name: "proposalId", type: "uint256" }],
+      outputs: [
+        { name: "id", type: "uint256" },
+        { name: "proposer", type: "address" },
+        { name: "proposalThreshold", type: "uint256" },
+        { name: "quorumVotes", type: "uint256" },
+        { name: "eta", type: "uint256" },
+        { name: "startBlock", type: "uint256" },
+        { name: "endBlock", type: "uint256" },
+        { name: "forVotes", type: "uint256" },
+        { name: "againstVotes", type: "uint256" },
+        { name: "abstainVotes", type: "uint256" },
+        { name: "canceled", type: "bool" },
+        { name: "vetoed", type: "bool" },
+        { name: "executed", type: "bool" },
+        { name: "totalSupply", type: "uint256" },
+        { name: "creationBlock", type: "uint256" },
+        { name: "updatePeriodEndBlock", type: "uint256" },
+      ],
+    }] as const,
+    functionName: "proposalsV3",
+    args: [BigInt(proposalId)],
+  })
+
+  // Check if proposal is editable (in Updatable state)
+  const updatePeriodEndBlock = proposalV3Data ? Number(proposalV3Data[15]) : null
+  const isProposer = address && proposal.proposer && address.toLowerCase() === proposal.proposer.toLowerCase()
+  const isInUpdatePeriod = currentBlock !== null && updatePeriodEndBlock !== null && currentBlock < updatePeriodEndBlock
+  const canEdit = isProposer && isInUpdatePeriod && !proposal.canceled && !proposal.executed
 
   const votingIsActive = proposal.state === 1 || proposal.state === 0
 
@@ -239,6 +276,17 @@ function ProposalContentInner({
             <Copy className="h-4 w-4" />
             <span className="hidden sm:inline">Use as Template</span>
           </Button>
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-gray-300 hover:text-white"
+              onClick={() => router.push(`/edit/proposal/${proposalId}`)}
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="hidden sm:inline">Edit</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -257,9 +305,19 @@ function ProposalContentInner({
               >
                 {stateLabel}
               </Badge>
+              {isInUpdatePeriod && (
+                <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+                  Updatable
+                </Badge>
+              )}
               <Badge variant="outline" className={isDarkMode ? "border-gray-700 text-gray-300" : ""}>
                 #{proposalId}
               </Badge>
+              {isInUpdatePeriod && currentBlock && updatePeriodEndBlock && (
+                <span className="text-xs text-muted-foreground">
+                  ({updatePeriodEndBlock - currentBlock} blocks left to edit)
+                </span>
+              )}
             </div>
 
             <h1 className="text-2xl font-bold break-words">{title || proposal.description}</h1>
