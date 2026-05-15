@@ -21,10 +21,10 @@ import { EnsDisplay } from "@/components/ens-display"
 const KNOWN_CONTRACTS: Record<string, { name: string; type?: string; decimals?: number; symbol?: string }> = {
   "0x6f3e6272a167e8accb32072d08e0957f9c79223d": { name: "Nouns DAO Proxy" },
   "0x0bc3807ec262cb779b38d65b38158acc3bfede10": { name: "Nouns DAO Logic V3" },
-  "0x830bd73e4184cef73443c15111a1df14e495c706": { name: "Nouns DAO Executor (Treasury)" },
+  "0x830bd73e4184cef73443c15111a1df14e495c706": { name: "Nouns Auction House Proxy" },
   "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03": { name: "Nouns Token", type: "nft" },
   "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": { name: "Nouns Art" },
-  "0x2573c60a6d127755aa2dc85e342f7da2378a0cc5": { name: "Nouns Auction House" },
+  "0x2573c60a6d127755aa2dc85e342f7da2378a0cc5": { name: "Nouns Auction House (V1)" },
   // ERC20 Tokens
   "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": { name: "USDC", type: "erc20", decimals: 6, symbol: "USDC" },
   "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": { name: "WETH", type: "erc20", decimals: 18, symbol: "WETH" },
@@ -55,6 +55,10 @@ const FUNCTION_SELECTORS: Record<string, { name: string; params: string[] }> = {
   // Treasury functions
   "5a9b0b89": { name: "sendOrRegisterDebt", params: ["address", "uint256"] },
   b61d27f6: { name: "execute", params: ["address", "uint256", "bytes"] },
+  // Auction House functions
+  "8456cb59": { name: "pause", params: [] },
+  "3f4ba83a": { name: "unpause", params: [] },
+  c0555d98: { name: "setReservePrice", params: ["uint192"] },
   // Streaming
   "36efd16f": { name: "createWithDurations", params: ["tuple"] },
   "1c31f710": { name: "createWithRange", params: ["tuple"] },

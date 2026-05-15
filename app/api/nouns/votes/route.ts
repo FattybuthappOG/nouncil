@@ -61,15 +61,25 @@ export async function GET(request: Request) {
       throw new Error(json.errors[0]?.message || "GraphQL error")
     }
 
-    const votes = (json.data?.votes || []).map((v: any) => ({
-      id: v.id,
-      voter: v.voter?.id || "0x0",
-      support: v.support, // 0 = Against, 1 = For, 2 = Abstain
-      votes: Number(v.votes),
-      reason: v.reason || "",
-      blockNumber: Number(v.blockNumber),
-      timestamp: Number(v.blockTimestamp),
-    }))
+    const votes = (json.data?.votes || []).map((v: any) => {
+      // Goldsky subgraph returns support as boolean (true=For, false=Against)
+      // or as a number (0=Against, 1=For, 2=Abstain) - normalise to number
+      let support: number
+      if (typeof v.support === "boolean") {
+        support = v.support ? 1 : 0
+      } else {
+        support = Number(v.support)
+      }
+      return {
+        id: v.id,
+        voter: v.voter?.id || "0x0",
+        support, // 0 = Against, 1 = For, 2 = Abstain
+        votes: Number(v.votes),
+        reason: v.reason || "",
+        blockNumber: Number(v.blockNumber),
+        timestamp: Number(v.blockTimestamp),
+      }
+    })
 
     const result = {
       votes,
