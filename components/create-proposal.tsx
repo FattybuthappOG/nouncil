@@ -49,6 +49,36 @@ const NOUNS_DAO_DATA_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    name: "updateProposalCandidate",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      { name: "targets",           type: "address[]" },
+      { name: "values",            type: "uint256[]" },
+      { name: "signatures",        type: "string[]"  },
+      { name: "calldatas",         type: "bytes[]"   },
+      { name: "description",       type: "string"    },
+      { name: "slug",              type: "string"    },
+      { name: "proposalIdToUpdate",type: "uint256"   },
+      { name: "reason",            type: "string"    },
+    ],
+    outputs: [],
+  },
+  {
+    name: "updateCandidateCost",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "cancelProposalCandidate",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "slug", type: "string" }],
+    outputs: [],
+  },
 ] as const
 
 const NOUNS_GOVERNOR_ABI = [
@@ -72,6 +102,45 @@ const NOUNS_GOVERNOR_ABI = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "updateProposal",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "proposalId",   type: "uint256"   },
+      { name: "targets",      type: "address[]" },
+      { name: "values",       type: "uint256[]" },
+      { name: "signatures",   type: "string[]"  },
+      { name: "calldatas",    type: "bytes[]"   },
+      { name: "description",  type: "string"    },
+      { name: "updateMessage",type: "string"    },
+    ],
+    outputs: [],
+  },
+  {
+    name: "proposalsV3",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [
+      { name: "id", type: "uint256" },
+      { name: "proposer", type: "address" },
+      { name: "proposalThreshold", type: "uint256" },
+      { name: "quorumVotes", type: "uint256" },
+      { name: "eta", type: "uint256" },
+      { name: "startBlock", type: "uint256" },
+      { name: "endBlock", type: "uint256" },
+      { name: "forVotes", type: "uint256" },
+      { name: "againstVotes", type: "uint256" },
+      { name: "abstainVotes", type: "uint256" },
+      { name: "canceled", type: "bool" },
+      { name: "vetoed", type: "bool" },
+      { name: "executed", type: "bool" },
+      { name: "totalSupply", type: "uint256" },
+      { name: "creationBlock", type: "uint256" },
+      { name: "updatePeriodEndBlock", type: "uint256" },
+    ],
   },
 ] as const
 
@@ -647,17 +716,123 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
 }
 
 // --- Main component ---
-export default function CreateProposal() {
+export interface EditModeProps {
+  editMode?: "candidate" | "proposal"
+  candidateSlug?: string      // For editing candidates
+  proposalId?: number         // For editing on-chain proposals in Updatable state
+  initialData?: {
+    title: string
+    description: string
+    targets: string[]
+    values: string[]
+    signatures: string[]
+    calldatas: string[]
+  }
+}
+
+export default function CreateProposal({ editMode, candidateSlug, proposalId, initialData }: EditModeProps = {}) {
   const searchParams = useSearchParams()
   const { address, isConnected } = useAccount()
   const { connectors, connect } = useConnect()
-  const [title, setTitle] = useState("")
+  const [title, setTitle] = useState(initialData?.title || "")
   const [bodyHtml, setBodyHtml] = useState("")
   const [actions, setActions] = useState<Action[]>([])
-  const [proposalType, setProposalType] = useState<"candidate" | "onchain">("candidate")
+  const [proposalType, setProposalType] = useState<"candidate" | "onchain">(editMode === "proposal" ? "onchain" : "candidate")
   const [showActions, setShowActions] = useState(false)
   const [txError, setTxError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [updateReason, setUpdateReason] = useState("") // For edit mode
+
+  // Load edit mode data on mount
+  useEffect(() => {
+    if (!editMode || !initialData) return
+    
+    setTitle(initialData.title || "")
+    const htmlContent = marked.parse(initialData.description || "", { async: false }) as string
+    setBodyHtml(htmlContent)
+    
+    if (!initialData.targets?.length) return
+    
+    const targets = initialData.targets
+    const calldatas = initialData.calldatas || []
+    const values = initialData.values || []
+    const signatures = initialData.signatures || []
+    
+    // Start all actions as "raw" while we decode in background
+    const rawActions: Action[] = targets.map((target, idx) => ({
+      type: "raw" as ActionType,
+      target,
+      rawValue: values[idx] || "0",
+      signature: signatures[idx] || "",
+      rawCalldata: calldatas[idx] || "0x",
+      isFetching: true,
+    }))
+    setActions(rawActions)
+    setShowActions(true)
+    
+    // Decode actions using ABI
+    const uniqueTargets = [...new Set(targets)]
+    const abiCache: Record<string, AbiFunction[]> = {}
+    
+    Promise.all(
+      uniqueTargets.map(target =>
+        fetch(`/api/etherscan-abi?address=${target}`)
+          .then(r => r.json())
+          .then(d => {
+            if (!d.error && d.abi) {
+              const writeFns: AbiFunction[] = (d.abi as AbiFunction[]).filter(
+                f => f.type === "function" && ["nonpayable", "payable"].includes(f.stateMutability)
+              )
+              abiCache[target.toLowerCase()] = writeFns
+            }
+          })
+          .catch(() => {})
+      )
+    ).then(() => {
+      setActions(prev =>
+        prev.map((action, idx) => {
+          if (action.type !== "raw") return action
+          const target = targets[idx]
+          const calldata = calldatas[idx] || "0x"
+          const signature = signatures[idx] || ""
+          const writeFns = abiCache[target?.toLowerCase()]
+          
+          if (!writeFns || writeFns.length === 0) {
+            return { ...action, type: "custom" as ActionType, fetchedAbi: [], fetchError: "Could not fetch contract ABI", isFetching: false }
+          }
+          
+          // Match by signature
+          if (signature) {
+            const sigMatch = signature.match(/^(\w+)\((.*)\)$/)
+            if (sigMatch) {
+              const [, fnName, paramTypesStr] = sigMatch
+              const paramTypes = paramTypesStr ? paramTypesStr.split(",").map(t => t.trim()) : []
+              const matchingFn = writeFns.find(fn => fn.name === fnName && fn.inputs.length === paramTypes.length && fn.inputs.every((inp, i) => inp.type === paramTypes[i]))
+              
+              if (matchingFn) {
+                const argValues: Record<string, string> = {}
+                if (calldata && calldata !== "0x" && matchingFn.inputs.length > 0) {
+                  try {
+                    const fnSelector = toFunctionSelector(signature)
+                    const fullCalldata = fnSelector + calldata.slice(2)
+                    const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: fullCalldata as `0x${string}` })
+                    matchingFn.inputs.forEach((inp, i) => {
+                      const val = (decoded.args as any[])?.[i]
+                      argValues[inp.name] = val !== undefined ? String(val) : ""
+                    })
+                  } catch {}
+                }
+                const sig = `${matchingFn.name}(${matchingFn.inputs?.map(i => i.type).join(",") || ""})`
+                return { ...action, type: "custom" as ActionType, fetchedAbi: writeFns, selectedFunction: sig, argValues, isFetching: false }
+              }
+            }
+          }
+          
+          return { ...action, type: "custom" as ActionType, fetchedAbi: writeFns, selectedFunction: undefined, argValues: {}, isFetching: false }
+        })
+      )
+    })
+  }, [editMode, initialData])
 
   // Load replicated data on mount if available
   useEffect(() => {
@@ -929,10 +1104,28 @@ export default function CreateProposal() {
     // On-chain description format: "# Title\n\nBody markdown"
     const markdown    = htmlToMarkdown(bodyHtml)
     const description = `# ${title}\n\n${markdown}`.trim()
-    const slug        = slugify(title)
+    const slug        = candidateSlug || slugify(title)
 
     try {
-      if (type === "candidate") {
+      if (editMode === "candidate" && candidateSlug) {
+        // Update existing candidate
+        writeContract({
+          address: NOUNS_DAO_DATA,
+          abi: NOUNS_DAO_DATA_ABI,
+          functionName: "updateProposalCandidate",
+          args: [targets, values, sigs, datas, description, candidateSlug, 0n, updateReason],
+          value: candidateFee, // Update cost (usually same as create, waived for Nouners)
+        })
+      } else if (editMode === "proposal" && proposalId) {
+        // Update on-chain proposal in Updatable state
+        writeContract({
+          address: NOUNS_GOVERNOR,
+          abi: NOUNS_GOVERNOR_ABI,
+          functionName: "updateProposal",
+          args: [BigInt(proposalId), targets, values, sigs, datas, description, updateReason],
+        })
+      } else if (type === "candidate") {
+        // Create new candidate
         writeContract({
           address: NOUNS_DAO_DATA,
           abi: NOUNS_DAO_DATA_ABI,
@@ -953,7 +1146,7 @@ export default function CreateProposal() {
     } catch (err: any) {
       setTxError(err?.message || "Transaction failed")
     }
-  }, [isConnected, title, bodyHtml, actions, writeContract, candidateFee])
+  }, [isConnected, title, bodyHtml, actions, writeContract, candidateFee, editMode, candidateSlug, proposalId, updateReason])
 
   const candidateFeeDisplay = hasFeeWaiver ? null : createCandidateCost
     ? `${Number(createCandidateCost) / 1e18} ETH`
@@ -1061,6 +1254,22 @@ export default function CreateProposal() {
           </div>
         )}
 
+        {/* Update reason (only in edit mode) */}
+        {editMode && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Update Reason {editMode === "proposal" ? "(shown on-chain)" : ""}
+            </label>
+            <textarea
+              value={updateReason}
+              onChange={e => setUpdateReason(e.target.value)}
+              placeholder="Briefly explain what changed and why..."
+              rows={2}
+              className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            />
+          </div>
+        )}
+
         {/* Submit row */}
         <div className="flex flex-col gap-2 pt-2 border-t border-border">
           <div className="flex flex-col sm:flex-row items-stretch gap-2">
@@ -1072,7 +1281,24 @@ export default function CreateProposal() {
                 className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95 flex-1"
               >
                 <Send className="w-3.5 h-3.5 shrink-0" />
-                Connect wallet to submit
+                Connect wallet to {editMode ? "update" : "submit"}
+              </button>
+            ) : editMode ? (
+              /* Edit mode — single update button */
+              <button
+                type="button"
+                onClick={() => handleSubmit(editMode === "proposal" ? "onchain" : "candidate")}
+                disabled={isPending || isConfirming || !title.trim()}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 ${
+                  !title.trim() || isPending || isConfirming
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
+                }`}
+              >
+                <Send className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  {isPending ? "Confirm in wallet..." : isConfirming ? "Confirming..." : `Update ${editMode === "proposal" ? "Proposal" : "Candidate"}`}
+                </span>
               </button>
             ) : canProposeOnChain ? (
               /* Has enough votes to propose on-chain — show both options */
