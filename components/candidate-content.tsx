@@ -31,6 +31,17 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false)
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false)
 
+  // Calculate sponsor voting power - must be before early returns
+  const validSignatures = useMemo(() => {
+    if (!signatures.signatures) return []
+    return filterValidSignatures(signatures.signatures)
+  }, [signatures.signatures])
+
+  const totalVotingPower = useMemo(() => {
+    if (!signatures.signatures) return 0
+    return calculateTotalVotingPower(signatures.signatures)
+  }, [signatures.signatures])
+
   if (candidate.isLoading) {
     return (
       <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>
@@ -78,17 +89,6 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
 
   // Check if connected wallet is the proposer
   const isProposer = address && data.proposer && address.toLowerCase() === data.proposer.toLowerCase()
-
-  // Calculate sponsor voting power
-  const validSignatures = useMemo(() => {
-    if (!signatures.signatures) return []
-    return filterValidSignatures(signatures.signatures)
-  }, [signatures.signatures])
-
-  const totalVotingPower = useMemo(() => {
-    if (!signatures.signatures) return 0
-    return calculateTotalVotingPower(signatures.signatures)
-  }, [signatures.signatures])
 
   const hasReachedThreshold = totalVotingPower >= threshold
   const canSponsor = isConnected && votingPower > 0 && !data.canceled
