@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useAccount } from "wagmi"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy } from "lucide-react"
+import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy, Pencil } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -17,6 +18,7 @@ import { storeTemplateData } from "@/lib/proposal-replication"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
+  const { address } = useAccount()
   const candidate = useCandidateData(candidateId)
   const signatures = useCandidateSignatures(candidateId)
 
@@ -64,6 +66,9 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   if (!data || !data.id) {
     return null
   }
+
+  // Check if connected wallet is the proposer
+  const isProposer = address && data.proposer && address.toLowerCase() === data.proposer.toLowerCase()
 
   // Extract candidate number from the end of the ID or use a fallback
   const candidateNumber = candidateId.split("-").pop() || candidateId
@@ -118,6 +123,17 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             <Copy className="h-4 w-4" />
             <span className="hidden sm:inline">Use as Template</span>
           </Button>
+          {isProposer && !data.canceled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`gap-2 ${isDarkMode ? "text-gray-300 hover:text-white" : ""}`}
+              onClick={() => router.push(`/edit/candidate/${data.slug || candidateId}`)}
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="hidden sm:inline">Edit</span>
+            </Button>
+          )}
         </div>
       </div>
 

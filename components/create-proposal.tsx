@@ -1048,6 +1048,13 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
     functionName: "createCandidateCost",
   })
 
+  // Fetch the updateCandidateCost for editing candidates
+  const { data: updateCandidateCost } = useReadContract({
+    address: NOUNS_DAO_DATA,
+    abi: NOUNS_DAO_DATA_ABI,
+    functionName: "updateCandidateCost",
+  })
+
   // Fetch proposalThreshold dynamically from the Governor (nouns-camp pattern)
   const { data: proposalThresholdRaw } = useReadContract({
     address: NOUNS_GOVERNOR,
@@ -1070,7 +1077,9 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
 
 
   // Fee is 0 if user has voting power, otherwise use on-chain cost (fallback 0.01 ETH)
-  const candidateFee = hasFeeWaiver ? 0n : (createCandidateCost ?? parseEther("0.01"))
+  // Use updateCandidateCost for editing, createCandidateCost for creating
+  const baseFee = editMode === "candidate" ? (updateCandidateCost ?? createCandidateCost ?? parseEther("0.01")) : (createCandidateCost ?? parseEther("0.01"))
+  const candidateFee = hasFeeWaiver ? 0n : baseFee
 
   const connectWallet = () => {
     const wc = connectors.find(c => c.id === "walletConnect") ?? connectors[0]
