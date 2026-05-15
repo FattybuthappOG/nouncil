@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useAccount } from "wagmi"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy, Pencil } from "lucide-react"
+import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy, Pencil, PenLine, Rocket } from "lucide-react"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -15,12 +15,21 @@ import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
 import { ActivitySection } from "@/components/activity-section"
 import { storeTemplateData } from "@/lib/proposal-replication"
+import { SponsorCandidateDialog } from "@/components/sponsor-candidate-dialog"
+import { PromoteCandidateDialog } from "@/components/promote-candidate-dialog"
+import { useProposalThreshold, useVotingPower, calculateTotalVotingPower, filterValidSignatures } from "@/hooks/useSponsor"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
   const candidate = useCandidateData(candidateId)
   const signatures = useCandidateSignatures(candidateId)
+  const { threshold } = useProposalThreshold()
+  const { votingPower } = useVotingPower(address)
+
+  // Dialog states
+  const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false)
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false)
 
   if (candidate.isLoading) {
     return (
@@ -69,6 +78,20 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
 
   // Check if connected wallet is the proposer
   const isProposer = address && data.proposer && address.toLowerCase() === data.proposer.toLowerCase()
+
+  // Calculate sponsor voting power
+  const validSignatures = useMemo(() => {
+    if (!signatures.signatures) return []
+    return filterValidSignatures(signatures.signatures)
+  }, [signatures.signatures])
+
+  const totalVotingPower = useMemo(() => {
+    if (!signatures.signatures) return 0
+    return calculateTotalVotingPower(signatures.signatures)
+  }, [signatures.signatures])
+
+  const hasReachedThreshold = totalVotingPower >= threshold
+  const canSponsor = isConnected && votingPower > 0 && !data.canceled
 
   // Extract candidate number from the end of the ID or use a fallback
   const candidateNumber = candidateId.split("-").pop() || candidateId
@@ -176,6 +199,56 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               </a>
             </div>
 
+            {/* Sponsor Progress Section */}
+            {!data.canceled && (
+              <div className={`p-4 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-muted"}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Sponsor Progress</span>
+                  <span className={`text-sm ${hasReachedThreshold ? "text-green-400" : "text-gray-400"}`}>
+                    {totalVotingPower} / {threshold} votes
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-800 rounded-full overflow-hidden mb-3">
+                  <div
+                    className={`h-full transition-all duration-500 ${
+                      hasReachedThreshold ? "bg-green-500" : "bg-nouns-blue"
+                    }`}
+                    style={{
+                      width: `${Math.min(100, (totalVotingPower / Math.max(1, threshold)) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {canSponsor && (
+                    <Button
+                      size="sm"
+                      onClick={() => setSponsorDialogOpen(true)}
+                      className="gap-2 bg-nouns-blue hover:bg-nouns-blue/90"
+                    >
+                      <PenLine className="h-4 w-4" />
+                      Sponsor ({votingPower} {votingPower === 1 ? "vote" : "votes"})
+                    </Button>
+                  )}
+                  {hasReachedThreshold && (
+                    <Button
+                      size="sm"
+                      onClick={() => setPromoteDialogOpen(true)}
+                      className="gap-2 bg-green-600 hover:bg-green-700"
+                    >
+                      <Rocket className="h-4 w-4" />
+                      Promote to On-Chain
+                    </Button>
+                  )}
+                  {!isConnected && (
+                    <p className="text-sm text-gray-500">Connect wallet to sponsor</p>
+                  )}
+                  {isConnected && votingPower === 0 && (
+                    <p className="text-sm text-gray-500">Hold a Noun to sponsor</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
 
             <div>
@@ -276,6 +349,57 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
         {/* Activity Section - Signals for candidates */}
         <ActivitySection candidateId={candidateId} isDarkMode={isDarkMode} />
       </div>
+
+      {/* Sponsor Dialog */}
+      {candidate && (
+        <SponsorCandidateDialog
+          open={sponsorDialogOpen}
+          onOpenChange={setSponsorDialogOpen}
+          candidate={{
+            id: candidate.id,
+            slug: candidate.slug || candidateId,
+            proposer: candidate.proposer,
+            targets: candidate.targets || [],
+            values: candidate.values?.map((v: any) => v.toString()) || [],
+            signatures: candidate.signatures || [],
+            calldatas: candidate.calldatas || [],
+            description: candidate.fullDescription || candidate.description || "",
+            canceled: candidate.canceled || false,
+            latestVersion: candidate.latestVersion,
+          }}
+          onSuccess={() => {
+            setSponsorDialogOpen(false)
+            // Refresh signatures data
+            window.location.reload()
+          }}
+        />
+      )}
+
+      {/* Promote Dialog */}
+      {candidate && signatures.signatures && (
+        <PromoteCandidateDialog
+          open={promoteDialogOpen}
+          onOpenChange={setPromoteDialogOpen}
+          candidate={{
+            id: candidate.id,
+            slug: candidate.slug || candidateId,
+            proposer: candidate.proposer,
+            targets: candidate.targets || [],
+            values: candidate.values?.map((v: any) => v.toString()) || [],
+            signatures: candidate.signatures || [],
+            calldatas: candidate.calldatas || [],
+            description: candidate.fullDescription || candidate.description || "",
+            canceled: candidate.canceled || false,
+            latestVersion: candidate.latestVersion,
+          }}
+          signatures={signatures.signatures}
+          onSuccess={() => {
+            setPromoteDialogOpen(false)
+            // Navigate to proposals list
+            router.push("/?tab=proposals")
+          }}
+        />
+      )}
     </div>
   )
 }
