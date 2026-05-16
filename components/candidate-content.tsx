@@ -349,28 +349,10 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               </>
             )}
 
-            {signatures.signatures && signatures.signatures.length > 0 && (
-              <>
-                <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
-                <div>
-                  <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Signers</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {signatures.signatures.map((sig: { signer: string }, index: number) => (
-                      <div
-                        key={index}
-                        className={`flex items-center gap-2 p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-muted"}`}
-                      >
-                        <EnsDisplay address={sig.signer} showAvatar avatarSize={24} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
 
-        {/* Activity Section - Signals for candidates */}
+        {/* Activity Section - Sponsors and Signals for candidates */}
         <ActivitySection candidateId={resolvedCandidateId} isDarkMode={isDarkMode} />
       </div>
 
