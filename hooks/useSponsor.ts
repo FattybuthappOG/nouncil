@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import { useSignTypedData, useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId, useSwitchChain } from "wagmi"
-import { keccak256, encodeAbiParameters, parseAbiParameters, toHex } from "viem"
+import { keccak256, encodeAbiParameters, encodePacked, stringToBytes } from "viem"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 
 // Nouns DAO is on Ethereum mainnet (chain 1)
@@ -48,12 +48,6 @@ const NOUNS_TOKEN_ABI = [
 ] as const
 
 // EIP-712 Types for signing proposals
-const EIP712_DOMAIN_TYPE = [
-  { name: "name", type: "string" },
-  { name: "chainId", type: "uint256" },
-  { name: "verifyingContract", type: "address" },
-] as const
-
 const PROPOSAL_TYPES = {
   Proposal: [
     { name: "proposer", type: "address" },
@@ -144,7 +138,9 @@ export function useVotingPower(address: `0x${string}` | undefined) {
 }
 
 /**
- * Encode proposal data for signature verification
+ * Encode proposal data for the NounsDAOData contract's addSignature function.
+ * This matches Camp's calcProposalEncodeData exactly:
+ * each array/string field is individually keccak256-hashed before encoding.
  */
 export function encodeProposalData(
   proposer: `0x${string}`,
@@ -155,18 +151,51 @@ export function encodeProposalData(
   description: string,
   proposalIdToUpdate: bigint = 0n
 ): `0x${string}` {
+  // Hash each signature string
+  const signatureHashes = signatures.map(sig => keccak256(stringToBytes(sig)))
+  // Hash each calldata bytes
+  const calldataHashes = calldatas.map(cd => keccak256(cd))
+
   if (proposalIdToUpdate > 0n) {
-    // Encode for update proposal
     return encodeAbiParameters(
-      parseAbiParameters("uint256, address, address[], uint256[], string[], bytes[], string"),
-      [proposalIdToUpdate, proposer, targets, values, signatures, calldatas, description]
+      [
+        { type: "uint256" },
+        { type: "address" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+      ],
+      [
+        proposalIdToUpdate,
+        proposer,
+        keccak256(encodePacked(["address[]"], [targets])),
+        keccak256(encodePacked(["uint256[]"], [values])),
+        keccak256(encodePacked(["bytes32[]"], [signatureHashes])),
+        keccak256(encodePacked(["bytes32[]"], [calldataHashes])),
+        keccak256(stringToBytes(description)),
+      ]
     )
   }
-  
-  // Encode for new proposal
+
   return encodeAbiParameters(
-    parseAbiParameters("address, address[], uint256[], string[], bytes[], string"),
-    [proposer, targets, values, signatures, calldatas, description]
+    [
+      { type: "address" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+    ],
+    [
+      proposer,
+      keccak256(encodePacked(["address[]"], [targets])),
+      keccak256(encodePacked(["uint256[]"], [values])),
+      keccak256(encodePacked(["bytes32[]"], [signatureHashes])),
+      keccak256(encodePacked(["bytes32[]"], [calldataHashes])),
+      keccak256(stringToBytes(description)),
+    ]
   )
 }
 
@@ -236,10 +265,7 @@ export function useSignProposalCandidate() {
 
         const signature = await signTypedDataAsync({
           domain,
-          types: { 
-            EIP712Domain: EIP712_DOMAIN_TYPE,
-            ...(proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES)
-          },
+          types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
         })

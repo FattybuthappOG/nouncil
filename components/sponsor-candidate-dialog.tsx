@@ -262,7 +262,7 @@ export function SponsorCandidateDialog({
             <Button
               onClick={handleSubmit}
               disabled={isSubmitting || isConfirming}
-              className="w-full bg-nouns-blue hover:bg-nouns-blue/90"
+              className="w-full bg-[#4ade80] hover:bg-[#22c55e] text-gray-900 font-semibold"
             >
               {isSubmitting || isConfirming ? (
                 <>
