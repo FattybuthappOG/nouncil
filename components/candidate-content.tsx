@@ -185,7 +185,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             <div className="flex items-center gap-6 text-sm flex-wrap">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{signatures.signatures?.length || 0} signatures</span>
+                <span>{validSignatures.length} {validSignatures.length === 1 ? "sponsor" : "sponsors"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />

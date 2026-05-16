@@ -792,6 +792,7 @@ export function useCandidateSignatures(candidateId: string) {
       reason: string
       expirationTimestamp: number
       canceled: boolean
+      votes: number // number of Nouns the signer holds
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
@@ -806,12 +807,17 @@ export function useCandidateSignatures(candidateId: string) {
 
     const fetchSignatures = async () => {
       try {
+        // Fetch only the latest version's signatures (avoid duplicates from older versions)
         const data = await querySubgraph(`{
           proposalCandidate(id: "${candidateId}") {
-            versions {
+            latestVersion {
               content {
                 contentSignatures {
-                  signer { id }
+                  sig
+                  signer {
+                    id
+                    nounsRepresented { id }
+                  }
                   reason
                   expirationTimestamp
                   canceled
@@ -822,19 +828,15 @@ export function useCandidateSignatures(candidateId: string) {
         }`)
         const candidate = data?.proposalCandidate
 
-        if (candidate?.versions) {
-          const sigsList: any[] = []
-          candidate.versions.forEach((version: any) => {
-            const sigs = version.content?.contentSignatures || []
-            sigs.forEach((sig: any) => {
-              sigsList.push({
-                signer: sig.signer?.id || "",
-                reason: sig.reason || "",
-                expirationTimestamp: Number(sig.expirationTimestamp || 0),
-                canceled: sig.canceled || false,
-              })
-            })
-          })
+        if (candidate?.latestVersion?.content?.contentSignatures) {
+          const sigs = candidate.latestVersion.content.contentSignatures
+          const sigsList = sigs.map((sig: any) => ({
+            signer: sig.signer?.id || "",
+            reason: sig.reason || "",
+            expirationTimestamp: Number(sig.expirationTimestamp || 0),
+            canceled: sig.canceled || false,
+            votes: sig.signer?.nounsRepresented?.length || 1,
+          }))
           setSignatures(sigsList)
         }
       } catch (error) {

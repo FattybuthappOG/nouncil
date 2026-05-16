@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react"
 import useSWR from "swr"
-import { ThumbsUp, ThumbsDown, Minus, MessageSquare, Clock, ExternalLink, CheckCircle2 } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Minus, MessageSquare, Clock, ExternalLink, CheckCircle2, PenLine } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { EnsDisplay } from "@/components/ens-display"
+import { useCandidateSignatures } from "@/hooks/useContractData"
 
 // Types
 interface Vote {
@@ -222,7 +223,7 @@ function PropdateItem({ propdate, isDarkMode }: { propdate: Propdate; isDarkMode
 
 export function ActivitySection({ proposalId, candidateId, isDarkMode = false }: ActivitySectionProps) {
   const isProposal = !!proposalId
-  const [activeTab, setActiveTab] = useState<"votes" | "signals" | "propdates">(isProposal ? "votes" : "signals")
+  const [activeTab, setActiveTab] = useState<"votes" | "signals" | "propdates" | "sponsors">(isProposal ? "votes" : "sponsors")
 
   // Fetch votes (proposals only)
   const { data: votesData, isLoading: votesLoading } = useSWR(
@@ -247,9 +248,19 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
     { revalidateOnFocus: false }
   )
 
+  // Fetch sponsor signatures (candidates only)
+  const { signatures: sponsorSigs, isLoading: sponsorsLoading } = useCandidateSignatures(candidateId || "")
+
   const votes: Vote[] = votesData?.votes || []
   const signals: Signal[] = signalsData?.signals || []
   const propdates: Propdate[] = propdatesData?.propdates || []
+
+  // Only valid (non-canceled, non-expired) sponsors
+  const now = Math.floor(Date.now() / 1000)
+  const validSponsors = useMemo(
+    () => sponsorSigs.filter(s => !s.canceled && s.expirationTimestamp > now),
+    [sponsorSigs, now]
+  )
 
   // Count votes with reasons
   const votesWithReasons = useMemo(() => votes.filter(v => v.reason?.trim()), [votes])
@@ -259,17 +270,22 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
   const tabs = useMemo(() => {
     if (isProposal) {
       return [
-        { id: "votes" as const, label: "Votes", count: votes.length, withReasons: votesWithReasons.length },
-        { id: "signals" as const, label: "Signals", count: signals.length, withReasons: signalsWithReasons.length },
+        { id: "votes" as const, label: "Votes", count: votes.length },
+        { id: "signals" as const, label: "Signals", count: signals.length },
         { id: "propdates" as const, label: "Propdates", count: propdates.length },
       ]
     }
     return [
-      { id: "signals" as const, label: "Signals", count: signals.length, withReasons: signalsWithReasons.length },
+      { id: "sponsors" as const, label: "Sponsors", count: validSponsors.length },
+      { id: "signals" as const, label: "Signals", count: signals.length },
     ]
-  }, [isProposal, votes.length, signals.length, propdates.length, votesWithReasons.length, signalsWithReasons.length])
+  }, [isProposal, votes.length, signals.length, propdates.length, validSponsors.length])
 
-  const isLoading = activeTab === "votes" ? votesLoading : activeTab === "signals" ? signalsLoading : propdatesLoading
+  const isLoading =
+    activeTab === "votes" ? votesLoading :
+    activeTab === "signals" ? signalsLoading :
+    activeTab === "propdates" ? propdatesLoading :
+    sponsorsLoading
 
   return (
     <div id="activity-section" className={`rounded-xl border ${isDarkMode ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
@@ -372,6 +388,57 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Sponsors tab (candidates only) */}
+            {activeTab === "sponsors" && (
+              <div className="space-y-2">
+                {validSponsors.length === 0 && (
+                  <p className={`text-sm text-center py-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    No sponsors yet
+                  </p>
+                )}
+                {validSponsors.map((sig, i) => {
+                  const expires = sig.expirationTimestamp > 0
+                    ? formatDistanceToNow(new Date(sig.expirationTimestamp * 1000), { addSuffix: true })
+                    : ""
+                  return (
+                    <div key={`${sig.signer}-${i}`} className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800/50" : "bg-gray-50"}`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-full ${isDarkMode ? "bg-[#4ade80]/10" : "bg-green-50"}`}>
+                          <PenLine className="w-4 h-4 text-[#4ade80]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <EnsDisplay
+                              address={sig.signer}
+                              showAvatar
+                              avatarSize={20}
+                              className={`font-medium text-sm ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
+                            />
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDarkMode ? "bg-[#4ade80]/10 text-[#4ade80]" : "bg-green-50 text-green-600"}`}>
+                              Sponsor
+                            </span>
+                            <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                              {sig.votes} {sig.votes === 1 ? "vote" : "votes"}
+                            </span>
+                            {expires && (
+                              <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                                expires {expires}
+                              </span>
+                            )}
+                          </div>
+                          {sig.reason && (
+                            <p className={`mt-1.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                              {sig.reason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
