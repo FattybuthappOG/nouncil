@@ -25,7 +25,9 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   const router = useRouter()
   const { address, isConnected } = useAccount()
   const candidate = useCandidateData(candidateId)
-  const signatures = useCandidateSignatures(candidateId)
+  // Use the resolved candidate.id (full subgraph format) for signatures query
+  const resolvedCandidateId = candidate.id || candidateId
+  const signatures = useCandidateSignatures(resolvedCandidateId)
   const { threshold } = useProposalThreshold()
   const { votingPower } = useVotingPower(address)
 
@@ -359,7 +361,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
         </Card>
 
         {/* Activity Section - Signals for candidates */}
-        <ActivitySection candidateId={candidateId} isDarkMode={isDarkMode} />
+        <ActivitySection candidateId={resolvedCandidateId} isDarkMode={isDarkMode} />
       </div>
 
       {/* Sponsor Dialog */}

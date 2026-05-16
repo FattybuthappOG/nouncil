@@ -791,6 +791,7 @@ export function useCandidateSignatures(candidateId: string) {
       signer: string
       reason: string
       expirationTimestamp: number
+      createdTimestamp: number
       canceled: boolean
       votes: number // number of Nouns the signer holds
     }>
@@ -803,13 +804,14 @@ export function useCandidateSignatures(candidateId: string) {
   }, [])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !candidateId) return
 
     const fetchSignatures = async () => {
       try {
         // Fetch only the latest version's signatures (avoid duplicates from older versions)
         const data = await querySubgraph(`{
           proposalCandidate(id: "${candidateId}") {
+            id
             latestVersion {
               content {
                 contentSignatures {
@@ -820,6 +822,7 @@ export function useCandidateSignatures(candidateId: string) {
                   }
                   reason
                   expirationTimestamp
+                  createdTimestamp
                   canceled
                 }
               }
@@ -834,8 +837,9 @@ export function useCandidateSignatures(candidateId: string) {
             signer: sig.signer?.id || "",
             reason: sig.reason || "",
             expirationTimestamp: Number(sig.expirationTimestamp || 0),
+            createdTimestamp: Number(sig.createdTimestamp || 0),
             canceled: sig.canceled || false,
-            votes: sig.signer?.nounsRepresented?.length || 1,
+            votes: sig.signer?.nounsRepresented?.length || 0,
           }))
           setSignatures(sigsList)
         }
