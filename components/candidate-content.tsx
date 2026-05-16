@@ -16,6 +16,7 @@ import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
 import { ActivitySection } from "@/components/activity-section"
 import { storeTemplateData } from "@/lib/proposal-replication"
+import { TransactionSimulator } from "@/components/transaction-simulator"
 import { SponsorCandidateDialog } from "@/components/sponsor-candidate-dialog"
 import { PromoteCandidateDialog } from "@/components/promote-candidate-dialog"
 import { useProposalThreshold, useVotingPower, calculateTotalVotingPower, filterValidSignatures } from "@/hooks/useSponsor"
@@ -240,6 +241,24 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Transaction Simulator */}
+            {data.targets && data.targets.length > 0 && (
+              <>
+                <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
+                <div>
+                  <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Proposed Transactions</h2>
+                  <TransactionSimulator
+                    candidateData={{
+                      targets: data.targets,
+                      values: data.values?.map((v: any) => v.toString()) || [],
+                      signatures: data.signatures || [],
+                      calldatas: data.calldatas || [],
+                    }}
+                  />
+                </div>
+              </>
             )}
 
             <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />

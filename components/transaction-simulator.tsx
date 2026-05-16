@@ -359,10 +359,16 @@ interface TransactionData {
 }
 
 interface TransactionSimulatorProps {
-  proposalId: number
+  proposalId?: number
+  candidateData?: {
+    targets: string[]
+    values: string[]
+    signatures: string[]
+    calldatas: string[]
+  }
 }
 
-function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
+function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSimulatorProps) {
   const [mounted, setMounted] = useState(false)
   const [transactions, setTransactions] = useState<TransactionData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -378,35 +384,40 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
 
     const fetchTransactionData = async () => {
       try {
-        // Try API route first for proposal transaction data
         let proposal: any = null
-        try {
-          const apiRes = await fetch(`/api/nouns/proposals?id=${proposalId}`)
-          if (apiRes.ok) {
-            const apiData = await apiRes.json()
-            if (apiData?.targets?.length > 0) proposal = apiData
-          }
-        } catch { /* fall through to subgraph */ }
 
-        if (!proposal) {
-          const SUBGRAPH_URLS = [
-            "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-            "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
-          ]
-          for (const url of SUBGRAPH_URLS) {
-            try {
-              const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  query: `{ proposal(id: "${proposalId}") { targets values signatures calldatas } }`,
-                }),
-              })
-              if (!response.ok) continue
-              const json = await response.json()
-              if (json?.data?.proposal?.targets?.length > 0) {
-                proposal = json.data.proposal
-                break
+        // If candidateData is provided, use it directly
+        if (candidateData && candidateData.targets?.length > 0) {
+          proposal = candidateData
+        } else if (proposalId) {
+          // Try API route first for proposal transaction data
+          try {
+            const apiRes = await fetch(`/api/nouns/proposals?id=${proposalId}`)
+            if (apiRes.ok) {
+              const apiData = await apiRes.json()
+              if (apiData?.targets?.length > 0) proposal = apiData
+            }
+          } catch { /* fall through to subgraph */ }
+
+          if (!proposal) {
+            const SUBGRAPH_URLS = [
+              "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+              "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+            ]
+            for (const url of SUBGRAPH_URLS) {
+              try {
+                const response = await fetch(url, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    query: `{ proposal(id: "${proposalId}") { targets values signatures calldatas } }`,
+                  }),
+                })
+                if (!response.ok) continue
+                const json = await response.json()
+                if (json?.data?.proposal?.targets?.length > 0) {
+                  proposal = json.data.proposal
+                  break
               }
             } catch { continue }
           }
@@ -441,7 +452,7 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
     }
 
     fetchTransactionData()
-  }, [proposalId, mounted])
+  }, [proposalId, candidateData, mounted])
 
   if (!mounted || isLoading) {
     return (
@@ -604,7 +615,7 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
   )
 }
 
-export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) {
+export function TransactionSimulator({ proposalId, candidateData }: TransactionSimulatorProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -625,5 +636,5 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
     )
   }
 
-  return <TransactionSimulatorInner proposalId={proposalId} />
+  return <TransactionSimulatorInner proposalId={proposalId} candidateData={candidateData} />
 }
