@@ -1,9 +1,12 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { useSignTypedData, useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from "wagmi"
+import { useSignTypedData, useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId, useSwitchChain } from "wagmi"
 import { keccak256, encodeAbiParameters, parseAbiParameters, toHex } from "viem"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
+
+// Nouns DAO is on Ethereum mainnet (chain 1)
+const NOUNS_CHAIN_ID = 1
 
 // Nouncil client ID
 const CLIENT_ID = 22
@@ -43,13 +46,6 @@ const NOUNS_TOKEN_ABI = [
     type: "function",
   },
 ] as const
-
-// EIP-712 Domain for Nouns DAO
-const NOUNS_DAO_DOMAIN = {
-  name: "Nouns DAO",
-  chainId: 1,
-  verifyingContract: GOVERNOR_CONTRACT.address,
-} as const
 
 // EIP-712 Types for signing proposals
 const PROPOSAL_TYPES = {
@@ -173,6 +169,8 @@ export function encodeProposalData(
  */
 export function useSignProposalCandidate() {
   const { signTypedDataAsync, isPending: isSigning } = useSignTypedData()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
   const [error, setError] = useState<Error | null>(null)
 
   const signCandidate = useCallback(
@@ -198,6 +196,17 @@ export function useSignProposalCandidate() {
       try {
         setError(null)
 
+        // Ensure wallet is on Ethereum mainnet before signing
+        if (chainId !== NOUNS_CHAIN_ID) {
+          await switchChainAsync({ chainId: NOUNS_CHAIN_ID })
+        }
+
+        const domain = {
+          name: "Nouns DAO",
+          chainId: NOUNS_CHAIN_ID,
+          verifyingContract: GOVERNOR_CONTRACT.address,
+        } as const
+
         const message = proposalIdToUpdate > 0n
           ? {
               proposalId: proposalIdToUpdate,
@@ -220,7 +229,7 @@ export function useSignProposalCandidate() {
             }
 
         const signature = await signTypedDataAsync({
-          domain: NOUNS_DAO_DOMAIN,
+          domain,
           types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
@@ -232,7 +241,7 @@ export function useSignProposalCandidate() {
         throw err
       }
     },
-    [signTypedDataAsync]
+    [signTypedDataAsync, chainId, switchChainAsync]
   )
 
   return {
