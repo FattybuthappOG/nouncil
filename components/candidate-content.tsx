@@ -41,10 +41,15 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
     return filterValidSignatures(signatures.signatures)
   }, [signatures.signatures])
 
-  const totalVotingPower = useMemo(() => {
+  // Total voting power = proposer's nouns + sponsor signatures' nouns
+  const sponsorVotingPower = useMemo(() => {
     if (!signatures.signatures) return 0
     return calculateTotalVotingPower(signatures.signatures)
   }, [signatures.signatures])
+
+  // Proposer's nouns are automatically counted by the contract
+  const proposerVotes = candidate.proposerVotes || 0
+  const totalVotingPower = proposerVotes + sponsorVotingPower
 
   if (candidate.isLoading) {
     return (
@@ -202,6 +207,11 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                   <span className="text-sm font-medium">Sponsor Progress</span>
                   <span className={`text-sm ${hasReachedThreshold ? "text-green-400" : "text-gray-400"}`}>
                     {totalVotingPower} / {threshold} votes
+                    {proposerVotes > 0 && (
+                      <span className="text-xs ml-1">
+                        (proposer: {proposerVotes}, sponsors: {sponsorVotingPower})
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className="h-2 bg-gray-800 rounded-full overflow-hidden mb-3">

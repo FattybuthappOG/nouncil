@@ -560,6 +560,7 @@ export function useCandidateData(candidateId: string) {
     id: candidateId,
     slug: "",
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    proposerVotes: 0, // Number of Nouns held by proposer
     sponsors: [] as Array<{
       sponsor: `0x${string}`
       reason: string
@@ -607,10 +608,22 @@ export function useCandidateData(candidateId: string) {
         })
 
         if (candidate) {
+          // Also fetch proposer's noun count from subgraph
+          let proposerVotes = 0
+          try {
+            const proposerData = await querySubgraph(`{
+              delegate(id: "${candidate.proposer.toLowerCase()}") {
+                nounsRepresented { id }
+              }
+            }`)
+            proposerVotes = proposerData?.delegate?.nounsRepresented?.length || 0
+          } catch { /* ignore, default to 0 */ }
+
           setCandidateData({
             id: candidate.id || candidateId,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
+            proposerVotes,
             sponsors: [],
             description: candidate.title || "",
             fullDescription: candidate.description || "",
