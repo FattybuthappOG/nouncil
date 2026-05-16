@@ -804,12 +804,14 @@ export function useProposalVotes(proposalId: number) {
 export function useCandidateSignatures(candidateId: string) {
   const [signatures, setSignatures] = useState<
     Array<{
-      signer: string
-      reason: string
-      expirationTimestamp: number
-      createdTimestamp: number
+      sig: string
+      signer: {
+        id: string
+        nounsRepresented?: { id: string }[]
+      }
+      expirationTimestamp: string
       canceled: boolean
-      votes: number // number of Nouns the signer holds
+      reason?: string
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
@@ -835,6 +837,7 @@ export function useCandidateSignatures(candidateId: string) {
             latestVersion {
               content {
                 contentSignatures {
+                  sig
                   signer {
                     id
                     nounsRepresented { id }
@@ -853,12 +856,14 @@ export function useCandidateSignatures(candidateId: string) {
         if (candidate?.latestVersion?.content?.contentSignatures) {
           const sigs = candidate.latestVersion.content.contentSignatures
           const sigsList = sigs.map((sig: any) => ({
-            signer: sig.signer?.id || "",
-            reason: sig.reason || "",
-            expirationTimestamp: Number(sig.expirationTimestamp || 0),
-            createdTimestamp: Number(sig.createdTimestamp || 0),
+            sig: sig.sig || "",
+            signer: {
+              id: sig.signer?.id || "",
+              nounsRepresented: sig.signer?.nounsRepresented || [],
+            },
+            reason: sig.reason,
+            expirationTimestamp: String(sig.expirationTimestamp || "0"),
             canceled: sig.canceled || false,
-            votes: sig.signer?.nounsRepresented?.length || 0,
           }))
           setSignatures(sigsList)
         }

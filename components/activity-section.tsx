@@ -404,7 +404,7 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                     ? formatDistanceToNow(new Date(sig.expirationTimestamp * 1000), { addSuffix: true })
                     : ""
                   return (
-                    <div key={`${sig.signer}-${i}`} className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800/50" : "bg-gray-50"}`}>
+                      <div key={`${sig.signer?.id || sig.signer}-${i}`} className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800/50" : "bg-gray-50"}`}>
                       <div className="flex items-start gap-3">
                         <div className={`p-2 rounded-full ${isDarkMode ? "bg-[#4ade80]/10" : "bg-green-50"}`}>
                           <PenLine className="w-4 h-4 text-[#4ade80]" />
@@ -412,7 +412,7 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <EnsDisplay
-                              address={sig.signer}
+                              address={typeof sig.signer === 'string' ? sig.signer : sig.signer?.id || ''}
                               showAvatar
                               avatarSize={20}
                               className={`font-medium text-sm ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
@@ -421,7 +421,7 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                               Sponsor
                             </span>
                             <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                              {sig.votes} {sig.votes === 1 ? "vote" : "votes"}
+                              {(sig.signer?.nounsRepresented?.length || 0)} {(sig.signer?.nounsRepresented?.length || 0) === 1 ? "vote" : "votes"}
                             </span>
                             {expires && (
                               <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>

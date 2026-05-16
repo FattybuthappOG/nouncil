@@ -52,35 +52,28 @@ export default function CandidateDetailPage() {
       const candidateNumber = Number.parseInt(candidateIdOrNumber, 10)
 
       try {
-        // First get total count via subgraph
-        const SUBGRAPH_URLS = [
-          "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-          "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
-        ]
-        let allCandidates: any[] = []
-        for (const url of SUBGRAPH_URLS) {
-          try {
-            const countResponse = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                query: `{ proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) { id } }`,
-              }),
-            })
-            const countData = await countResponse.json()
-            if (countData?.data?.proposalCandidates) {
-              allCandidates = countData.data.proposalCandidates
-              break
-            }
-          } catch { continue }
-        }
-
-        // Candidate number 1 is the first created (index 0), number N is index N-1
-        const index = candidateNumber - 1
-        if (index >= 0 && index < allCandidates.length) {
-          setResolvedCandidateId(allCandidates[index].id)
+        // Use Goldsky subgraph (same as nouns.wtf)
+        const SUBGRAPH_URL = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
+        
+        const countResponse = await fetch(SUBGRAPH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `{ proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) { id } }`,
+          }),
+        })
+        const countData = await countResponse.json()
+        if (countData?.data?.proposalCandidates) {
+          const allCandidates = countData.data.proposalCandidates
+          // Candidate number 1 is the first created (index 0), number N is index N-1
+          const index = candidateNumber - 1
+          if (index >= 0 && index < allCandidates.length) {
+            setResolvedCandidateId(allCandidates[index].id)
+          } else {
+            // Fallback: try using the number as part of the ID
+            setResolvedCandidateId(candidateIdOrNumber)
+          }
         } else {
-          // Fallback: try using the number as part of the ID
           setResolvedCandidateId(candidateIdOrNumber)
         }
       } catch (error) {
