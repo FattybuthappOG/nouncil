@@ -804,6 +804,7 @@ export function useProposalVotes(proposalId: number) {
 export function useCandidateSignatures(candidateId: string) {
   const [signatures, setSignatures] = useState<
     Array<{
+      sig: string // The signature hex (usually empty for encoded calls)
       signer: string
       reason: string
       expirationTimestamp: number
@@ -835,6 +836,7 @@ export function useCandidateSignatures(candidateId: string) {
             latestVersion {
               content {
                 contentSignatures {
+                  sig
                   signer {
                     id
                     nounsRepresented { id }
@@ -853,6 +855,7 @@ export function useCandidateSignatures(candidateId: string) {
         if (candidate?.latestVersion?.content?.contentSignatures) {
           const sigs = candidate.latestVersion.content.contentSignatures
           const sigsList = sigs.map((sig: any) => ({
+            sig: sig.sig || "",
             signer: sig.signer?.id || "",
             reason: sig.reason || "",
             expirationTimestamp: Number(sig.expirationTimestamp || 0),
