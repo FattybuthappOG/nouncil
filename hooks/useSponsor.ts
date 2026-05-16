@@ -369,15 +369,21 @@ export function useProposeBySigs() {
 }
 
 /**
- * Calculate total voting power from signatures
+ * Calculate total voting power from signatures.
+ * Accepts both CandidateSignature[] (from useSponsor) and the flat shape from useCandidateSignatures.
  */
-export function calculateTotalVotingPower(signatures: CandidateSignature[]): number {
+export function calculateTotalVotingPower(signatures: Array<any>): number {
   const now = Math.floor(Date.now() / 1000)
-  
+
   return signatures
     .filter(sig => !sig.canceled && Number(sig.expirationTimestamp) > now)
     .reduce((total, sig) => {
-      const votes = sig.signer.nounsRepresented?.length || 0
+      // Flat shape from useCandidateSignatures has a `votes` field
+      // CandidateSignature shape has signer.nounsRepresented
+      const votes =
+        typeof sig.votes === "number"
+          ? sig.votes
+          : sig.signer?.nounsRepresented?.length || 1
       return total + votes
     }, 0)
 }
@@ -385,12 +391,9 @@ export function calculateTotalVotingPower(signatures: CandidateSignature[]): num
 /**
  * Filter valid (non-expired, non-canceled) signatures
  */
-export function filterValidSignatures(signatures: CandidateSignature[]): CandidateSignature[] {
+export function filterValidSignatures(signatures: Array<any>): any[] {
   const now = Math.floor(Date.now() / 1000)
-  
-  return signatures.filter(
-    sig => !sig.canceled && Number(sig.expirationTimestamp) > now
-  )
+  return signatures.filter(sig => !sig.canceled && Number(sig.expirationTimestamp) > now)
 }
 
 /**

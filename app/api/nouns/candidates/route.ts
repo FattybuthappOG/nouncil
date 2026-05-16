@@ -26,6 +26,10 @@ async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total:
         content {
           title
           description
+          targets
+          values
+          signatures
+          calldatas
         }
       }
     }
@@ -64,6 +68,7 @@ async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total:
     const candidates = rawCandidates.map((c: any) => {
       const title = c.latestVersion?.content?.title || 
                    parseTitle(c.latestVersion?.content?.description || c.slug || "")
+      const content = c.latestVersion?.content
       
       return {
         id: c.id,
@@ -71,7 +76,11 @@ async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total:
         slug: c.slug,
         proposer: c.proposer,
         title,
-        description: c.latestVersion?.content?.description || "",
+        description: content?.description || "",
+        targets: content?.targets || [],
+        values: content?.values || [],
+        signatures: content?.signatures || [],
+        calldatas: content?.calldatas || [],
         createdTimestamp: Number(c.createdTimestamp),
         createdTransactionHash: c.createdTransactionHash,
         canceled: c.canceled,

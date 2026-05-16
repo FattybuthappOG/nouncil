@@ -4,10 +4,13 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints - decentralized network + studio fallback
+// Goldsky public endpoint - same as nouns.wtf uses (free, no API key required)
+const GOLDSKY_URL = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
+
+// Subgraph endpoints - Goldsky primary, Graph Protocol fallback
 const SUBGRAPH_URLS = [
+  GOLDSKY_URL,
   "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -560,6 +563,7 @@ export function useCandidateData(candidateId: string) {
     id: candidateId,
     slug: "",
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    proposerVotes: 0, // Number of Nouns held by proposer
     sponsors: [] as Array<{
       sponsor: `0x${string}`
       reason: string
@@ -607,10 +611,22 @@ export function useCandidateData(candidateId: string) {
         })
 
         if (candidate) {
+          // Also fetch proposer's noun count from subgraph
+          let proposerVotes = 0
+          try {
+            const proposerData = await querySubgraph(`{
+              delegate(id: "${candidate.proposer.toLowerCase()}") {
+                nounsRepresented { id }
+              }
+            }`)
+            proposerVotes = proposerData?.delegate?.nounsRepresented?.length || 0
+          } catch { /* ignore, default to 0 */ }
+
           setCandidateData({
             id: candidate.id || candidateId,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
+            proposerVotes,
             sponsors: [],
             description: candidate.title || "",
             fullDescription: candidate.description || "",
@@ -791,7 +807,9 @@ export function useCandidateSignatures(candidateId: string) {
       signer: string
       reason: string
       expirationTimestamp: number
+      createdTimestamp: number
       canceled: boolean
+      votes: number // number of Nouns the signer holds
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
@@ -802,18 +820,28 @@ export function useCandidateSignatures(candidateId: string) {
   }, [])
 
   useEffect(() => {
-    if (!mounted) return
+    // Only fetch if we have a valid full subgraph ID (contains proposer-slug format)
+    // Skip if candidateId is just a number like "972"
+    if (!mounted || !candidateId || !candidateId.includes("-")) {
+      return
+    }
 
     const fetchSignatures = async () => {
       try {
+        // Fetch only the latest version's signatures (avoid duplicates from older versions)
         const data = await querySubgraph(`{
           proposalCandidate(id: "${candidateId}") {
-            versions {
+            id
+            latestVersion {
               content {
                 contentSignatures {
-                  signer { id }
+                  signer {
+                    id
+                    nounsRepresented { id }
+                  }
                   reason
                   expirationTimestamp
+                  createdTimestamp
                   canceled
                 }
               }
@@ -822,19 +850,16 @@ export function useCandidateSignatures(candidateId: string) {
         }`)
         const candidate = data?.proposalCandidate
 
-        if (candidate?.versions) {
-          const sigsList: any[] = []
-          candidate.versions.forEach((version: any) => {
-            const sigs = version.content?.contentSignatures || []
-            sigs.forEach((sig: any) => {
-              sigsList.push({
-                signer: sig.signer?.id || "",
-                reason: sig.reason || "",
-                expirationTimestamp: Number(sig.expirationTimestamp || 0),
-                canceled: sig.canceled || false,
-              })
-            })
-          })
+        if (candidate?.latestVersion?.content?.contentSignatures) {
+          const sigs = candidate.latestVersion.content.contentSignatures
+          const sigsList = sigs.map((sig: any) => ({
+            signer: sig.signer?.id || "",
+            reason: sig.reason || "",
+            expirationTimestamp: Number(sig.expirationTimestamp || 0),
+            createdTimestamp: Number(sig.createdTimestamp || 0),
+            canceled: sig.canceled || false,
+            votes: sig.signer?.nounsRepresented?.length || 0,
+          }))
           setSignatures(sigsList)
         }
       } catch (error) {

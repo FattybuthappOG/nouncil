@@ -16,6 +16,7 @@ import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
 import { ActivitySection } from "@/components/activity-section"
 import { storeTemplateData } from "@/lib/proposal-replication"
+import { TransactionSimulator } from "@/components/transaction-simulator"
 import { SponsorCandidateDialog } from "@/components/sponsor-candidate-dialog"
 import { PromoteCandidateDialog } from "@/components/promote-candidate-dialog"
 import { useProposalThreshold, useVotingPower, calculateTotalVotingPower, filterValidSignatures } from "@/hooks/useSponsor"
@@ -24,7 +25,9 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   const router = useRouter()
   const { address, isConnected } = useAccount()
   const candidate = useCandidateData(candidateId)
-  const signatures = useCandidateSignatures(candidateId)
+  // Use the resolved candidate.id (full subgraph format) for signatures query
+  const resolvedCandidateId = candidate.id || candidateId
+  const signatures = useCandidateSignatures(resolvedCandidateId)
   const { threshold } = useProposalThreshold()
   const { votingPower } = useVotingPower(address)
 
@@ -38,10 +41,15 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
     return filterValidSignatures(signatures.signatures)
   }, [signatures.signatures])
 
-  const totalVotingPower = useMemo(() => {
+  // Total voting power = proposer's nouns + sponsor signatures' nouns
+  const sponsorVotingPower = useMemo(() => {
     if (!signatures.signatures) return 0
     return calculateTotalVotingPower(signatures.signatures)
   }, [signatures.signatures])
+
+  // Proposer's nouns are automatically counted by the contract
+  const proposerVotes = candidate.proposerVotes || 0
+  const totalVotingPower = proposerVotes + sponsorVotingPower
 
   if (candidate.isLoading) {
     return (
@@ -184,7 +192,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             <div className="flex items-center gap-6 text-sm flex-wrap">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{signatures.signatures?.length || 0} signatures</span>
+                <span>{validSignatures.length} {validSignatures.length === 1 ? "sponsor" : "sponsors"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -199,6 +207,11 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                   <span className="text-sm font-medium">Sponsor Progress</span>
                   <span className={`text-sm ${hasReachedThreshold ? "text-green-400" : "text-gray-400"}`}>
                     {totalVotingPower} / {threshold} votes
+                    {proposerVotes > 0 && (
+                      <span className="text-xs ml-1">
+                        (proposer: {proposerVotes}, sponsors: {sponsorVotingPower})
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className="h-2 bg-gray-800 rounded-full overflow-hidden mb-3">
@@ -318,6 +331,24 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               </div>
             </div>
 
+            {/* Transaction Simulator */}
+            {data.targets && data.targets.length > 0 && (
+              <>
+                <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
+                <div>
+                  <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Proposed Transactions</h2>
+                  <TransactionSimulator
+                    candidateData={{
+                      targets: data.targets,
+                      values: data.values?.map((v: any) => v.toString()) || [],
+                      signatures: data.signatures || [],
+                      calldatas: data.calldatas || [],
+                    }}
+                  />
+                </div>
+              </>
+            )}
+
             {signatures.signatures && signatures.signatures.length > 0 && (
               <>
                 <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
@@ -340,7 +371,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
         </Card>
 
         {/* Activity Section - Signals for candidates */}
-        <ActivitySection candidateId={candidateId} isDarkMode={isDarkMode} />
+        <ActivitySection candidateId={resolvedCandidateId} isDarkMode={isDarkMode} />
       </div>
 
       {/* Sponsor Dialog */}
