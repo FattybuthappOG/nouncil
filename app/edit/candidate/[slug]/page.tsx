@@ -34,6 +34,36 @@ interface CandidateData {
 }
 
 async function fetchCandidateBySlug(slug: string): Promise<CandidateData | null> {
+  // First try to fetch from API which handles multiple ID formats
+  try {
+    const apiRes = await fetch(`/api/nouns/candidates?limit=200`)
+    if (apiRes.ok) {
+      const data = await apiRes.json()
+      const candidateNum = parseInt(slug)
+      const candidate = data.candidates?.find((c: any) => {
+        if (!isNaN(candidateNum)) {
+          return c.candidateNumber === candidateNum
+        }
+        return c.id === slug || c.slug === slug
+      })
+      
+      if (candidate) {
+        return {
+          id: candidate.id,
+          slug: candidate.slug || slug,
+          proposer: candidate.proposer,
+          description: candidate.description || "",
+          targets: candidate.targets || [],
+          values: candidate.values?.map((v: any) => v.toString()) || [],
+          signatures: candidate.signatures || [],
+          calldatas: candidate.calldatas || [],
+          canceled: candidate.canceled || false,
+        }
+      }
+    }
+  } catch { /* fall through to subgraph */ }
+
+  // Fallback to subgraph
   const query = `
     query GetCandidate($slug: String!) {
       proposalCandidates(where: { slug: $slug }, first: 1) {
@@ -72,7 +102,7 @@ async function fetchCandidateBySlug(slug: string): Promise<CandidateData | null>
           proposer: candidate.proposer,
           description: content?.description || "",
           targets: content?.targets || [],
-          values: content?.values || [],
+          values: content?.values?.map((v: any) => v.toString()) || [],
           signatures: content?.signatures || [],
           calldatas: content?.calldatas || [],
           canceled: candidate.canceled,
