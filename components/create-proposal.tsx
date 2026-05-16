@@ -174,6 +174,60 @@ type ActionType = "eth" | "usdc" | "noun" | "custom" | "raw"
 interface AbiInput { name: string; type: string; components?: AbiInput[] }
 interface AbiFunction { name: string; type: string; stateMutability: string; inputs: AbiInput[] }
 
+// Common contract ABIs for known addresses (fallback when Etherscan fails)
+const KNOWN_CONTRACT_ABIS: Record<string, AbiFunction[]> = {
+  // Nouns Auction House Proxy
+  "0x830bd73e4184cef73443c15111a1df14e495c706": [
+    { type: "function", name: "pause", stateMutability: "nonpayable", inputs: [] },
+    { type: "function", name: "unpause", stateMutability: "nonpayable", inputs: [] },
+    { type: "function", name: "setReservePrice", stateMutability: "nonpayable", inputs: [{ name: "_reservePrice", type: "uint256" }] },
+    { type: "function", name: "setMinBidIncrementPercentage", stateMutability: "nonpayable", inputs: [{ name: "_minBidIncrementPercentage", type: "uint8" }] },
+    { type: "function", name: "setTimeBuffer", stateMutability: "nonpayable", inputs: [{ name: "_timeBuffer", type: "uint256" }] },
+    { type: "function", name: "settleCurrentAndCreateNewAuction", stateMutability: "nonpayable", inputs: [] },
+  ],
+  // Nouns Token
+  "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03": [
+    { type: "function", name: "transferFrom", stateMutability: "nonpayable", inputs: [{ name: "from", type: "address" }, { name: "to", type: "address" }, { name: "tokenId", type: "uint256" }] },
+    { type: "function", name: "delegate", stateMutability: "nonpayable", inputs: [{ name: "delegatee", type: "address" }] },
+    { type: "function", name: "setApprovalForAll", stateMutability: "nonpayable", inputs: [{ name: "operator", type: "address" }, { name: "approved", type: "bool" }] },
+  ],
+  // Nouns DAO Treasury (Executor)
+  "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": [
+    { type: "function", name: "sendETH", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }] },
+    { type: "function", name: "sendERC20", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "erc20Token", type: "address" }, { name: "amount", type: "uint256" }] },
+  ],
+  // Nouns Governor
+  "0x6f3e6272a167e8accb32072d08e0957f9c79223e": [
+    { type: "function", name: "setVotingDelay", stateMutability: "nonpayable", inputs: [{ name: "newVotingDelay", type: "uint256" }] },
+    { type: "function", name: "setVotingPeriod", stateMutability: "nonpayable", inputs: [{ name: "newVotingPeriod", type: "uint256" }] },
+    { type: "function", name: "setProposalThresholdBPS", stateMutability: "nonpayable", inputs: [{ name: "newProposalThresholdBPS", type: "uint256" }] },
+  ],
+  // USDC
+  "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": [
+    { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }] },
+    { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }] },
+  ],
+  // WETH
+  "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": [
+    { type: "function", name: "deposit", stateMutability: "payable", inputs: [] },
+    { type: "function", name: "withdraw", stateMutability: "nonpayable", inputs: [{ name: "wad", type: "uint256" }] },
+    { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ name: "dst", type: "address" }, { name: "wad", type: "uint256" }] },
+    { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "guy", type: "address" }, { name: "wad", type: "uint256" }] },
+  ],
+}
+
+// Parse a manual function signature like "transfer(address,uint256)" into ABI format
+function parseManualSignature(sig: string): AbiFunction | null {
+  const match = sig.match(/^(\w+)\s*\(([^)]*)\)$/)
+  if (!match) return null
+  const [, name, argsStr] = match
+  const inputs = argsStr.split(",").filter(Boolean).map((type, i) => ({
+    name: `arg${i}`,
+    type: type.trim(),
+  }))
+  return { type: "function", name, stateMutability: "nonpayable", inputs }
+}
+
 interface Action {
   type: ActionType
   // transfer actions (ETH/USDC)
