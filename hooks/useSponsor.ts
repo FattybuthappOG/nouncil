@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { useSignTypedData, useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from "wagmi"
+import { useSignTypedData, useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId, useSwitchChain } from "wagmi"
 import { keccak256, encodeAbiParameters, parseAbiParameters, toHex } from "viem"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 
@@ -172,6 +172,8 @@ export function encodeProposalData(
  * Hook for signing a proposal candidate using EIP-712 typed data
  */
 export function useSignProposalCandidate() {
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
   const { signTypedDataAsync, isPending: isSigning } = useSignTypedData()
   const [error, setError] = useState<Error | null>(null)
 
@@ -198,6 +200,22 @@ export function useSignProposalCandidate() {
       try {
         setError(null)
 
+        // Ensure we're on mainnet (chainId 1) for Nouns DAO
+        if (chainId !== 1) {
+          try {
+            await switchChainAsync({ chainId: 1 })
+          } catch (switchErr) {
+            throw new Error("Please switch to Ethereum Mainnet to sponsor candidates")
+          }
+        }
+
+        // Use chainId 1 for the domain (Nouns DAO is on mainnet)
+        const domain = {
+          name: "Nouns DAO",
+          chainId: 1,
+          verifyingContract: GOVERNOR_CONTRACT.address,
+        }
+
         const message = proposalIdToUpdate > 0n
           ? {
               proposalId: proposalIdToUpdate,
@@ -220,7 +238,7 @@ export function useSignProposalCandidate() {
             }
 
         const signature = await signTypedDataAsync({
-          domain: NOUNS_DAO_DOMAIN,
+          domain,
           types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
@@ -232,7 +250,7 @@ export function useSignProposalCandidate() {
         throw err
       }
     },
-    [signTypedDataAsync]
+    [signTypedDataAsync, chainId, switchChainAsync]
   )
 
   return {
