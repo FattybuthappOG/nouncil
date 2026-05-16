@@ -48,6 +48,12 @@ const NOUNS_TOKEN_ABI = [
 ] as const
 
 // EIP-712 Types for signing proposals
+const EIP712_DOMAIN_TYPE = [
+  { name: "name", type: "string" },
+  { name: "chainId", type: "uint256" },
+  { name: "verifyingContract", type: "address" },
+] as const
+
 const PROPOSAL_TYPES = {
   Proposal: [
     { name: "proposer", type: "address" },
@@ -230,7 +236,10 @@ export function useSignProposalCandidate() {
 
         const signature = await signTypedDataAsync({
           domain,
-          types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
+          types: { 
+            EIP712Domain: EIP712_DOMAIN_TYPE,
+            ...(proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES)
+          },
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
         })
