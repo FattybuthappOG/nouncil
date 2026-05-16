@@ -53,6 +53,7 @@ export function SponsorCandidateDialog({
   const [expirationDays, setExpirationDays] = useState(30)
   const [signature, setSignature] = useState<`0x${string}` | null>(null)
   const [step, setStep] = useState<"sign" | "submit" | "done">("sign")
+  const [signedExpirationTimestamp, setSignedExpirationTimestamp] = useState<bigint | null>(null)
 
   // Get the latest version's content or fall back to root level
   const content = candidate.latestVersion?.content || {
@@ -82,6 +83,7 @@ export function SponsorCandidateDialog({
       })
 
       setSignature(sig)
+      setSignedExpirationTimestamp(expirationTimestamp)
       setStep("submit")
     } catch (err) {
       console.error("Failed to sign:", err)
@@ -89,13 +91,9 @@ export function SponsorCandidateDialog({
   }
 
   const handleSubmit = async () => {
-    if (!signature || !address) return
+    if (!signature || !address || !signedExpirationTimestamp) return
 
     try {
-      const expirationTimestamp = BigInt(
-        Math.floor(Date.now() / 1000) + expirationDays * 24 * 60 * 60
-      )
-
       const encodedProp = encodeProposalData(
         candidate.proposer as `0x${string}`,
         content.targets as `0x${string}`[],
@@ -105,26 +103,19 @@ export function SponsorCandidateDialog({
         content.description
       )
 
-      console.log("[v0] Submitting signature with:", {
-        candidateSlug: candidate.slug,
-        encodedPropLength: encodedProp.length,
-        expirationDays,
-      })
-
       await addSignature({
         signature,
-        expirationTimestamp,
+        expirationTimestamp: signedExpirationTimestamp,
         proposer: candidate.proposer as `0x${string}`,
         slug: candidate.slug,
         encodedProp,
         reason,
       })
 
-      console.log("[v0] Signature submitted successfully")
       setStep("done")
       onSuccess?.()
     } catch (err) {
-      console.error("[v0] Failed to submit signature:", err)
+      console.error("Failed to submit signature:", err)
     }
   }
 
