@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Users, Clock, ExternalLink, MessageSquare, Copy, Pencil, PenLine, Rocket } from "lucide-react"
+import { ArrowLeft, Users, Clock, MessageSquare, Copy, Pencil, PenLine, Rocket } from "lucide-react"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
 import EnsDisplay from "@/components/ens-display"
 import ReactMarkdown from "react-markdown"
@@ -190,15 +190,6 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span>Created {new Date(data.createdTimestamp * 1000).toLocaleDateString()}</span>
               </div>
-              <a
-                href={`https://nouns.wtf/candidates/${candidateId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View on Nouns
-              </a>
             </div>
 
             {/* Sponsor Progress Section */}
