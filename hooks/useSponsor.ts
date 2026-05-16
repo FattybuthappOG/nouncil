@@ -12,7 +12,7 @@ const NOUNS_CHAIN_ID = 1
 const CLIENT_ID = 22
 
 // NounsDAOData contract for adding signatures
-const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493c91f472244571" as `0x${string}`
+const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as `0x${string}`
 
 // Nouns Token contract for voting power
 const NOUNS_TOKEN = "0x9C8fF314C9Bc7F6e59A9d9225Fb22946427eDC03" as `0x${string}`
