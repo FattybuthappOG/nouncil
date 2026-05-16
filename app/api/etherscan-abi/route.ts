@@ -59,13 +59,20 @@ async function fetchAbiFromEtherscan(address: string): Promise<any[] | null> {
   
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(10000) })
-    if (!response.ok) return null
+    if (!response.ok) {
+      console.error("[etherscan-abi] HTTP error:", response.status)
+      return null
+    }
     
     const data = await response.json()
-    if (data.status !== "1" || !data.result) return null
+    if (data.status !== "1" || !data.result) {
+      console.error("[etherscan-abi] API error for", address, ":", data.message || data.result)
+      return null
+    }
     
     return JSON.parse(data.result)
-  } catch {
+  } catch (err: any) {
+    console.error("[etherscan-abi] Fetch error:", err?.message)
     return null
   }
 }
