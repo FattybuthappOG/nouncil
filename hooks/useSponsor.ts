@@ -1,15 +1,18 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { useSignTypedData, useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from "wagmi"
-import { keccak256, encodeAbiParameters, parseAbiParameters, toHex } from "viem"
+import { useSignTypedData, useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId, useSwitchChain } from "wagmi"
+import { keccak256, encodeAbiParameters, encodePacked, stringToBytes } from "viem"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
+
+// Nouns DAO is on Ethereum mainnet (chain 1)
+const NOUNS_CHAIN_ID = 1
 
 // Nouncil client ID
 const CLIENT_ID = 22
 
 // NounsDAOData contract for adding signatures
-const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493c91f472244571" as `0x${string}`
+const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as `0x${string}`
 
 // Nouns Token contract for voting power
 const NOUNS_TOKEN = "0x9C8fF314C9Bc7F6e59A9d9225Fb22946427eDC03" as `0x${string}`
@@ -43,13 +46,6 @@ const NOUNS_TOKEN_ABI = [
     type: "function",
   },
 ] as const
-
-// EIP-712 Domain for Nouns DAO
-const NOUNS_DAO_DOMAIN = {
-  name: "Nouns DAO",
-  chainId: 1,
-  verifyingContract: GOVERNOR_CONTRACT.address,
-} as const
 
 // EIP-712 Types for signing proposals
 const PROPOSAL_TYPES = {
@@ -142,7 +138,9 @@ export function useVotingPower(address: `0x${string}` | undefined) {
 }
 
 /**
- * Encode proposal data for signature verification
+ * Encode proposal data for the NounsDAOData contract's addSignature function.
+ * This matches Camp's calcProposalEncodeData exactly:
+ * each array/string field is individually keccak256-hashed before encoding.
  */
 export function encodeProposalData(
   proposer: `0x${string}`,
@@ -153,18 +151,51 @@ export function encodeProposalData(
   description: string,
   proposalIdToUpdate: bigint = 0n
 ): `0x${string}` {
+  // Hash each signature string
+  const signatureHashes = signatures.map(sig => keccak256(stringToBytes(sig)))
+  // Hash each calldata bytes
+  const calldataHashes = calldatas.map(cd => keccak256(cd))
+
   if (proposalIdToUpdate > 0n) {
-    // Encode for update proposal
     return encodeAbiParameters(
-      parseAbiParameters("uint256, address, address[], uint256[], string[], bytes[], string"),
-      [proposalIdToUpdate, proposer, targets, values, signatures, calldatas, description]
+      [
+        { type: "uint256" },
+        { type: "address" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+        { type: "bytes32" },
+      ],
+      [
+        proposalIdToUpdate,
+        proposer,
+        keccak256(encodePacked(["address[]"], [targets])),
+        keccak256(encodePacked(["uint256[]"], [values])),
+        keccak256(encodePacked(["bytes32[]"], [signatureHashes])),
+        keccak256(encodePacked(["bytes32[]"], [calldataHashes])),
+        keccak256(stringToBytes(description)),
+      ]
     )
   }
-  
-  // Encode for new proposal
+
   return encodeAbiParameters(
-    parseAbiParameters("address, address[], uint256[], string[], bytes[], string"),
-    [proposer, targets, values, signatures, calldatas, description]
+    [
+      { type: "address" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+      { type: "bytes32" },
+    ],
+    [
+      proposer,
+      keccak256(encodePacked(["address[]"], [targets])),
+      keccak256(encodePacked(["uint256[]"], [values])),
+      keccak256(encodePacked(["bytes32[]"], [signatureHashes])),
+      keccak256(encodePacked(["bytes32[]"], [calldataHashes])),
+      keccak256(stringToBytes(description)),
+    ]
   )
 }
 
@@ -173,6 +204,8 @@ export function encodeProposalData(
  */
 export function useSignProposalCandidate() {
   const { signTypedDataAsync, isPending: isSigning } = useSignTypedData()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
   const [error, setError] = useState<Error | null>(null)
 
   const signCandidate = useCallback(
@@ -198,6 +231,17 @@ export function useSignProposalCandidate() {
       try {
         setError(null)
 
+        // Ensure wallet is on Ethereum mainnet before signing
+        if (chainId !== NOUNS_CHAIN_ID) {
+          await switchChainAsync({ chainId: NOUNS_CHAIN_ID })
+        }
+
+        const domain = {
+          name: "Nouns DAO",
+          chainId: NOUNS_CHAIN_ID,
+          verifyingContract: GOVERNOR_CONTRACT.address,
+        } as const
+
         const message = proposalIdToUpdate > 0n
           ? {
               proposalId: proposalIdToUpdate,
@@ -220,7 +264,7 @@ export function useSignProposalCandidate() {
             }
 
         const signature = await signTypedDataAsync({
-          domain: NOUNS_DAO_DOMAIN,
+          domain,
           types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
@@ -232,7 +276,7 @@ export function useSignProposalCandidate() {
         throw err
       }
     },
-    [signTypedDataAsync]
+    [signTypedDataAsync, chainId, switchChainAsync]
   )
 
   return {
@@ -278,11 +322,12 @@ export function useAddSignatureToCandidate() {
           address: NOUNS_DAO_DATA,
           abi: ADD_SIGNATURE_ABI,
           functionName: "addSignature",
-          args: [signature, expirationTimestamp, proposer, slug, proposalIdToUpdate, encodedProp, reason],
+          args: [signature, expirationTimestamp, proposer, slug, proposalIdToUpdate || 0n, encodedProp, reason || ""],
         })
         setTxHash(hash)
         return hash
       } catch (err) {
+        console.error("addSignature error:", err)
         setError(err instanceof Error ? err : new Error("Failed to submit signature"))
         throw err
       }
