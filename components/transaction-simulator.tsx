@@ -418,8 +418,9 @@ function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSim
                 if (json?.data?.proposal?.targets?.length > 0) {
                   proposal = json.data.proposal
                   break
-              }
-            } catch { continue }
+                }
+              } catch { continue }
+            }
           }
         }
 
