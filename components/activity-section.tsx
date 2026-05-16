@@ -421,7 +421,7 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                               Sponsor
                             </span>
                             <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                              {sig.votes} {sig.votes === 1 ? "vote" : "votes"}
+                              {(sig.signer?.nounsRepresented?.length || 0)} {(sig.signer?.nounsRepresented?.length || 0) === 1 ? "vote" : "votes"}
                             </span>
                             {expires && (
                               <span className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
