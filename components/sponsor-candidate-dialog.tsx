@@ -105,6 +105,12 @@ export function SponsorCandidateDialog({
         content.description
       )
 
+      console.log("[v0] Submitting signature with:", {
+        candidateSlug: candidate.slug,
+        encodedPropLength: encodedProp.length,
+        expirationDays,
+      })
+
       await addSignature({
         signature,
         expirationTimestamp,
@@ -114,10 +120,11 @@ export function SponsorCandidateDialog({
         reason,
       })
 
+      console.log("[v0] Signature submitted successfully")
       setStep("done")
       onSuccess?.()
     } catch (err) {
-      console.error("Failed to submit signature:", err)
+      console.error("[v0] Failed to submit signature:", err)
     }
   }
 

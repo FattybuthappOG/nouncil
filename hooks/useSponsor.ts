@@ -283,15 +283,26 @@ export function useAddSignatureToCandidate() {
     }) => {
       try {
         setError(null)
+        console.log("[v0] addSignature called with:", {
+          signature: signature.slice(0, 10) + "...",
+          expirationTimestamp: expirationTimestamp.toString(),
+          proposer,
+          slug,
+          proposalIdToUpdate: proposalIdToUpdate?.toString() || "0",
+          encodedProp: encodedProp.slice(0, 10) + "...",
+          reason,
+        })
         const hash = await writeContractAsync({
           address: NOUNS_DAO_DATA,
           abi: ADD_SIGNATURE_ABI,
           functionName: "addSignature",
-          args: [signature, expirationTimestamp, proposer, slug, proposalIdToUpdate, encodedProp, reason],
+          args: [signature, expirationTimestamp, proposer, slug, proposalIdToUpdate || 0n, encodedProp, reason || ""],
         })
+        console.log("[v0] Transaction submitted:", hash)
         setTxHash(hash)
         return hash
       } catch (err) {
+        console.error("[v0] addSignature error:", err)
         setError(err instanceof Error ? err : new Error("Failed to submit signature"))
         throw err
       }
