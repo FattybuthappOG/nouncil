@@ -4,10 +4,13 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Subgraph endpoints - decentralized network + studio fallback
+// Goldsky public endpoint - same as nouns.wtf uses (free, no API key required)
+const GOLDSKY_URL = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
+
+// Subgraph endpoints - Goldsky primary, Graph Protocol fallback
 const SUBGRAPH_URLS = [
+  GOLDSKY_URL,
   "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -817,7 +820,11 @@ export function useCandidateSignatures(candidateId: string) {
   }, [])
 
   useEffect(() => {
-    if (!mounted || !candidateId) return
+    // Only fetch if we have a valid full subgraph ID (contains proposer-slug format)
+    // Skip if candidateId is just a number like "972"
+    if (!mounted || !candidateId || !candidateId.includes("-")) {
+      return
+    }
 
     const fetchSignatures = async () => {
       try {
@@ -828,7 +835,6 @@ export function useCandidateSignatures(candidateId: string) {
             latestVersion {
               content {
                 contentSignatures {
-                  sig
                   signer {
                     id
                     nounsRepresented { id }
