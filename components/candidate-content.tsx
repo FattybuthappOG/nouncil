@@ -243,24 +243,6 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               </div>
             )}
 
-            {/* Transaction Simulator */}
-            {data.targets && data.targets.length > 0 && (
-              <>
-                <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
-                <div>
-                  <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Proposed Transactions</h2>
-                  <TransactionSimulator
-                    candidateData={{
-                      targets: data.targets,
-                      values: data.values?.map((v: any) => v.toString()) || [],
-                      signatures: data.signatures || [],
-                      calldatas: data.calldatas || [],
-                    }}
-                  />
-                </div>
-              </>
-            )}
-
             <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
 
             <div>
@@ -336,6 +318,24 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                 </ReactMarkdown>
               </div>
             </div>
+
+            {/* Transaction Simulator */}
+            {data.targets && data.targets.length > 0 && (
+              <>
+                <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
+                <div>
+                  <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Proposed Transactions</h2>
+                  <TransactionSimulator
+                    candidateData={{
+                      targets: data.targets,
+                      values: data.values?.map((v: any) => v.toString()) || [],
+                      signatures: data.signatures || [],
+                      calldatas: data.calldatas || [],
+                    }}
+                  />
+                </div>
+              </>
+            )}
 
             {signatures.signatures && signatures.signatures.length > 0 && (
               <>
