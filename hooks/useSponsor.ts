@@ -151,31 +151,13 @@ export function encodeProposalData(
   description: string,
   proposalIdToUpdate: bigint = 0n
 ): `0x${string}` {
-  // Debug: log inputs
-  console.log("[v0] encodeProposalData inputs:", {
-    proposer,
-    targetsCount: targets.length,
-    valuesCount: values.length,
-    signaturesCount: signatures.length,
-    signatures: signatures.slice(0, 3),
-    calldatasCount: calldatas.length,
-    calldatas: calldatas.slice(0, 3).map(c => c.slice(0, 20) + "..."),
-    descriptionLength: description.length,
-    proposalIdToUpdate: proposalIdToUpdate.toString(),
-  })
-
   // Hash each signature string
   const signatureHashes = signatures.map(sig => keccak256(stringToBytes(sig)))
   // Hash each calldata bytes
   const calldataHashes = calldatas.map(cd => keccak256(cd))
 
-  console.log("[v0] Computed hashes:", {
-    signatureHashes: signatureHashes.slice(0, 3),
-    calldataHashes: calldataHashes.slice(0, 3),
-  })
-
   if (proposalIdToUpdate > 0n) {
-    const result = encodeAbiParameters(
+    return encodeAbiParameters(
       [
         { type: "uint256" },
         { type: "address" },
@@ -195,11 +177,9 @@ export function encodeProposalData(
         keccak256(stringToBytes(description)),
       ]
     )
-    console.log("[v0] Encoded (update):", result.slice(0, 66) + "...")
-    return result
   }
 
-  const result = encodeAbiParameters(
+  return encodeAbiParameters(
     [
       { type: "address" },
       { type: "bytes32" },
@@ -217,8 +197,6 @@ export function encodeProposalData(
       keccak256(stringToBytes(description)),
     ]
   )
-  console.log("[v0] Encoded (new):", result.slice(0, 66) + "...")
-  return result
 }
 
 /**
@@ -253,17 +231,6 @@ export function useSignProposalCandidate() {
       try {
         setError(null)
 
-        console.log("[v0] signCandidate called with:", {
-          proposer,
-          targetsCount: targets.length,
-          valuesCount: values.length,
-          signaturesCount: signatures.length,
-          calldatasCount: calldatas.length,
-          descriptionLength: description.length,
-          expirationTimestamp: expirationTimestamp.toString(),
-          proposalIdToUpdate: proposalIdToUpdate.toString(),
-        })
-
         // Ensure wallet is on Ethereum mainnet before signing
         if (chainId !== NOUNS_CHAIN_ID) {
           await switchChainAsync({ chainId: NOUNS_CHAIN_ID })
@@ -274,8 +241,6 @@ export function useSignProposalCandidate() {
           chainId: NOUNS_CHAIN_ID,
           verifyingContract: GOVERNOR_CONTRACT.address,
         } as const
-
-        console.log("[v0] EIP-712 domain:", domain)
 
         const message = proposalIdToUpdate > 0n
           ? {
