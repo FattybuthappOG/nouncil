@@ -176,13 +176,13 @@ interface AbiFunction { name: string; type: string; stateMutability: string; inp
 
 // Common contract ABIs for known addresses (fallback when Etherscan fails)
 const KNOWN_CONTRACT_ABIS: Record<string, AbiFunction[]> = {
-  // Nouns Auction House Proxy
+  // Nouns Auction House Proxy (V2 uses uint192 for prices)
   "0x830bd73e4184cef73443c15111a1df14e495c706": [
     { type: "function", name: "pause", stateMutability: "nonpayable", inputs: [] },
     { type: "function", name: "unpause", stateMutability: "nonpayable", inputs: [] },
-    { type: "function", name: "setReservePrice", stateMutability: "nonpayable", inputs: [{ name: "_reservePrice", type: "uint256" }] },
+    { type: "function", name: "setReservePrice", stateMutability: "nonpayable", inputs: [{ name: "_reservePrice", type: "uint192" }] },
     { type: "function", name: "setMinBidIncrementPercentage", stateMutability: "nonpayable", inputs: [{ name: "_minBidIncrementPercentage", type: "uint8" }] },
-    { type: "function", name: "setTimeBuffer", stateMutability: "nonpayable", inputs: [{ name: "_timeBuffer", type: "uint256" }] },
+    { type: "function", name: "setTimeBuffer", stateMutability: "nonpayable", inputs: [{ name: "_timeBuffer", type: "uint56" }] },
     { type: "function", name: "settleCurrentAndCreateNewAuction", stateMutability: "nonpayable", inputs: [] },
   ],
   // Nouns Token

@@ -62,6 +62,7 @@ const translations = {
     loading: "Loading...",
     noCandidatesFound: "No candidates found",
     filterByStatus: "Filter by Status",
+    nouncillorParticipation: "Nouncillor Participation",
   },
   zh: {
     proposals: "候选人",
@@ -95,6 +96,7 @@ const translations = {
     loading: "正在加载...",
     noCandidatesFound: "未找到候选人",
     filterByStatus: "按状态过滤",
+    nouncillorParticipation: "Nouncillor 参与",
   },
   es: {
     proposals: "Candidatos",
@@ -128,6 +130,7 @@ const translations = {
     loading: "Cargando...",
     noCandidatesFound: "No se encontraron candidatos",
     filterByStatus: "Filtrar por Estado",
+    nouncillorParticipation: "Participación Nouncillor",
   },
   hi: {
     proposals: "उम्मीदवार",
@@ -161,6 +164,7 @@ const translations = {
     loading: "लोड हो रहा है...",
     noCandidatesFound: "कोई उम्मीदवार नहीं मिला",
     filterByStatus: "स्थिति के आधार पर फ़िल्टर करें",
+    nouncillorParticipation: "Nouncillor भाग लेना",
   },
   ar: {
     proposals: "المرشحون",
@@ -172,7 +176,7 @@ const translations = {
     executed: "منفذ",
     defeated: "مرفوض",
     canceled: "ملغى",
-    loadMore: "تحميل 20 أكثر",
+    loadMore: "تحم��ل 20 أكثر",
     connectWallet: "ربط المحفظة",
     treasury: "الخزانة",
     learnAboutNouns: "تعرف على Nouns",
@@ -194,6 +198,7 @@ const translations = {
     loading: "جارٍ التحميل...",
     noCandidatesFound: "لم يتم العثور على أي مرشحين",
     filterByStatus: "تصفية حسب الحالة",
+    nouncillorParticipation: "مشاركة Nouncillor",
   },
   pt: {
     proposals: "Candidatos",
@@ -227,6 +232,7 @@ const translations = {
     loading: "Carregando...",
     noCandidatesFound: "Nenhum candidato encontrado",
     filterByStatus: "Filtrar por Status",
+    nouncillorParticipation: "Participação do Nouncillor",
   },
   bn: {
     proposals: "প্রার্থী",
@@ -260,10 +266,11 @@ const translations = {
     loading: "লোড হচ্ছে...",
     noCandidatesFound: "কোনো উম্মীদবার পাওয়া যায়নি",
     filterByStatus: "স্থিতি অনুযায়ী ফিল্টার করুন",
+    nouncillorParticipation: "Nouncillor অংশগ্রহণ",
   },
   ru: {
     proposals: "Предложения",
-    candidates: "Кандидаты",
+    candidates: "��андидаты",
     searchProposals: "Искать предложения по номеру или заголовку...",
     searchCandidates: "Искать кандидатов по номеру или заголовку...",
     showAll: "Показать Все",
@@ -293,6 +300,7 @@ const translations = {
     loading: "Загрузка...",
     noCandidatesFound: "Кандидатов не найдено",
     filterByStatus: "Фильтровать по статусу",
+    nouncillorParticipation: "Участие Nouncillor",
   },
   ja: {
     proposals: "提案",
@@ -326,6 +334,7 @@ const translations = {
     loading: "読み込み中...",
     noCandidatesFound: "候補者が見つかりません",
     filterByStatus: "ステータスでフィルター",
+    nouncillorParticipation: "Nouncillor参加",
   },
   fr: {
     proposals: "Propositions",
@@ -359,6 +368,7 @@ const translations = {
     loading: "Chargement...",
     noCandidatesFound: "Aucun candidat trouvé",
     filterByStatus: "Filtrer par Statut",
+    nouncillorParticipation: "Participation Nouncillor",
   },
 }
 
@@ -722,6 +732,19 @@ function LiveGovernanceDashboardContent() {
                   >
                     <img src="/images/nounsworld.gif" alt="Nouns World" className="w-6 h-6 rounded" />
                     <span className="font-medium">{t("learnAboutNouns")}</span>
+                  </a>
+
+                  {/* Nouncillor Participation */}
+                  <a
+                    href="https://nouncil.up.railway.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="font-medium">{t("nouncillorParticipation")}</span>
                   </a>
 
                   {/* Generate Toga PFP */}
