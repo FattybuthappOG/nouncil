@@ -270,7 +270,7 @@ const translations = {
   },
   ru: {
     proposals: "Предложения",
-    candidates: "Кандидаты",
+    candidates: "��андидаты",
     searchProposals: "Искать предложения по номеру или заголовку...",
     searchCandidates: "Искать кандидатов по номеру или заголовку...",
     showAll: "Показать Все",
@@ -734,19 +734,6 @@ function LiveGovernanceDashboardContent() {
                     <span className="font-medium">{t("learnAboutNouns")}</span>
                   </a>
 
-                  {/* Generate Toga PFP */}
-                  <a
-                    href="https://togatime.cloudnouns.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setShowMenu(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                    }`}
-                  >
-                    <span className="font-medium">{t("generateTogaPFP")}</span>
-                  </a>
-
                   {/* Nouncillor Participation */}
                   <a
                     href="https://nouncil.up.railway.app/"
@@ -758,6 +745,19 @@ function LiveGovernanceDashboardContent() {
                     }`}
                   >
                     <span className="font-medium">{t("nouncillorParticipation")}</span>
+                  </a>
+
+                  {/* Generate Toga PFP */}
+                  <a
+                    href="https://togatime.cloudnouns.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="font-medium">{t("generateTogaPFP")}</span>
                   </a>
 
                   {/* Copy Nouns Symbol */}
