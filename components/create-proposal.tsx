@@ -430,29 +430,25 @@ function LinkDialog({ onConfirm, onClose, initialText }: {
 // --- Rich text editor ---
 function RichEditor({ onChange, initialContent }: { onChange: (html: string) => void; initialContent?: string }) {
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; selectedText: string }>({ open: false, selectedText: "" })
-  const [lastAppliedContent, setLastAppliedContent] = useState<string | null>(null)
+  // Capture initialContent only once via a ref — never update it — so the
+  // editor doesn't reset its content (and cursor) on every keystroke.
+  const initialContentRef = useRef(initialContent)
 
   const editor = useEditor({
-    immediatelyRender: false, // Avoid SSR hydration mismatches
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       TiptapLink.configure({ openOnClick: true, autolink: true, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } }),
       TiptapImage,
       Placeholder.configure({ placeholder: "Describe your proposal — motivation, specification, benefits..." }),
     ],
+    // Pass content once at creation time — tiptap owns the state from here on.
+    content: initialContentRef.current || "",
     editorProps: {
       attributes: { class: "min-h-[320px] px-4 py-3 text-sm leading-relaxed text-foreground focus:outline-none prose prose-sm max-w-none dark:prose-invert" },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
-
-  // Set initial content when editor is ready and initialContent changes
-  useEffect(() => {
-    if (editor && initialContent && initialContent !== lastAppliedContent) {
-      editor.commands.setContent(initialContent)
-      setLastAppliedContent(initialContent)
-    }
-  }, [editor, initialContent, lastAppliedContent])
 
   const openLinkDialog = useCallback(() => {
     if (!editor) return
@@ -813,6 +809,9 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
   const { connectors, connect } = useConnect()
   const [title, setTitle] = useState(initialData?.title || "")
   const [bodyHtml, setBodyHtml] = useState("")
+  // Stable ref for RichEditor's initialContent — only updated when edit-mode
+  // data loads, never on each keystroke, so the editor never resets its cursor.
+  const editorInitialContentRef = useRef("")
   const [actions, setActions] = useState<Action[]>([])
   const [proposalType, setProposalType] = useState<"candidate" | "onchain">(editMode === "proposal" ? "onchain" : "candidate")
   const [showActions, setShowActions] = useState(false)
@@ -827,6 +826,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
     setTitle(initialData.title || "")
     const htmlContent = marked.parse(initialData.description || "", { async: false }) as string
     setBodyHtml(htmlContent)
+    editorInitialContentRef.current = htmlContent
     
     if (!initialData.targets?.length) return
     
@@ -1274,7 +1274,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
               dangerouslySetInnerHTML={{ __html: bodyHtml || "<p class='text-muted-foreground'>Nothing to preview yet.</p>" }}
             />
           ) : (
-            <RichEditor onChange={setBodyHtml} initialContent={bodyHtml} />
+            <RichEditor onChange={setBodyHtml} initialContent={editorInitialContentRef.current} />
           )}
         </div>
 
