@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
 import WalletConnectButton from "./wallet-connect-button"
-import { parseEther, parseUnits, encodeFunctionData, decodeFunctionData, isAddress, getAddress, toFunctionSelector } from "viem"
+import { parseEther, parseUnits, encodeFunctionData, decodeFunctionData, isAddress, getAddress, toFunctionSelector, encodeAbiParameters } from "viem"
 import {
   Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered,
   Quote, Link2, Image, Minus, Eye, Edit3, Plus, Trash2, ArrowLeft,
@@ -321,6 +321,7 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
     }
   }
   if (action.type === "eth") {
+    // ETH transfer: empty signature and "0x" calldata
     if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for ETH transfer")
     return { target: action.recipient as `0x${string}`, value: parseEther(action.amount || "0"), signature: "", calldata: "0x" }
   }
@@ -328,53 +329,25 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
     if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for USDC transfer")
     // USDC uses 6 decimals
     const amountInUnits = parseUnits(action.amount || "0", 6)
-    // ERC20 transfer ABI - standard interface
-    const erc20TransferAbi = [
-      {
-        name: "transfer",
-        type: "function",
-        stateMutability: "nonpayable",
-        inputs: [
-          { name: "to", type: "address" },
-          { name: "amount", type: "uint256" }
-        ],
-        outputs: [{ name: "", type: "bool" }]
-      }
-    ] as const
-    const data = encodeFunctionData({
-      abi: erc20TransferAbi,
-      functionName: "transfer",
-      args: [action.recipient as `0x${string}`, amountInUnits]
-    })
-    return { target: USDC, value: 0n, signature: "", calldata: data }
+    // Use legacy format: signature contains function name+types, calldata contains only encoded params
+    const signature = "transfer(address,uint256)"
+    const calldata = encodeAbiParameters(
+      [{ type: "address" }, { type: "uint256" }],
+      [action.recipient as `0x${string}`, amountInUnits]
+    )
+    return { target: USDC, value: 0n, signature, calldata }
   }
   if (action.type === "noun") {
     // Request a Noun NFT from the treasury
-    // The treasury calls transferFrom on the Nouns token contract
     if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for Noun transfer")
     const nounId = BigInt(action.nounId || "0")
-    // ERC721 transferFrom: treasury transfers Noun to recipient
-    // The treasury must call transferFrom(treasury, recipient, tokenId) on Nouns token
-    const erc721TransferAbi = [
-      {
-        name: "transferFrom",
-        type: "function",
-        stateMutability: "nonpayable",
-        inputs: [
-          { name: "from", type: "address" },
-          { name: "to", type: "address" },
-          { name: "tokenId", type: "uint256" }
-        ],
-        outputs: []
-      }
-    ] as const
-    const data = encodeFunctionData({
-      abi: erc721TransferAbi,
-      functionName: "transferFrom",
-      args: [NOUNS_TREASURY, action.recipient as `0x${string}`, nounId]
-    })
-    // Target is the Nouns NFT contract, treasury executes the call
-    return { target: NOUNS_TOKEN, value: 0n, signature: "", calldata: data }
+    // Use legacy format for transferFrom
+    const signature = "transferFrom(address,address,uint256)"
+    const calldata = encodeAbiParameters(
+      [{ type: "address" }, { type: "address" }, { type: "uint256" }],
+      [NOUNS_TREASURY, action.recipient as `0x${string}`, nounId]
+    )
+    return { target: NOUNS_TOKEN, value: 0n, signature, calldata }
   }
   // custom: encode from fetched ABI + selected function + arg values
   if (!isAddress(action.target || "")) throw new Error("Invalid target address for custom call")
@@ -388,13 +361,18 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
   if (!fn) throw new Error("Select a function")
   const argVals = action.argValues || {}
   const encodedArgs = fn.inputs.map(inp => coerceArg(argVals[inp.name] || "", inp.type))
-  const calldata = encodeFunctionData({
-    abi: [fn] as any,
-    functionName: fn.name,
-    args: encodedArgs,
-  })
+  
+  // Use legacy format: signature = "functionName(type1,type2,...)", calldata = encoded params only
+  const signature = `${fn.name}(${fn.inputs.map(i => i.type).join(",")})`
+  const calldata = fn.inputs.length > 0
+    ? encodeAbiParameters(
+        fn.inputs.map(i => ({ type: i.type })),
+        encodedArgs
+      )
+    : "0x" as `0x${string}`
+  
   const ethValue = fn.stateMutability === "payable" ? parseEther(action.ethValue || "0") : 0n
-  return { target: normalizedTarget, value: ethValue, signature: "", calldata }
+  return { target: normalizedTarget, value: ethValue, signature, calldata }
 }
 
 // --- Toolbar button ---
