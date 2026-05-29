@@ -74,6 +74,18 @@ const UPDATE_PROPOSAL_TYPES = {
   ],
 } as const
 
+// Helper to get properly formatted types for wagmi's signTypedDataAsync
+function getSignTypedDataTypes(types: typeof PROPOSAL_TYPES | typeof UPDATE_PROPOSAL_TYPES) {
+  return {
+    EIP712Domain: [
+      { name: "name", type: "string" },
+      { name: "chainId", type: "uint256" },
+      { name: "verifyingContract", type: "address" },
+    ],
+    ...types,
+  } as const
+}
+
 export interface CandidateSignature {
   sig: string
   signer: {
@@ -265,7 +277,7 @@ export function useSignProposalCandidate() {
 
         const signature = await signTypedDataAsync({
           domain,
-          types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
+          types: getSignTypedDataTypes(proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES),
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
         })
@@ -447,4 +459,118 @@ export function filterValidSignatures(signatures: Array<any>): any[] {
 export function getDefaultExpiration(): bigint {
   const thirtyDaysInSeconds = 30 * 24 * 60 * 60
   return BigInt(Math.floor(Date.now() / 1000) + thirtyDaysInSeconds)
+}
+
+/**
+ * Hook for creating a direct on-chain proposal (without sponsor signatures).
+ * Only the connected wallet's voting power is used.
+ */
+export function usePropose() {
+  const { writeContractAsync, isPending: isSubmitting } = useWriteContract()
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
+  const [error, setError] = useState<Error | null>(null)
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
+
+  const propose = useCallback(
+    async ({
+      targets,
+      values,
+      signatures,
+      calldatas,
+      description,
+    }: {
+      targets: `0x${string}`[]
+      values: bigint[]
+      signatures: string[]
+      calldatas: `0x${string}`[]
+      description: string
+    }) => {
+      try {
+        setError(null)
+        const hash = await writeContractAsync({
+          address: GOVERNOR_CONTRACT.address,
+          abi: [
+            {
+              inputs: [
+                { name: "targets", type: "address[]" },
+                { name: "values", type: "uint256[]" },
+                { name: "signatures", type: "string[]" },
+                { name: "calldatas", type: "bytes[]" },
+                { name: "description", type: "string" },
+                { name: "clientId", type: "uint32" },
+              ],
+              name: "propose",
+              outputs: [{ type: "uint256" }],
+              stateMutability: "nonpayable",
+              type: "function",
+            },
+          ],
+          functionName: "propose",
+          args: [targets, values, signatures, calldatas, description, CLIENT_ID],
+        })
+        setTxHash(hash)
+        return hash
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error("Failed to create proposal"))
+        throw err
+      }
+    },
+    [writeContractAsync]
+  )
+
+  return {
+    propose,
+    isSubmitting,
+    isConfirming,
+    isSuccess,
+    txHash,
+    error,
+  }
+}
+
+/**
+ * Hook to check if the connected user already has an active proposal.
+ * Returns the proposal ID if one exists, null otherwise.
+ */
+export function useActiveProposalId(address?: `0x${string}`) {
+  const { data, isLoading, error } = useReadContract({
+    address: GOVERNOR_CONTRACT.address,
+    abi: [
+      {
+        inputs: [{ name: "account", type: "address" }],
+        name: "latestProposalIds",
+        outputs: [{ type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ],
+    functionName: "latestProposalIds",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  })
+
+  // If user has a latest proposal, check if it's still active
+  const latestProposalId = data ? Number(data) : 0
+
+  const { data: proposalState, isLoading: isLoadingState } = useReadContract({
+    address: GOVERNOR_CONTRACT.address,
+    abi: GOVERNOR_CONTRACT.abi,
+    functionName: "state",
+    args: latestProposalId > 0 ? [BigInt(latestProposalId)] : undefined,
+    query: { enabled: latestProposalId > 0 },
+  })
+
+  // Proposal states: 0=Pending, 1=Active, 2=Canceled, 3=Defeated, 4=Succeeded, 5=Queued, 6=Expired, 7=Executed
+  // Active states where user can't create new proposal: 0 (Pending), 1 (Active), 5 (Queued)
+  const activeStates = [0, 1, 5]
+  const isActive = proposalState !== undefined && activeStates.includes(Number(proposalState))
+
+  return {
+    activeProposalId: isActive ? latestProposalId : null,
+    isLoading: isLoading || isLoadingState,
+    error,
+  }
 }
