@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -66,6 +67,7 @@ function ProposalVotingCardContent({
   proposalData,
   statusFilter = "all",
 }: ProposalVotingCardProps) {
+  const router = useRouter()
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
@@ -170,7 +172,7 @@ function ProposalVotingCardContent({
 
   return (
     <Card
-      onClick={() => !showVoteForm && (window.location.href = `/proposal/${proposalId}`)}
+      onClick={() => !showVoteForm && router.push(`/proposal/${proposalId}`)}
       className={`transition-colors duration-200 cursor-pointer hover:shadow-lg ${isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-white border-gray-200 hover:border-gray-300"}`}
     >
       <CardHeader className="pb-3">

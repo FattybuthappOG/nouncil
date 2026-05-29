@@ -601,13 +601,22 @@ export function useCandidateData(candidateId: string) {
         if (!res.ok) throw new Error("API failed")
         const data = await res.json()
         
-        // candidateId could be a number (candidateNumber) or slug-based id
+        // candidateId could be:
+        // 1. A number string like "42" (candidateNumber)
+        // 2. A full ID like "0x123...abc-my-slug" (proposer-slug format)
+        // 3. Just a slug like "my-slug"
         const candidateNum = parseInt(candidateId)
+        const isNumeric = !isNaN(candidateNum) && /^\d+$/.test(candidateId)
+        
         const candidate = data.candidates?.find((c: any) => {
-          if (!isNaN(candidateNum)) {
+          if (isNumeric) {
             return c.candidateNumber === candidateNum
           }
-          return c.id === candidateId || c.slug === candidateId
+          // Match by full ID, slug, or if candidateId ends with the slug
+          return c.id === candidateId || 
+                 c.slug === candidateId || 
+                 c.id?.endsWith(`-${candidateId}`) ||
+                 candidateId.endsWith(`-${c.slug}`)
         })
 
         if (candidate) {
