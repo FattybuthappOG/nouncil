@@ -323,6 +323,7 @@ export function useAddSignatureToCandidate() {
       try {
         setError(null)
         const hash = await writeContractAsync({
+          chainId: NOUNS_CHAIN_ID,
           address: NOUNS_DAO_DATA,
           abi: ADD_SIGNATURE_ABI,
           functionName: "addSignature",
@@ -384,6 +385,7 @@ export function useProposeBySigs() {
       try {
         setError(null)
         const hash = await writeContractAsync({
+          chainId: NOUNS_CHAIN_ID,
           address: GOVERNOR_CONTRACT.address,
           abi: GOVERNOR_CONTRACT.abi,
           functionName: "proposeBySigs",
@@ -483,6 +485,7 @@ export function usePropose() {
       try {
         setError(null)
         const hash = await writeContractAsync({
+          chainId: NOUNS_CHAIN_ID,
           address: GOVERNOR_CONTRACT.address,
           abi: [
             {
