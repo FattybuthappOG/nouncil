@@ -19,17 +19,26 @@ import { EnsDisplay } from "@/components/ens-display"
 
 // Known contracts with metadata
 const KNOWN_CONTRACTS: Record<string, { name: string; type?: string; decimals?: number; symbol?: string }> = {
+  // Nouns Core
   "0x6f3e6272a167e8accb32072d08e0957f9c79223d": { name: "Nouns DAO Proxy" },
   "0x0bc3807ec262cb779b38d65b38158acc3bfede10": { name: "Nouns DAO Logic V3" },
   "0x830bd73e4184cef73443c15111a1df14e495c706": { name: "Nouns Auction House Proxy" },
   "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03": { name: "Nouns Token", type: "nft" },
   "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": { name: "Nouns Art" },
   "0x2573c60a6d127755aa2dc85e342f7da2378a0cc5": { name: "Nouns Auction House (V1)" },
+  // Nouns Treasury / Executor
+  "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": { name: "Nouns Executor" },
+  "0x0fd206fc7a7dbcd5661157edcb1ffdd0d02a61ff": { name: "Prop House" },
+  // Nouns Payer (for USDC transfers via payer)
+  "0xd97bcd9f47cee35c0a9ec1dc40c1269afc9e8e1d": { name: "Nouns Payer", type: "payer" },
+  // Token Buyer (for payer top-ups)
+  "0x4f2acdc74f6941390d9b1804fabc3e780388cfe5": { name: "Nouns Token Buyer", type: "token-buyer" },
   // ERC20 Tokens
   "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": { name: "USDC", type: "erc20", decimals: 6, symbol: "USDC" },
   "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": { name: "WETH", type: "erc20", decimals: 18, symbol: "WETH" },
   "0x6b175474e89094c44da98b954eedeac495271d0f": { name: "DAI", type: "erc20", decimals: 18, symbol: "DAI" },
   "0xdac17f958d2ee523a2206206994597c13d831ec7": { name: "USDT", type: "erc20", decimals: 6, symbol: "USDT" },
+  "0xae7ab96520de3a18e5e111b5eaab095312d7fe84": { name: "stETH", type: "erc20", decimals: 18, symbol: "stETH" },
   "0x4200000000000000000000000000000000000006": { name: "WETH (Base)", type: "erc20", decimals: 18, symbol: "WETH" },
   "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { name: "USDC (Base)", type: "erc20", decimals: 6, symbol: "USDC" },
   // Sablier contracts
@@ -39,9 +48,14 @@ const KNOWN_CONTRACTS: Record<string, { name: string; type?: string; decimals?: 
   "0xafb979d9afad1ce41510c8dc65bc1f0f76a90ce7": { name: "Sablier Lockup Linear", type: "stream" },
   // Nouns Builder
   "0xcdf9b17e21b40f4e4288f5c49e0cf170ab37cff1": { name: "Nouns Builder Treasury" },
-  // Other common contracts
-  "0x0fd206fc7a7dbcd5661157edcb1ffdd0d02a61ff": { name: "Prop House" },
 }
+
+// Treasury/Executor address (lowercase)
+const NOUNS_EXECUTOR_ADDRESS = "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71"
+const NOUNS_TOKEN_ADDRESS = "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03"
+const NOUNS_PAYER_ADDRESS = "0xd97bcd9f47cee35c0a9ec1dc40c1269afc9e8e1d"
+const NOUNS_TOKEN_BUYER_ADDRESS = "0x4f2acdc74f6941390d9b1804fabc3e780388cfe5"
+const USDC_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 
 // Function selectors (first 4 bytes of keccak256 hash)
 const FUNCTION_SELECTORS: Record<string, { name: string; params: string[] }> = {
@@ -132,6 +146,9 @@ interface DecodedTransaction {
     | "eth_transfer"
     | "token_transfer"
     | "nft_transfer"
+    | "treasury_noun_transfer"
+    | "usdc_transfer_via_payer"
+    | "payer_top_up"
     | "stream_create"
     | "stream_cancel"
     | "approval"
@@ -140,6 +157,7 @@ interface DecodedTransaction {
   amount?: string
   symbol?: string
   tokenId?: string
+  nounId?: number
   tokenName?: string
   functionName?: string
   description: string
@@ -162,6 +180,17 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
 
   // Pure ETH transfer (no calldata or empty calldata)
   if ((!calldata || calldata === "0x" || calldata.length <= 2) && hasEthValue) {
+    // Check if this is a payer top-up
+    if (targetLower === NOUNS_TOKEN_BUYER_ADDRESS) {
+      return {
+        type: "payer_top_up",
+        amount: ethValue,
+        symbol: "ETH",
+        description: `Top up Nouns Payer with ${ethValue} ETH`,
+        icon: <Coins className="w-4 h-4" />,
+        details: "This transaction refills USDC to the Nouns Payer contract",
+      }
+    }
     return {
       type: "eth_transfer",
       recipient: target,
@@ -169,6 +198,83 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
       symbol: "ETH",
       description: `Send ${ethValue} ETH`,
       icon: <Send className="w-4 h-4" />,
+    }
+  }
+
+  // Treasury Noun Transfer - transferFrom or safeTransferFrom on Nouns Token from Treasury
+  if (
+    targetLower === NOUNS_TOKEN_ADDRESS &&
+    (signature === "transferFrom(address,address,uint256)" || 
+     signature === "safeTransferFrom(address,address,uint256)" ||
+     selector === "23b872dd" || selector === "42842e0e")
+  ) {
+    const from = decodeAddress(calldata, 0)
+    const to = decodeAddress(calldata, 1)
+    const tokenId = decodeUint256(calldata, 2)
+
+    // Check if transfer is FROM the treasury
+    if (from.toLowerCase() === NOUNS_EXECUTOR_ADDRESS) {
+      return {
+        type: "treasury_noun_transfer",
+        recipient: to,
+        nounId: Number(tokenId),
+        tokenName: "Noun",
+        functionName: sigFuncName || funcInfo?.name || "transfer",
+        description: `Transfer Noun #${tokenId} from Treasury`,
+        icon: <ImageIcon className="w-4 h-4" />,
+      }
+    }
+
+    // Regular NFT transfer
+    return {
+      type: "nft_transfer",
+      recipient: to,
+      tokenId: tokenId.toString(),
+      tokenName: "Noun",
+      functionName: funcInfo?.name || "transfer",
+      description: `Transfer Noun #${tokenId}`,
+      icon: <ImageIcon className="w-4 h-4" />,
+    }
+  }
+
+  // USDC Transfer via Nouns Payer - sendOrRegisterDebt
+  if (
+    targetLower === NOUNS_PAYER_ADDRESS &&
+    (signature === "sendOrRegisterDebt(address,uint256)" || selector === "5a9b0b89")
+  ) {
+    const recipient = decodeAddress(calldata, 0)
+    const amount = decodeUint256(calldata, 1)
+    const formattedAmount = formatTokenAmount(amount, 6) // USDC has 6 decimals
+
+    return {
+      type: "usdc_transfer_via_payer",
+      recipient,
+      amount: formattedAmount,
+      symbol: "USDC",
+      functionName: "sendOrRegisterDebt",
+      description: `Send ${formattedAmount} USDC via Payer`,
+      icon: <Coins className="w-4 h-4" />,
+      details: "USDC is transferred from the Treasury via the Payer contract",
+    }
+  }
+
+  // Direct USDC Transfer
+  if (
+    targetLower === USDC_ADDRESS &&
+    (selector === "a9059cbb" || signature === "transfer(address,uint256)")
+  ) {
+    const recipient = decodeAddress(calldata, 0)
+    const amount = decodeUint256(calldata, 1)
+    const formattedAmount = formatTokenAmount(amount, 6)
+
+    return {
+      type: "token_transfer",
+      recipient,
+      amount: formattedAmount,
+      symbol: "USDC",
+      tokenName: "USDC",
+      description: `Send ${formattedAmount} USDC`,
+      icon: <Coins className="w-4 h-4" />,
     }
   }
 
@@ -318,9 +424,13 @@ function getTypeColors(type: DecodedTransaction["type"]): { bg: string; text: st
     case "eth_transfer":
       return { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/30" }
     case "token_transfer":
+    case "usdc_transfer_via_payer":
       return { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/30" }
     case "nft_transfer":
+    case "treasury_noun_transfer":
       return { bg: "bg-purple-500/20", text: "text-purple-400", border: "border-purple-500/30" }
+    case "payer_top_up":
+      return { bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/30" }
     case "stream_create":
     case "stream_cancel":
       return { bg: "bg-cyan-500/20", text: "text-cyan-400", border: "border-cyan-500/30" }
@@ -337,8 +447,14 @@ function getTypeLabel(type: DecodedTransaction["type"]): string {
       return "ETH Transfer"
     case "token_transfer":
       return "Token Transfer"
+    case "usdc_transfer_via_payer":
+      return "USDC Transfer"
     case "nft_transfer":
       return "NFT Transfer"
+    case "treasury_noun_transfer":
+      return "Treasury Noun Transfer"
+    case "payer_top_up":
+      return "Payer Top-Up"
     case "stream_create":
       return "Create Stream"
     case "stream_cancel":
@@ -512,6 +628,11 @@ function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSim
                     {tx.decoded.tokenId && tx.decoded.type === "nft_transfer" && (
                       <Badge variant="outline" className="text-purple-400 border-purple-400">
                         Token #{tx.decoded.tokenId}
+                      </Badge>
+                    )}
+                    {tx.decoded.nounId !== undefined && tx.decoded.type === "treasury_noun_transfer" && (
+                      <Badge variant="outline" className="text-purple-400 border-purple-400">
+                        Noun #{tx.decoded.nounId}
                       </Badge>
                     )}
                   </div>
