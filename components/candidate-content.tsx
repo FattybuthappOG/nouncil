@@ -99,7 +99,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
   // Check if connected wallet is the proposer
   const isProposer = address && data.proposer && address.toLowerCase() === data.proposer.toLowerCase()
 
-  const hasReachedThreshold = totalVotingPower >= threshold
+  const hasReachedThreshold = totalVotingPower > threshold
   const canSponsor = isConnected && votingPower > 0 && !data.canceled
 
   // Extract candidate number from the end of the ID or use a fallback
