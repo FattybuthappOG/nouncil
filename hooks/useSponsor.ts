@@ -216,6 +216,7 @@ export function encodeProposalData(
  */
 export function useSignProposalCandidate() {
   const { signTypedDataAsync, isPending: isSigning } = useSignTypedData()
+  const { address } = useAccount()
   const chainId = useChainId()
   const { switchChainAsync } = useSwitchChain()
   const [error, setError] = useState<Error | null>(null)
@@ -246,8 +247,12 @@ export function useSignProposalCandidate() {
         // Ensure wallet is on Ethereum mainnet before signing
         if (chainId !== NOUNS_CHAIN_ID) {
           await switchChainAsync({ chainId: NOUNS_CHAIN_ID })
+          // Wait a tick for the chain switch to propagate
+          await new Promise(resolve => setTimeout(resolve, 100))
         }
 
+        // Always use NOUNS_CHAIN_ID in the domain, not the current chainId
+        // This ensures the signature is valid for mainnet even if chainId state hasn't updated yet
         const domain = {
           name: "Nouns DAO",
           chainId: NOUNS_CHAIN_ID,
@@ -276,6 +281,7 @@ export function useSignProposalCandidate() {
             }
 
         const signature = await signTypedDataAsync({
+          account: address,
           domain,
           types: getSignTypedDataTypes(proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES),
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
@@ -288,7 +294,7 @@ export function useSignProposalCandidate() {
         throw err
       }
     },
-    [signTypedDataAsync, chainId, switchChainAsync]
+    [signTypedDataAsync, chainId, switchChainAsync, address]
   )
 
   return {
