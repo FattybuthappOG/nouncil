@@ -812,6 +812,9 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
   // Stable ref for RichEditor's initialContent — only updated when edit-mode
   // data loads, never on each keystroke, so the editor never resets its cursor.
   const editorInitialContentRef = useRef("")
+  // Bump this key to force RichEditor to remount when initial content is loaded
+  // (edit mode or template), so it picks up the ref value.
+  const [editorKey, setEditorKey] = useState(0)
   const [actions, setActions] = useState<Action[]>([])
   const [proposalType, setProposalType] = useState<"candidate" | "onchain">(editMode === "proposal" ? "onchain" : "candidate")
   const [showActions, setShowActions] = useState(false)
@@ -827,6 +830,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
     const htmlContent = marked.parse(initialData.description || "", { async: false }) as string
     setBodyHtml(htmlContent)
     editorInitialContentRef.current = htmlContent
+    setEditorKey(k => k + 1)
     
     if (!initialData.targets?.length) return
     
@@ -878,21 +882,20 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
             return { ...action, type: "custom" as ActionType, fetchedAbi: [], fetchError: "Could not fetch contract ABI", isFetching: false }
           }
           
-          // Match by signature
+          // Match by explicit signature (params-only calldata)
           if (signature) {
             const sigMatch = signature.match(/^(\w+)\((.*)\)$/)
             if (sigMatch) {
               const [, fnName, paramTypesStr] = sigMatch
               const paramTypes = paramTypesStr ? paramTypesStr.split(",").map(t => t.trim()) : []
               const matchingFn = writeFns.find(fn => fn.name === fnName && fn.inputs.length === paramTypes.length && fn.inputs.every((inp, i) => inp.type === paramTypes[i]))
-              
               if (matchingFn) {
                 const argValues: Record<string, string> = {}
                 if (calldata && calldata !== "0x" && matchingFn.inputs.length > 0) {
                   try {
                     const fnSelector = toFunctionSelector(signature)
-                    const fullCalldata = fnSelector + calldata.slice(2)
-                    const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: fullCalldata as `0x${string}` })
+                    const fullCalldata = (fnSelector + calldata.slice(2)) as `0x${string}`
+                    const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: fullCalldata })
                     matchingFn.inputs.forEach((inp, i) => {
                       const val = (decoded.args as any[])?.[i]
                       argValues[inp.name] = val !== undefined ? String(val) : ""
@@ -904,7 +907,45 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
               }
             }
           }
-          
+
+          // Fallback A: calldata has 4-byte selector (full calldata format)
+          if (calldata && calldata.length >= 10 && calldata !== "0x") {
+            const calldataSelector = calldata.slice(0, 10).toLowerCase()
+            const matchingFn = writeFns.find(fn => {
+              try { return toFunctionSelector(`${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`).toLowerCase() === calldataSelector }
+              catch { return false }
+            })
+            if (matchingFn) {
+              try {
+                const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: calldata as `0x${string}` })
+                const argValues: Record<string, string> = {}
+                matchingFn.inputs.forEach((inp, i) => {
+                  const val = (decoded.args as any[])?.[i]
+                  argValues[inp.name] = val !== undefined ? String(val) : ""
+                })
+                const sig = `${matchingFn.name}(${matchingFn.inputs?.map(i => i.type).join(",") || ""})`
+                return { ...action, type: "custom" as ActionType, fetchedAbi: writeFns, selectedFunction: sig, argValues, isFetching: false }
+              } catch {}
+            }
+          }
+
+          // Fallback B: no signature, params-only calldata — brute-force each fn
+          if (calldata && calldata !== "0x") {
+            for (const fn of writeFns) {
+              try {
+                const fnSig = `${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`
+                const fullCalldata = (toFunctionSelector(fnSig) + calldata.slice(2)) as `0x${string}`
+                const decoded = decodeFunctionData({ abi: [fn] as any, data: fullCalldata })
+                const argValues: Record<string, string> = {}
+                fn.inputs.forEach((inp, i) => {
+                  const val = (decoded.args as any[])?.[i]
+                  argValues[inp.name] = val !== undefined ? String(val) : ""
+                })
+                return { ...action, type: "custom" as ActionType, fetchedAbi: writeFns, selectedFunction: fnSig, argValues, isFetching: false }
+              } catch {}
+            }
+          }
+
           return { ...action, type: "custom" as ActionType, fetchedAbi: writeFns, selectedFunction: undefined, argValues: {}, isFetching: false }
         })
       )
@@ -921,6 +962,8 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
     setTitle(data.title || "")
     const htmlContent = marked.parse(data.description || "", { async: false }) as string
     setBodyHtml(htmlContent)
+    editorInitialContentRef.current = htmlContent
+    setEditorKey(k => k + 1)
     setProposalType(data.type === "candidate" ? "candidate" : "onchain")
 
     if (!data.targets?.length) return
@@ -1034,10 +1077,9 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
             }
           }
           
-          // Fallback: try to match by calldata selector (for newer format with full calldata)
+          // Fallback A: calldata has a 4-byte selector (modern full-calldata format)
           if (calldata && calldata.length >= 10 && calldata !== "0x") {
             const calldataSelector = calldata.slice(0, 10).toLowerCase()
-            
             const matchingFn = writeFns.find(fn => {
               try {
                 const fnSelector = toFunctionSelector(`${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`)
@@ -1046,7 +1088,6 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
                 return false
               }
             })
-            
             if (matchingFn) {
               try {
                 const decoded = decodeFunctionData({ abi: [matchingFn] as any, data: calldata as `0x${string}` })
@@ -1066,19 +1107,46 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
                   fetchError: undefined,
                 }
               } catch {
-                // Decode failed
+                // Decode failed, continue to next fallback
               }
             }
           }
 
-          // Decoding failed - convert to custom with full ABI for manual editing
+          // Fallback B: calldata is params-only (no selector) — try each function
+          // by prepending its selector and attempting to decode
+          if (calldata && calldata !== "0x") {
+            for (const fn of writeFns) {
+              try {
+                const fnSig = `${fn.name}(${fn.inputs?.map(i => i.type).join(",") || ""})`
+                const fnSelector = toFunctionSelector(fnSig)
+                const fullCalldata = (fnSelector + calldata.slice(2)) as `0x${string}`
+                const decoded = decodeFunctionData({ abi: [fn] as any, data: fullCalldata })
+                const argValues: Record<string, string> = {}
+                fn.inputs.forEach((inp, i) => {
+                  const val = (decoded.args as any[])?.[i]
+                  argValues[inp.name] = val !== undefined ? String(val) : ""
+                })
+                return {
+                  ...action,
+                  type: "custom" as ActionType,
+                  fetchedAbi: writeFns,
+                  selectedFunction: fnSig,
+                  argValues,
+                  isFetching: false,
+                  fetchError: undefined,
+                }
+              } catch {
+                // This function didn't match, try the next
+              }
+            }
+          }
+
+          // Fallback C: nothing decoded — show custom editor with ABI loaded, no args
           return {
             ...action,
             type: "custom" as ActionType,
             fetchedAbi: writeFns,
-            selectedFunction: writeFns[0]
-              ? `${writeFns[0].name}(${writeFns[0].inputs?.map(i => i.type).join(",") || ""})`
-              : undefined,
+            selectedFunction: undefined,
             argValues: {},
             isFetching: false,
           }
@@ -1274,7 +1342,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
               dangerouslySetInnerHTML={{ __html: bodyHtml || "<p class='text-muted-foreground'>Nothing to preview yet.</p>" }}
             />
           ) : (
-            <RichEditor onChange={setBodyHtml} initialContent={editorInitialContentRef.current} />
+            <RichEditor key={editorKey} onChange={setBodyHtml} initialContent={editorInitialContentRef.current} />
           )}
         </div>
 
