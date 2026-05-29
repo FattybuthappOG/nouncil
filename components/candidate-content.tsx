@@ -395,6 +395,8 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             calldatas: candidate.calldatas || [],
             description: candidate.fullDescription || candidate.description || "",
             canceled: candidate.canceled || false,
+            // Pass latestVersion so promote dialog uses the EXACT signed data
+            latestVersion: candidate.latestVersion,
           }}
           signatures={signatures.signatures}
           onSuccess={() => {

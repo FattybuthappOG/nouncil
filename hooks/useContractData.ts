@@ -581,6 +581,7 @@ export function useCandidateData(candidateId: string) {
     signatures: [] as string[],
     calldatas: [] as string[],
     canceled: false,
+    latestVersion: undefined as { content: { targets: string[]; values: string[]; signatures: string[]; calldatas: string[]; description: string } } | undefined,
     isLoading: true,
     error: false,
   })
@@ -646,6 +647,16 @@ export function useCandidateData(candidateId: string) {
             signatures: candidate.signatures || [],
             calldatas: candidate.calldatas || [],
             canceled: candidate.canceled || false,
+            // Include latestVersion content for promote flow - this contains the EXACT data that was signed
+            latestVersion: {
+              content: {
+                targets: candidate.targets || [],
+                values: candidate.values || [],
+                signatures: candidate.signatures || [],
+                calldatas: candidate.calldatas || [],
+                description: candidate.description || "",
+              }
+            },
             isLoading: false,
             error: false,
           })
