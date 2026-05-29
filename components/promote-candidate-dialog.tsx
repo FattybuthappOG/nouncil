@@ -380,7 +380,7 @@ export function PromoteCandidateDialog({
                 <Button
                   onClick={handlePromoteWithSponsors}
                   disabled={!canProposeWithSelectedSponsors || isSubmitting || isConfirming || !isConnected}
-                  className="flex-1 bg-nouns-blue hover:bg-nouns-blue/90 disabled:opacity-50"
+                  className="flex-1 bg-[#4ade80] text-black hover:bg-[#4ade80]/90 font-semibold disabled:opacity-50"
                 >
                   {isSubmitting && promoteMode === "with-sigs" ? (
                     <>
@@ -395,7 +395,7 @@ export function PromoteCandidateDialog({
                   ) : (
                     <>
                       <Rocket className="mr-2 h-4 w-4" />
-                      Propose with Sponsors
+                      Promote to Proposal
                     </>
                   )}
                 </Button>

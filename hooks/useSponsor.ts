@@ -74,18 +74,6 @@ const UPDATE_PROPOSAL_TYPES = {
   ],
 } as const
 
-// Helper to get properly formatted types for wagmi's signTypedDataAsync
-function getSignTypedDataTypes(types: typeof PROPOSAL_TYPES | typeof UPDATE_PROPOSAL_TYPES) {
-  return {
-    EIP712Domain: [
-      { name: "name", type: "string" },
-      { name: "chainId", type: "uint256" },
-      { name: "verifyingContract", type: "address" },
-    ],
-    ...types,
-  } as const
-}
-
 export interface CandidateSignature {
   sig: string
   signer: {
@@ -216,7 +204,6 @@ export function encodeProposalData(
  */
 export function useSignProposalCandidate() {
   const { signTypedDataAsync, isPending: isSigning } = useSignTypedData()
-  const { address } = useAccount()
   const chainId = useChainId()
   const { switchChainAsync } = useSwitchChain()
   const [error, setError] = useState<Error | null>(null)
@@ -281,9 +268,8 @@ export function useSignProposalCandidate() {
             }
 
         const signature = await signTypedDataAsync({
-          account: address,
           domain,
-          types: getSignTypedDataTypes(proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES),
+          types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
         })
@@ -294,7 +280,7 @@ export function useSignProposalCandidate() {
         throw err
       }
     },
-    [signTypedDataAsync, chainId, switchChainAsync, address]
+    [signTypedDataAsync, chainId, switchChainAsync]
   )
 
   return {
@@ -337,6 +323,7 @@ export function useAddSignatureToCandidate() {
       try {
         setError(null)
         const hash = await writeContractAsync({
+          chainId: NOUNS_CHAIN_ID,
           address: NOUNS_DAO_DATA,
           abi: ADD_SIGNATURE_ABI,
           functionName: "addSignature",
@@ -398,6 +385,7 @@ export function useProposeBySigs() {
       try {
         setError(null)
         const hash = await writeContractAsync({
+          chainId: NOUNS_CHAIN_ID,
           address: GOVERNOR_CONTRACT.address,
           abi: GOVERNOR_CONTRACT.abi,
           functionName: "proposeBySigs",
@@ -497,6 +485,7 @@ export function usePropose() {
       try {
         setError(null)
         const hash = await writeContractAsync({
+          chainId: NOUNS_CHAIN_ID,
           address: GOVERNOR_CONTRACT.address,
           abi: [
             {

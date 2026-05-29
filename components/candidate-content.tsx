@@ -235,14 +235,14 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                       Sponsor ({votingPower} {votingPower === 1 ? "vote" : "votes"})
                     </Button>
                   )}
-                  {hasReachedThreshold && (
+                  {hasReachedThreshold && isProposer && (
                     <Button
                       size="sm"
                       onClick={() => setPromoteDialogOpen(true)}
                       className="gap-2 bg-[#4ade80] text-black hover:bg-[#4ade80]/90 font-semibold"
                     >
                       <Rocket className="h-4 w-4" />
-                      Promote to On-Chain
+                      Promote to Proposal
                     </Button>
                   )}
                   {!isConnected && (
@@ -395,6 +395,8 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             calldatas: candidate.calldatas || [],
             description: candidate.fullDescription || candidate.description || "",
             canceled: candidate.canceled || false,
+            // Pass latestVersion so promote dialog uses the EXACT signed data
+            latestVersion: candidate.latestVersion,
           }}
           signatures={signatures.signatures}
           onSuccess={() => {
