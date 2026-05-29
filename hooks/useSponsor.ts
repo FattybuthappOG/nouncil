@@ -74,6 +74,18 @@ const UPDATE_PROPOSAL_TYPES = {
   ],
 } as const
 
+// Helper to get properly formatted types for wagmi's signTypedDataAsync
+function getSignTypedDataTypes(types: typeof PROPOSAL_TYPES | typeof UPDATE_PROPOSAL_TYPES) {
+  return {
+    EIP712Domain: [
+      { name: "name", type: "string" },
+      { name: "chainId", type: "uint256" },
+      { name: "verifyingContract", type: "address" },
+    ],
+    ...types,
+  } as const
+}
+
 export interface CandidateSignature {
   sig: string
   signer: {
@@ -265,7 +277,7 @@ export function useSignProposalCandidate() {
 
         const signature = await signTypedDataAsync({
           domain,
-          types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
+          types: getSignTypedDataTypes(proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES),
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
         })
