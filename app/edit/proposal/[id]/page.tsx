@@ -17,7 +17,7 @@ const CreateProposal = dynamic(() => import("@/components/create-proposal"), {
 })
 
 // Nouns Governor contract
-const NOUNS_GOVERNOR = "0x6f3E6272A167E8accb32072D08e0957f9C79223e" as const
+const NOUNS_GOVERNOR = "0x6f3E6272A167E8accb32072D08e0957f9C79223d" as const
 
 const NOUNS_GOVERNOR_ABI = [
   {
