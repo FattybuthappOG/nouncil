@@ -18,6 +18,7 @@ import TiptapImage from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
 import { marked } from "marked"
 import { getReplicationData } from "@/lib/proposal-replication"
+import { ProposalTransactionBuilder } from "@/components/proposal-transaction-builder"
 
 // NounsDAOData proxy — creates proposal candidates (no clientId param on this contract)
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
@@ -821,6 +822,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
   const [txError, setTxError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [updateReason, setUpdateReason] = useState("") // For edit mode
+  const [showTransactionBuilder, setShowTransactionBuilder] = useState(false)
 
   // Load edit mode data on mount
   useEffect(() => {
@@ -1371,6 +1373,9 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
                 <button type="button" onClick={() => addAction("usdc")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Banknote className="w-3.5 h-3.5" /> Send USDC
                 </button>
+                <button type="button" onClick={() => setShowTransactionBuilder(true)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Generate USDC Transaction
+                </button>
                 <button type="button" onClick={() => addAction("noun")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Image className="w-3.5 h-3.5" /> Request Noun
                 </button>
@@ -1493,6 +1498,9 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
           </div>
         </div>
       </main>
+
+      {/* Transaction Builder Dialog */}
+      <ProposalTransactionBuilder open={showTransactionBuilder} onOpenChange={setShowTransactionBuilder} />
     </div>
   )
 }
