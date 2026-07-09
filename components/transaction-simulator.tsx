@@ -16,6 +16,7 @@ import {
   Droplets,
 } from "lucide-react"
 import { EnsDisplay } from "@/components/ens-display"
+import { decodeAbiParameters, parseAbiParameters, getAddress } from "viem"
 
 // Known contracts with metadata
 const KNOWN_CONTRACTS: Record<string, { name: string; type?: string; decimals?: number; symbol?: string }> = {
@@ -141,6 +142,17 @@ function formatEthAmount(weiValue: string): string {
   }
 }
 
+// Decode calldata with signature using viem
+function decodeWithSignature(signature: string, calldata: string): { inputs: any[], error?: string } {
+  try {
+    const params = parseAbiParameters(signature)
+    const decoded = decodeAbiParameters(params, `0x${calldata.slice(10)}`)
+    return { inputs: Array.isArray(decoded) ? decoded : [decoded] }
+  } catch (err) {
+    return { inputs: [], error: (err as Error).message }
+  }
+}
+
 interface DecodedTransaction {
   type:
     | "eth_transfer"
@@ -242,19 +254,41 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
     targetLower === NOUNS_PAYER_ADDRESS &&
     (signature === "sendOrRegisterDebt(address,uint256)" || selector === "5a9b0b89")
   ) {
-    const recipient = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
-    const formattedAmount = formatTokenAmount(amount, 6) // USDC has 6 decimals
+    try {
+      // Try to decode using viem for accuracy
+      const decoded = decodeWithSignature("address recipient, uint256 amount", calldata)
+      if (!decoded.error && decoded.inputs.length >= 2) {
+        const recipient = typeof decoded.inputs[0] === "string" ? decoded.inputs[0] : decodeAddress(calldata, 0)
+        const amount = typeof decoded.inputs[1] === "bigint" ? decoded.inputs[1] : decodeUint256(calldata, 1)
+        const formattedAmount = formatTokenAmount(amount, 6) // USDC has 6 decimals
 
-    return {
-      type: "usdc_transfer_via_payer",
-      recipient,
-      amount: formattedAmount,
-      symbol: "USDC",
-      functionName: "sendOrRegisterDebt",
-      description: `Send ${formattedAmount} USDC via Payer`,
-      icon: <Coins className="w-4 h-4" />,
-      details: "USDC is transferred from the Treasury via the Payer contract",
+        return {
+          type: "usdc_transfer_via_payer",
+          recipient: getAddress(recipient),
+          amount: formattedAmount,
+          symbol: "USDC",
+          functionName: "sendOrRegisterDebt",
+          description: `Send ${formattedAmount} USDC via Payer`,
+          icon: <Coins className="w-4 h-4" />,
+          details: "USDC is transferred from the Treasury via the Payer contract",
+        }
+      }
+    } catch (err) {
+      // Fall back to manual decoding
+      const recipient = decodeAddress(calldata, 0)
+      const amount = decodeUint256(calldata, 1)
+      const formattedAmount = formatTokenAmount(amount, 6)
+
+      return {
+        type: "usdc_transfer_via_payer",
+        recipient,
+        amount: formattedAmount,
+        symbol: "USDC",
+        functionName: "sendOrRegisterDebt",
+        description: `Send ${formattedAmount} USDC via Payer`,
+        icon: <Coins className="w-4 h-4" />,
+        details: "USDC is transferred from the Treasury via the Payer contract",
+      }
     }
   }
 
