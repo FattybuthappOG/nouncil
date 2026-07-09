@@ -23,7 +23,9 @@ import { getReplicationData } from "@/lib/proposal-replication"
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
 
 // Nouns Governor V3 — propose with clientId 22 for Nouncil rewards
-const NOUNS_GOVERNOR = "0x6f3E6272A167E8accb32072D08e0957f9C79223d" as const
+// NOTE: lowercase on purpose — viem skips EIP-55 checksum validation for all-lowercase
+// addresses, so this can never throw a checksum error regardless of casing.
+const NOUNS_GOVERNOR = "0x6f3e6272a167e8accb32072d08e0957f9c79223d" as const
 const CLIENT_ID = 22 // Nouncil client ID — registered for DAO rewards
 
 const NOUNS_DAO_DATA_ABI = [
@@ -200,7 +202,7 @@ const KNOWN_CONTRACT_ABIS: Record<string, AbiFunction[]> = {
     { type: "function", name: "sendERC20", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "erc20Token", type: "address" }, { name: "amount", type: "uint256" }] },
   ],
   // Nouns Governor
-  "0x6f3e6272a167e8accb32072d08e0957f9c79223d": [
+  "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d": [
     { type: "function", name: "setVotingDelay", stateMutability: "nonpayable", inputs: [{ name: "newVotingDelay", type: "uint256" }] },
     { type: "function", name: "setVotingPeriod", stateMutability: "nonpayable", inputs: [{ name: "newVotingPeriod", type: "uint256" }] },
     { type: "function", name: "setProposalThresholdBPS", stateMutability: "nonpayable", inputs: [{ name: "newProposalThresholdBPS", type: "uint256" }] },

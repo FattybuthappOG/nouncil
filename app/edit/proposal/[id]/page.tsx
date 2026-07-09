@@ -17,7 +17,8 @@ const CreateProposal = dynamic(() => import("@/components/create-proposal"), {
 })
 
 // Nouns Governor contract
-const NOUNS_GOVERNOR = "0x6f3E6272A167E8accb32072D08e0957f9C79223d" as const
+// lowercase on purpose — viem skips EIP-55 checksum validation for all-lowercase addresses
+const NOUNS_GOVERNOR = "0x6f3e6272a167e8accb32072d08e0957f9c79223d" as const
 
 const NOUNS_GOVERNOR_ABI = [
   {
