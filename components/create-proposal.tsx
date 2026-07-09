@@ -18,7 +18,6 @@ import TiptapImage from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
 import { marked } from "marked"
 import { getReplicationData } from "@/lib/proposal-replication"
-import { ProposalTransactionBuilder } from "@/components/proposal-transaction-builder"
 
 // NounsDAOData proxy — creates proposal candidates (no clientId param on this contract)
 const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
@@ -167,6 +166,9 @@ const NOUNS_TOKEN_ABI = [
 const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as const
 const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const
 
+// Nouns Payer contract - handles USDC payouts sourced from the Treasury via sendOrRegisterDebt
+const NOUNS_PAYER = "0xd97Bcd9f47cEe35c0a9ec1dc40C1269afc9E8E1D" as const
+
 // Nouns Treasury holds Nouns NFTs and can transfer them via proposals
 const NOUNS_TREASURY = "0xb1a32FC9F9D8b2cf86C068Cae13108809547ef71" as const
 
@@ -234,6 +236,8 @@ interface Action {
   // transfer actions (ETH/USDC)
   recipient?: string
   amount?: string
+  // USDC transfer method: "payer" (via Nouns Payer, recommended) or "treasury" (direct ERC20 transfer)
+  usdcMethod?: "payer" | "treasury"
   // Noun NFT transfer
   nounId?: string
   // custom call
@@ -330,13 +334,24 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
     if (!isAddress(action.recipient || "")) throw new Error("Invalid recipient address for USDC transfer")
     // USDC uses 6 decimals
     const amountInUnits = parseUnits(action.amount || "0", 6)
-    // Use legacy format: signature contains function name+types, calldata contains only encoded params
-    const signature = "transfer(address,uint256)"
+    // Default to the Payer contract (recommended) unless explicitly using direct treasury transfer
+    const method = action.usdcMethod || "payer"
+    if (method === "treasury") {
+      // Direct ERC20 transfer from the Treasury
+      const signature = "transfer(address,uint256)"
+      const calldata = encodeAbiParameters(
+        [{ type: "address" }, { type: "uint256" }],
+        [action.recipient as `0x${string}`, amountInUnits]
+      )
+      return { target: USDC, value: 0n, signature, calldata }
+    }
+    // Via Nouns Payer: sendOrRegisterDebt(address account, uint256 amount)
+    const signature = "sendOrRegisterDebt(address,uint256)"
     const calldata = encodeAbiParameters(
       [{ type: "address" }, { type: "uint256" }],
       [action.recipient as `0x${string}`, amountInUnits]
     )
-    return { target: USDC, value: 0n, signature, calldata }
+    return { target: NOUNS_PAYER, value: 0n, signature, calldata }
   }
   if (action.type === "noun") {
     // Request a Noun NFT from the treasury
@@ -731,6 +746,37 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
 
       {(action.type === "eth" || action.type === "usdc") && (
         <>
+          {action.type === "usdc" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-muted-foreground">Transfer method</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...action, usdcMethod: "payer" })}
+                  className={`flex flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-colors ${
+                    (action.usdcMethod || "payer") === "payer"
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-background hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs font-medium text-foreground">Via Payer</span>
+                  <span className="text-[10px] text-muted-foreground leading-tight">Recommended. Uses the Nouns Payer contract.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...action, usdcMethod: "treasury" })}
+                  className={`flex flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-colors ${
+                    action.usdcMethod === "treasury"
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-background hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs font-medium text-foreground">Direct from Treasury</span>
+                  <span className="text-[10px] text-muted-foreground leading-tight">Direct ERC20 transfer from the Treasury.</span>
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">Recipient address</label>
             <input type="text" value={action.recipient || ""} onChange={e => onChange({ ...action, recipient: e.target.value })} placeholder="0x..."
@@ -822,7 +868,6 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
   const [txError, setTxError] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [updateReason, setUpdateReason] = useState("") // For edit mode
-  const [showTransactionBuilder, setShowTransactionBuilder] = useState(false)
 
   // Load edit mode data on mount
   useEffect(() => {
@@ -1221,7 +1266,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
     if (wc) connect({ connector: wc })
   }
 
-  const addAction    = (type: ActionType = "eth") => { setActions(prev => [...prev, { type, recipient: "", amount: "" }]); setShowActions(true) }
+  const addAction    = (type: ActionType = "eth") => { setActions(prev => [...prev, { type, recipient: "", amount: "", ...(type === "usdc" ? { usdcMethod: "payer" as const } : {}) }]); setShowActions(true) }
   const removeAction = (i: number) => setActions(prev => prev.filter((_, idx) => idx !== i))
   const updateAction = (i: number, a: Action) => setActions(prev => prev.map((x, idx) => idx === i ? a : x))
 
@@ -1373,9 +1418,6 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
                 <button type="button" onClick={() => addAction("usdc")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Banknote className="w-3.5 h-3.5" /> Send USDC
                 </button>
-                <button type="button" onClick={() => setShowTransactionBuilder(true)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                  <Plus className="w-3.5 h-3.5" /> Generate USDC Transaction
-                </button>
                 <button type="button" onClick={() => addAction("noun")} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Image className="w-3.5 h-3.5" /> Request Noun
                 </button>
@@ -1498,9 +1540,6 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
           </div>
         </div>
       </main>
-
-      {/* Transaction Builder Dialog */}
-      <ProposalTransactionBuilder open={showTransactionBuilder} onOpenChange={setShowTransactionBuilder} />
     </div>
   )
 }
