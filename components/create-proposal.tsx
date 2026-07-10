@@ -28,6 +28,30 @@ const NOUNS_DAO_DATA = "0xf790A5f59678dd733fb3De93493A91f472ca1365" as const
 const NOUNS_GOVERNOR = "0x6f3e6272a167e8accb32072d08e0957f9c79223d" as const
 const CLIENT_ID = 22 // Nouncil client ID — registered for DAO rewards
 
+// Map known Nouns DAO custom error selectors to friendly messages
+const KNOWN_ERROR_SELECTORS: Record<string, string> = {
+  "0x06bee795": "You already have a live proposal on-chain. Each proposer can only have one active proposal at a time — wait for it to be executed, canceled, or vetoed before submitting another.",
+  "0x2a1b2b1e": "You don't have enough votes to meet the proposal threshold. Consider submitting a candidate and gathering sponsor signatures instead.",
+  "0x2c5211c6": "Invalid transaction actions. Check that every action has a valid target, value, and calldata.",
+}
+
+// Turn a raw wallet/contract error into a human-readable message
+function friendlyErrorMessage(raw?: string | null): string | null {
+  if (!raw) return null
+  // Look for a known custom error selector anywhere in the message
+  for (const [selector, message] of Object.entries(KNOWN_ERROR_SELECTORS)) {
+    if (raw.includes(selector)) return message
+  }
+  // Named custom errors that some RPCs surface directly
+  if (raw.includes("ProposerAlreadyHasALiveProposal")) return KNOWN_ERROR_SELECTORS["0x06bee795"]
+  if (raw.includes("VotesBelowProposalThreshold")) return KNOWN_ERROR_SELECTORS["0x2a1b2b1e"]
+  // User rejected in wallet
+  if (/user rejected|denied|rejected the request/i.test(raw)) return "Transaction was rejected in your wallet."
+  if (/insufficient funds/i.test(raw)) return "Insufficient funds to cover the transaction and gas."
+  // Prefer viem's concise shortMessage (first line) over the full dump
+  return raw.split("\n")[0]
+}
+
 const NOUNS_DAO_DATA_ABI = [
   {
     name: "createProposalCandidate",
@@ -1435,7 +1459,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
         {(txError || (writeError && !txError)) && (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
             <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>{txError || writeError?.message}</span>
+            <span>{txError || friendlyErrorMessage(writeError?.message)}</span>
           </div>
         )}
         {isConfirmed && (
