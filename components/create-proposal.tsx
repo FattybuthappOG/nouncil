@@ -786,7 +786,7 @@ function ActionForm({ action, index, onChange, onRemove }: { action: Action; ind
                   }`}
                 >
                   <span className="text-xs font-medium text-foreground">Via Payer</span>
-                  <span className="text-[10px] text-muted-foreground leading-tight">Recommended. Uses the Nouns Payer contract.</span>
+                  <span className="text-[10px] text-muted-foreground leading-tight">Uses the Nouns Payer contract.</span>
                 </button>
                 <button
                   type="button"
