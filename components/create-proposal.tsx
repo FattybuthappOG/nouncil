@@ -342,7 +342,7 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
   if (action.type === "raw") {
     // Pre-encoded calldata from template - pass through directly
     if (!isAddress(action.target || "")) throw new Error("Invalid target address for raw call")
-    const normalizedTarget = getAddress(action.target!) as `0x${string}`
+    const normalizedTarget = action.target!.toLowerCase() as `0x${string}`
     const value = action.rawValue ? BigInt(action.rawValue) : 0n
     return {
       target: normalizedTarget,
@@ -393,8 +393,8 @@ function resolveAction(action: Action): { target: `0x${string}`; value: bigint; 
   }
   // custom: encode from fetched ABI + selected function + arg values
   if (!isAddress(action.target || "")) throw new Error("Invalid target address for custom call")
-  // Normalize target address to proper checksum format
-  const normalizedTarget = getAddress(action.target!) as `0x${string}`
+  // Use lowercase to avoid EIP-55 checksum validation errors
+  const normalizedTarget = action.target!.toLowerCase() as `0x${string}`
   // Find function by matching signature (handles overloaded functions)
   const fn = action.fetchedAbi?.find(f => {
     const sig = `${f.name}(${f.inputs?.map(i => i.type).join(",") || ""})`
