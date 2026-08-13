@@ -3,16 +3,20 @@ import { NextResponse } from "next/server"
 const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
 const NOUNS_TOKEN = "0x9C8fF314C9B9B91F60f4d9A12eAf51B0C1ABc08e"
 
-// RPC endpoints - ordered by reliability. Use env var if available.
-// Remove unreliable endpoints like ethereum.publicnode.com and ethereum-rpc.publicnode.com
+// RPC endpoints - ordered by reliability.
+// Authenticated providers (Alchemy/Infura) are tried FIRST because the public
+// endpoints are unreliable for eth_call (drpc free-plan timeouts, cloudflare/llama
+// blocks, meowrpc doesn't support eth_call). Only 1rpc.io works consistently among
+// the public fallbacks.
 const RPC_URLS = [
+  process.env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : undefined,
+  process.env.NEXT_PUBLIC_ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}` : undefined,
+  process.env.INFURA_API_KEY ? `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}` : undefined,
   process.env.ETH_RPC_URL,
+  "https://1rpc.io/eth",
   "https://eth.drpc.org",
   "https://cloudflare-eth.com",
   "https://eth.llamarpc.com",
-  "https://1rpc.io/eth",
-  "https://endpoints.omnirpc.io/eth",
-  "https://eth.meowrpc.com",
 ].filter(Boolean) as string[]
 
 const PROPOSAL_STATES = [
