@@ -500,12 +500,17 @@ function RichEditor({ onChange, initialContent }: { onChange: (html: string) => 
       handlePaste: (view, event) => {
         const text = event.clipboardData?.getData("text/plain") || ""
         const html = event.clipboardData?.getData("text/html") || ""
-        // Plain-text Markdown from another editor needs parsing before it is
-        // inserted; otherwise Tiptap treats #, **, and list markers literally.
-        if (!html && /(^|\n)\s{0,3}#{1,6}\s|\*\*|(^|\n)\s*[-*+]\s|```|\[[^\]]+\]\(/m.test(text)) {
+        // Parse Markdown whenever the clipboard's plain-text payload contains
+        // Markdown syntax. Browsers often include generated HTML alongside raw
+        // Markdown (for example, when copying from HackMD), so checking !html
+        // would incorrectly insert the Markdown symbols as literal text.
+        const looksLikeMarkdown = /(^|\n)\s{0,3}#{1,6}(?:\s|$)|!\[[^\]]*\]\([^\s)]+(?:\s+[^)]*)?\)|\[[^\]]+\]\([^\s)]+\)|\*\*|__|(^|\n)\s*[-*+]\s|(^|\n)\s*\d+[.)]\s|```|(^|\n)>\s/m.test(text)
+        if (text.trim() && looksLikeMarkdown) {
           event.preventDefault()
-          const parsed = marked.parse(text, { async: false }) as string
+          const parsed = marked.parse(text, { async: false, breaks: true }) as string
           const parsedDoc = new DOMParser().parseFromString(parsed, "text/html")
+          // Use Tiptap's schema parser so <h1>/<h2>/<h3> and <img> become
+          // their corresponding nodes instead of being flattened to text.
           const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(parsedDoc.body)
           view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView())
           return true
