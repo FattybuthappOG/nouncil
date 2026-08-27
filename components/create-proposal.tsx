@@ -481,6 +481,7 @@ function LinkDialog({ onConfirm, onClose, initialText }: {
 // --- Rich text editor ---
 function RichEditor({ onChange, initialContent }: { onChange: (html: string) => void; initialContent?: string }) {
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; selectedText: string }>({ open: false, selectedText: "" })
+  const [selectedImage, setSelectedImage] = useState<{ src: string; alt: string; title: string } | null>(null)
   // Capture initialContent only once via a ref — never update it — so the
   // editor doesn't reset its content (and cursor) on every keystroke.
   const initialContentRef = useRef(initialContent)
@@ -519,6 +520,14 @@ function RichEditor({ onChange, initialContent }: { onChange: (html: string) => 
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onSelectionUpdate: ({ editor }) => {
+      if (editor.isActive("image")) {
+        const attrs = editor.getAttributes("image")
+        setSelectedImage({ src: attrs.src || "", alt: attrs.alt || "", title: attrs.title || "" })
+      } else {
+        setSelectedImage(null)
+      }
+    },
   })
 
   const openLinkDialog = useCallback(() => {
@@ -567,6 +576,38 @@ function RichEditor({ onChange, initialContent }: { onChange: (html: string) => 
           <ToolbarBtn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider"><Minus className="w-3.5 h-3.5" /></ToolbarBtn>
         </div>
         <EditorContent editor={editor} />
+        {selectedImage && (
+          <div className="grid gap-2 border-t border-border bg-muted/20 p-3 sm:grid-cols-2" aria-label="Selected image settings">
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Image URL
+              <input
+                value={selectedImage.src}
+                onChange={(event) => {
+                  const src = event.target.value
+                  setSelectedImage((current) => current ? { ...current, src } : current)
+                  editor.chain().focus().updateAttributes("image", { src }).run()
+                }}
+                className="rounded-md border border-border bg-background px-2.5 py-2 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/50"
+                placeholder="https://example.com/image.jpg"
+                aria-label="Image URL"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Alt text / description
+              <input
+                value={selectedImage.alt}
+                onChange={(event) => {
+                  const alt = event.target.value
+                  setSelectedImage((current) => current ? { ...current, alt } : current)
+                  editor.chain().focus().updateAttributes("image", { alt }).run()
+                }}
+                className="rounded-md border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/50"
+                placeholder="Describe the image"
+                aria-label="Image alt text"
+              />
+            </label>
+          </div>
+        )}
       </div>
     </>
   )
@@ -1429,21 +1470,21 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-foreground">Description</label>
-            <button
-              type="button"
-              onClick={() => {
-    // RichEditor is intentionally remounted when returning from preview so it
-    // receives the latest HTML rather than the original empty value.
-    setShowPreview(p => !p)
-    setEditorKey(k => k + 1)
-  }}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showPreview ? <Edit3 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {showPreview ? "Edit" : "Preview"}
-            </button>
+            {!editMode && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPreview((current) => !current)
+                  setEditorKey((key) => key + 1)
+                }}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showPreview ? <Edit3 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {showPreview ? "Edit" : "Preview"}
+              </button>
+            )}
           </div>
-          {showPreview ? (
+          {!editMode && showPreview ? (
             <div
               className="min-h-[200px] px-4 py-3 border border-border rounded-lg bg-card text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"
               dangerouslySetInnerHTML={{ __html: bodyHtml || "<p class='text-muted-foreground'>Nothing to preview yet.</p>" }}
