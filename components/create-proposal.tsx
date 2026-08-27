@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useEditor, EditorContent } from "@tiptap/react"
+import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model"
 import StarterKit from "@tiptap/starter-kit"
 import TiptapLink from "@tiptap/extension-link"
 import TiptapImage from "@tiptap/extension-image"
@@ -290,35 +291,43 @@ function slugify(text: string): string {
     .substring(0, 64)
 }
 
-// Convert Tiptap HTML to Markdown for on-chain description
+// Serialize Tiptap's HTML through the DOM instead of regexes. This preserves
+// pasted Markdown/HTML, nested marks, and distinct heading levels.
 function htmlToMarkdown(html: string): string {
-  return html
-    .replace(/<h1[^>]*>(.*?)<\/h1>/gi, "# $1\n\n")
-    .replace(/<h2[^>]*>(.*?)<\/h2>/gi, "## $1\n\n")
-    .replace(/<h3[^>]*>(.*?)<\/h3>/gi, "### $1\n\n")
-    .replace(/<strong[^>]*>(.*?)<\/strong>/gi, "**$1**")
-    .replace(/<b[^>]*>(.*?)<\/b>/gi, "**$1**")
-    .replace(/<em[^>]*>(.*?)<\/em>/gi, "_$1_")
-    .replace(/<i[^>]*>(.*?)<\/i>/gi, "_$1_")
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
-    .replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, "![]($1)")
-    .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, (_, c) => c.trim().split("\n").map((l: string) => `> ${l}`).join("\n") + "\n\n")
-    .replace(/<li[^>]*>(.*?)<\/li>/gi, "- $1\n")
-    .replace(/<ul[^>]*>|<\/ul>/gi, "\n")
-    .replace(/<ol[^>]*>|<\/ol>/gi, "\n")
-    .replace(/<code[^>]*>(.*?)<\/code>/gi, "`$1`")
-    .replace(/<pre[^>]*>(.*?)<\/pre>/gis, "```\n$1\n```\n")
-    .replace(/<hr[^>]*>/gi, "\n---\n")
-    .replace(/<p[^>]*>(.*?)<\/p>/gi, "$1\n\n")
-    .replace(/<br[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
+  if (typeof window === "undefined") return html.replace(/<[^>]+>/g, "").trim()
+  const doc = new DOMParser().parseFromString(html, "text/html")
+  const inline = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || ""
+    if (node.nodeType !== Node.ELEMENT_NODE) return ""
+    const el = node as HTMLElement
+    const content = Array.from(el.childNodes).map(inline).join("")
+    switch (el.tagName.toLowerCase()) {
+      case "strong": case "b": return `**${content}**`
+      case "em": case "i": return `_${content}_`
+      case "code": return `\`${content}\``
+      case "a": return `[${content}](${el.getAttribute("href") || ""})`
+      case "img": return `![${el.getAttribute("alt") || ""}](${el.getAttribute("src") || ""})`
+      case "br": return "\n"
+      default: return content
+    }
+  }
+  const block = (node: Node, depth = 0): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || ""
+    if (node.nodeType !== Node.ELEMENT_NODE) return ""
+    const el = node as HTMLElement
+    const tag = el.tagName.toLowerCase()
+    if (/^h[1-3]$/.test(tag)) return `${"#".repeat(Number(tag[1]))} ${inline(el).trim()}\n\n`
+    if (tag === "p") return `${inline(el).trim()}\n\n`
+    if (tag === "hr") return "---\n\n"
+    if (tag === "blockquote") return `${inline(el).trim().split("\n").map(line => `> ${line}`).join("\n")}\n\n`
+    if (tag === "pre") return "```\n" + (el.textContent || "") + "\n```\n\n"
+    if (tag === "ul" || tag === "ol") {
+      const marker = tag === "ol" ? "1." : "-"
+      return `${Array.from(el.children).filter(child => child.tagName.toLowerCase() === "li").map((li, i) => `${tag === "ol" ? `${i + 1}.` : marker} ${inline(li).trim()}`).join("\n")}\n\n`
+    }
+    return Array.from(el.childNodes).map(child => block(child, depth + 1)).join("")
+  }
+  return block(doc.body).replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()
 }
 
 function coerceArg(value: string, type: string): unknown {
@@ -488,6 +497,21 @@ function RichEditor({ onChange, initialContent }: { onChange: (html: string) => 
     content: initialContentRef.current || "",
     editorProps: {
       attributes: { class: "min-h-[320px] px-4 py-3 text-sm leading-relaxed text-foreground focus:outline-none prose prose-sm max-w-none dark:prose-invert" },
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData("text/plain") || ""
+        const html = event.clipboardData?.getData("text/html") || ""
+        // Plain-text Markdown from another editor needs parsing before it is
+        // inserted; otherwise Tiptap treats #, **, and list markers literally.
+        if (!html && /(^|\n)\s{0,3}#{1,6}\s|\*\*|(^|\n)\s*[-*+]\s|```|\[[^\]]+\]\(/m.test(text)) {
+          event.preventDefault()
+          const parsed = marked.parse(text, { async: false }) as string
+          const parsedDoc = new DOMParser().parseFromString(parsed, "text/html")
+          const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(parsedDoc.body)
+          view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView())
+          return true
+        }
+        return false
+      },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
@@ -1402,7 +1426,12 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
             <label className="text-sm font-medium text-foreground">Description</label>
             <button
               type="button"
-              onClick={() => setShowPreview(p => !p)}
+              onClick={() => {
+    // RichEditor is intentionally remounted when returning from preview so it
+    // receives the latest HTML rather than the original empty value.
+    setShowPreview(p => !p)
+    setEditorKey(k => k + 1)
+  }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {showPreview ? <Edit3 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -1415,7 +1444,7 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
               dangerouslySetInnerHTML={{ __html: bodyHtml || "<p class='text-muted-foreground'>Nothing to preview yet.</p>" }}
             />
           ) : (
-            <RichEditor key={editorKey} onChange={setBodyHtml} initialContent={editorInitialContentRef.current} />
+            <RichEditor key={editorKey} onChange={setBodyHtml} initialContent={bodyHtml} />
           )}
         </div>
 
