@@ -155,12 +155,21 @@ function ProposalContentInner({
 
   // Check if proposal is editable (in Updatable state)
   const updatePeriodEndBlock = proposalV3Data ? Number(proposalV3Data[15]) : null
-  const isProposer = address && proposal.proposer && address.toLowerCase() === proposal.proposer.toLowerCase()
+  // Use the raw Governor proposer as the source of truth. The API/subgraph can
+  // briefly normalize proposer data differently while the wallet is connecting.
+  const onChainProposer = proposalV3Data?.[1] as string | undefined
+  const proposerAddress = onChainProposer || proposal.proposer
+  const isProposer = Boolean(address && proposerAddress && address.toLowerCase() === proposerAddress.toLowerCase())
   const isInUpdatePeriod = currentBlock !== null && updatePeriodEndBlock !== null && currentBlock < updatePeriodEndBlock
-  const canEdit = Boolean(isProposer && isInUpdatePeriod && ![2, 7].includes(Number(proposal.state)))
-  // The proposer may cancel any non-executed, non-canceled proposal.
-  // The proposal hook exposes the normalized numeric state rather than the raw flags.
-  const canCancel = Boolean(isProposer && ![2, 7].includes(Number(proposal.state)))
+  const isTerminalProposal = Boolean(
+    proposalV3Data?.[10] || // canceled
+    proposalV3Data?.[11] || // vetoed
+    proposalV3Data?.[12] || // executed
+    [2, 3, 7, 8].includes(Number(proposal.state)), // canceled, defeated, executed, vetoed
+  )
+  const canEdit = Boolean(isProposer && isInUpdatePeriod && !isTerminalProposal)
+  // The proposer may cancel any non-terminal proposal.
+  const canCancel = Boolean(isProposer && !isTerminalProposal)
 
   const votingIsActive = proposal.state === 1 || proposal.state === 0
 
@@ -338,11 +347,6 @@ function ProposalContentInner({
               {isInUpdatePeriod && (
                 <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
                   Updatable
-                </Badge>
-              )}
-              {(stateLabel === "Pending" || Number(proposal.state) === 0) && (
-                <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30">
-                  Needs sponsorship
                 </Badge>
               )}
               <Badge variant="outline" className={isDarkMode ? "border-gray-700 text-gray-300" : ""}>
