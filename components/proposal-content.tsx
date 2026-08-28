@@ -310,6 +310,11 @@ function ProposalContentInner({
                   Updatable
                 </Badge>
               )}
+              {(stateLabel === "Pending" || Number(proposal.state) === 0) && (
+                <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30">
+                  Needs sponsorship
+                </Badge>
+              )}
               <Badge variant="outline" className={isDarkMode ? "border-gray-700 text-gray-300" : ""}>
                 #{proposalId}
               </Badge>
