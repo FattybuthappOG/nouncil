@@ -258,7 +258,7 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
   // Only valid (non-canceled, non-expired) sponsors
   const now = Math.floor(Date.now() / 1000)
   const validSponsors = useMemo(
-    () => sponsorSigs.filter(s => !s.canceled && s.expirationTimestamp > now),
+    () => sponsorSigs.filter(s => !s.canceled && Number(s.expirationTimestamp) > now),
     [sponsorSigs, now]
   )
 
@@ -400,8 +400,8 @@ export function ActivitySection({ proposalId, candidateId, isDarkMode = false }:
                   </p>
                 )}
                 {validSponsors.map((sig, i) => {
-                  const expires = sig.expirationTimestamp > 0
-                    ? formatDistanceToNow(new Date(sig.expirationTimestamp * 1000), { addSuffix: true })
+                  const expires = Number(sig.expirationTimestamp) > 0
+                    ? formatDistanceToNow(new Date(Number(sig.expirationTimestamp) * 1000), { addSuffix: true })
                     : ""
                   return (
                       <div key={`${sig.signer?.id || sig.signer}-${i}`} className={`p-4 rounded-lg ${isDarkMode ? "bg-gray-800/50" : "bg-gray-50"}`}>

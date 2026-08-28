@@ -157,7 +157,7 @@ function ProposalContentInner({
   const updatePeriodEndBlock = proposalV3Data ? Number(proposalV3Data[15]) : null
   const isProposer = address && proposal.proposer && address.toLowerCase() === proposal.proposer.toLowerCase()
   const isInUpdatePeriod = currentBlock !== null && updatePeriodEndBlock !== null && currentBlock < updatePeriodEndBlock
-  const canEdit = isProposer && isInUpdatePeriod && !proposal.canceled && !proposal.executed
+  const canEdit = Boolean(isProposer && isInUpdatePeriod && ![2, 7].includes(Number(proposal.state)))
 
   const votingIsActive = proposal.state === 1 || proposal.state === 0
 
@@ -198,7 +198,7 @@ function ProposalContentInner({
   }
 
   const { title, content: body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
-  const stateLabel = proposal.stateName || getProposalStateLabel(proposal.state?.toString() || "1")
+  const stateLabel = proposal.stateName || getProposalStateLabel(Number(proposal.state || 1)).label
 
   // Show loading if we don't have a title yet (real description not loaded)
   if (proposal.isLoading || !title) {
@@ -308,6 +308,11 @@ function ProposalContentInner({
               {isInUpdatePeriod && (
                 <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
                   Updatable
+                </Badge>
+              )}
+              {(stateLabel === "Pending" || Number(proposal.state) === 0) && (
+                <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30">
+                  Needs sponsorship
                 </Badge>
               )}
               <Badge variant="outline" className={isDarkMode ? "border-gray-700 text-gray-300" : ""}>

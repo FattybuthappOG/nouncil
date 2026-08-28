@@ -181,7 +181,7 @@ const translations = {
     treasury: "الخزانة",
     learnAboutNouns: "تعرف على Nouns",
     generateTogaPFP: "إنشاء صورة Toga",
-    language: "اللغة",
+    language: "اللغ��",
     joinDiscord: "انضم إلى Discord",
     joinCallsThursday: "انضم إلى المكالمات كل خميس على Discord",
     toggleTheme: "تبديل السمة",
@@ -434,7 +434,8 @@ function LiveGovernanceDashboardContent() {
     : "0 ETH"
 
   const t = (key: string) => {
-    return translations[selectedLanguage]?.[key] || translations.en[key] || key
+    const language = translations[selectedLanguage] as Record<string, string>
+    return language[key] || translations.en[key as keyof typeof translations.en] || key
   }
 
   const copyNounsSymbol = () => {
@@ -443,7 +444,7 @@ function LiveGovernanceDashboardContent() {
     setTimeout(() => setCopyFeedback(false), 2000)
   }
 
-  const proposalIdsData = useProposalIds(displayedProposals, statusFilter)
+  const proposalIdsData = useProposalIds(displayedProposals, statusFilter === "vetoed" ? "all" : statusFilter)
   const { proposalIds, isLoading: proposalIdsLoading, totalCount } = proposalIdsData
 
   const candidateIdsData = useCandidateIds(displayedCandidates)
@@ -795,7 +796,7 @@ function LiveGovernanceDashboardContent() {
                           <button
                             key={lang.code}
                             onClick={() => {
-                              handleLanguageChange(lang.code)
+                              handleLanguageChange(lang.code as LanguageCode)
                             }}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                               selectedLanguage === lang.code

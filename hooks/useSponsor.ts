@@ -272,7 +272,7 @@ export function useSignProposalCandidate() {
           types: proposalIdToUpdate > 0n ? UPDATE_PROPOSAL_TYPES : PROPOSAL_TYPES,
           primaryType: proposalIdToUpdate > 0n ? "UpdateProposal" : "Proposal",
           message,
-        })
+        } as any)
 
         return signature
       } catch (err) {

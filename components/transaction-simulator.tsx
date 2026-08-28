@@ -25,10 +25,8 @@ const KNOWN_CONTRACTS: Record<string, { name: string; type?: string; decimals?: 
   "0x0bc3807ec262cb779b38d65b38158acc3bfede10": { name: "Nouns DAO Logic V3" },
   "0x830bd73e4184cef73443c15111a1df14e495c706": { name: "Nouns Auction House Proxy" },
   "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03": { name: "Nouns Token", type: "nft" },
-  "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": { name: "Nouns Art" },
-  "0x2573c60a6d127755aa2dc85e342f7da2378a0cc5": { name: "Nouns Auction House (V1)" },
-  // Nouns Treasury / Executor
   "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": { name: "Nouns Executor" },
+  "0x2573c60a6d127755aa2dc85e342f7da2378a0cc5": { name: "Nouns Auction House (V1)" },
   "0x0fd206fc7a7dbcd5661157edcb1ffdd0d02a61ff": { name: "Prop House" },
   // Nouns Payer (for USDC transfers via payer)
   "0xd97bcd9f47cee35c0a9ec1dc40c1269afc9e8e1d": { name: "Nouns Payer", type: "payer" },

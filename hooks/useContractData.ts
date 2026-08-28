@@ -59,14 +59,14 @@ export function useGovernorData() {
   const { data: votingPeriod, isLoading: votingPeriodLoading } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
-    functionName: "votingPeriod",
+    functionName: "votingPeriod" as any,
     query: { enabled: mounted },
   })
 
   const { data: quorumBPS, isLoading: quorumLoading } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
-    functionName: "quorumVotesBPS",
+    functionName: "quorumVotesBPS" as any,
     query: { enabled: mounted },
   })
 
@@ -209,7 +209,7 @@ export function useProposalIds(
               filtered = data.proposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED")
             } else if (statusFilter === "executed") {
               filtered = data.proposals.filter((p: any) => p.status === "EXECUTED")
-            } else if (statusFilter === "vetoed") {
+            } else if ((statusFilter as string) === "vetoed") {
               filtered = data.proposals.filter((p: any) => p.status === "VETOED")
             } else if (statusFilter === "canceled") {
               filtered = data.proposals.filter((p: any) => p.status === "CANCELLED")

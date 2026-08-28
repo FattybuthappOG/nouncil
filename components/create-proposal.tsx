@@ -306,7 +306,12 @@ function htmlToMarkdown(html: string): string {
       case "em": case "i": return `_${content}_`
       case "code": return `\`${content}\``
       case "a": return `[${content}](${el.getAttribute("href") || ""})`
-      case "img": return `![${el.getAttribute("alt") || ""}](${el.getAttribute("src") || ""})`
+      case "img": {
+        const src = el.getAttribute("src") || ""
+        const alt = el.getAttribute("alt") || ""
+        const title = el.getAttribute("title")
+        return src ? `![${alt}](${src}${title ? ` \"${title}\"` : ""})` : ""
+      }
       case "br": return "\n"
       default: return content
     }
@@ -317,6 +322,15 @@ function htmlToMarkdown(html: string): string {
     const el = node as HTMLElement
     const tag = el.tagName.toLowerCase()
     if (/^h[1-3]$/.test(tag)) return `${"#".repeat(Number(tag[1]))} ${inline(el).trim()}\n\n`
+    // Tiptap can render an image as a top-level node or inside a paragraph.
+    // Handle both forms so candidate/proposal descriptions retain image Markdown.
+    if (tag === "img") {
+      const src = el.getAttribute("src") || ""
+      const alt = el.getAttribute("alt") || ""
+      const title = el.getAttribute("title")
+      if (!src) return ""
+      return `![${alt}](${src}${title ? ` \"${title}\"` : ""})\n\n`
+    }
     if (tag === "p") return `${inline(el).trim()}\n\n`
     if (tag === "hr") return "---\n\n"
     if (tag === "blockquote") return `${inline(el).trim().split("\n").map(line => `> ${line}`).join("\n")}\n\n`
