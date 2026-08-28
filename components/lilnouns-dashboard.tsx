@@ -538,9 +538,9 @@ export default function LilNounsDashboard() {
                       <LilNounsCandidateCard
                         key={candidate.id}
                         candidateId={candidate.id}
-                        candidateNumber={candidate.candidateNumber}
+                        candidateNumber={Number((candidate as any).candidateNumber ?? candidate.id)}
                         isDarkMode={isDarkMode}
-                        candidateData={candidate}
+                        candidateData={{ ...(candidate as any), createdTimestamp: Number((candidate as any).createdTimestamp ?? 0) }}
                       />
                     ))}
                   </div>
