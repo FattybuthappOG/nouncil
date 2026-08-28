@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAccount, useReadContract } from "wagmi"
+import { useAccount, useBlockNumber, useReadContract } from "wagmi"
 
 const CreateProposal = dynamic(() => import("@/components/create-proposal"), {
   ssr: false,
@@ -83,7 +83,10 @@ export default function EditProposalPage() {
   const [proposal, setProposal] = useState<ProposalData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentBlock, setCurrentBlock] = useState<bigint>(0n)
+
+  // Read the live chain tip so the update-period check is reliable.
+  const { data: currentBlockData } = useBlockNumber({ watch: true })
+  const currentBlock = currentBlockData ?? 0n
 
   // Fetch proposal data from contract
   const { data: proposalV3Data } = useReadContract({
@@ -103,24 +106,6 @@ export default function EditProposalPage() {
 
   useEffect(() => {
     setMounted(true)
-    // Get current block number
-    fetch("https://eth.llamarpc.com", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "eth_blockNumber",
-        params: [],
-        id: 1,
-      }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.result) {
-          setCurrentBlock(BigInt(data.result))
-        }
-      })
-      .catch(() => {})
   }, [])
 
   // Fetch proposal description from API
@@ -193,7 +178,12 @@ export default function EditProposalPage() {
       return
     }
 
-    if (address && address.toLowerCase() !== proposal.proposer.toLowerCase()) {
+    if (!address) {
+      setError("Connect the proposal creator wallet to edit this proposal")
+      return
+    }
+
+    if (address.toLowerCase() !== proposal.proposer.toLowerCase()) {
       setError("Only the proposer can edit this proposal")
       return
     }
