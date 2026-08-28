@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare, Copy, Pencil } from "lucide-react"
+import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare, Copy, Pencil, Ban } from "lucide-react"
 import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
@@ -158,6 +158,9 @@ function ProposalContentInner({
   const isProposer = address && proposal.proposer && address.toLowerCase() === proposal.proposer.toLowerCase()
   const isInUpdatePeriod = currentBlock !== null && updatePeriodEndBlock !== null && currentBlock < updatePeriodEndBlock
   const canEdit = Boolean(isProposer && isInUpdatePeriod && ![2, 7].includes(Number(proposal.state)))
+  // The proposer may cancel any non-executed, non-canceled proposal.
+  // The proposal hook exposes the normalized numeric state rather than the raw flags.
+  const canCancel = Boolean(isProposer && ![2, 7].includes(Number(proposal.state)))
 
   const votingIsActive = proposal.state === 1 || proposal.state === 0
 
@@ -285,6 +288,33 @@ function ProposalContentInner({
             >
               <Pencil className="h-4 w-4" />
               <span className="hidden sm:inline">Edit</span>
+            </Button>
+          )}
+          {canCancel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+              disabled={isPending || isConfirming}
+              onClick={() => {
+                if (window.confirm("Cancel this proposal on-chain? This cannot be undone.")) {
+                  writeContract({
+                    address: GOVERNOR_CONTRACT.address,
+                    abi: [{
+                      name: "cancel",
+                      type: "function",
+                      stateMutability: "nonpayable",
+                      inputs: [{ name: "proposalId", type: "uint256" }],
+                      outputs: [{ name: "", type: "uint256" }],
+                    }] as const,
+                    functionName: "cancel",
+                    args: [BigInt(proposalId)],
+                  })
+                }
+              }}
+            >
+              <Ban className="h-4 w-4" />
+              <span className="hidden sm:inline">Cancel Proposal</span>
             </Button>
           )}
         </div>

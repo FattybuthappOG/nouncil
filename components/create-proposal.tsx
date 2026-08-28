@@ -1368,7 +1368,9 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
 
   // Fee is 0 if user has voting power, otherwise use on-chain cost (fallback 0.01 ETH)
   // Use updateCandidateCost for editing, createCandidateCost for creating
-  const baseFee = editMode === "candidate" ? (updateCandidateCost ?? createCandidateCost ?? parseEther("0.01")) : (createCandidateCost ?? parseEther("0.01"))
+  const baseFee = editMode === "candidate" || editMode === "proposal"
+    ? (updateCandidateCost ?? createCandidateCost ?? parseEther("0.01"))
+    : (createCandidateCost ?? parseEther("0.01"))
   const candidateFee = hasFeeWaiver ? 0n : baseFee
 
   const connectWallet = () => {
@@ -1416,12 +1418,15 @@ export default function CreateProposal({ editMode, candidateSlug, proposalId, in
           value: candidateFee, // Update cost (usually same as create, waived for Nouners)
         })
       } else if (editMode === "proposal" && proposalId) {
-        // Update on-chain proposal in Updatable state
+        // Proposal edits create a new DAO Data candidate linked to the proposal.
+        // It must be sponsored again before Governor promotion; client ID 22 is
+        // added later by proposeBySigs, not to this candidate contract call.
         writeContract({
-          address: NOUNS_GOVERNOR,
-          abi: NOUNS_GOVERNOR_ABI,
-          functionName: "updateProposal",
-          args: [BigInt(proposalId), targets, values, sigs, datas, description, updateReason],
+          address: NOUNS_DAO_DATA,
+          abi: NOUNS_DAO_DATA_ABI,
+          functionName: "updateProposalCandidate",
+          args: [targets, values, sigs, datas, description, slug, BigInt(proposalId), updateReason],
+          value: candidateFee,
         })
       } else if (type === "candidate") {
         // Create new candidate
