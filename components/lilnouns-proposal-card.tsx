@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
-import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from "wagmi"
+import { mainnet } from "wagmi/chains"
 import { useLilNounsProposalData } from "@/hooks/useLilNounsData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { LILNOUNS_GOVERNOR_ADDRESS } from "@/lib/lilnouns-constants"
@@ -82,6 +83,9 @@ function LilNounsProposalCardContent({
   const [showVoteForm, setShowVoteForm] = useState(false)
 
   const { isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+  const isEthereumMainnet = chainId === mainnet.id
   const proposal = useLilNounsProposalData(proposalId)
 
   const { data: hash, writeContract, isPending } = useWriteContract()
@@ -159,7 +163,7 @@ function LilNounsProposalCardContent({
 
   const submitVote = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (selectedSupport === null || !isConnected) return
+    if (selectedSupport === null || !isConnected || !isEthereumMainnet) return
 
     writeContract({
       address: LILNOUNS_GOVERNOR_ADDRESS,
@@ -262,7 +266,16 @@ function LilNounsProposalCardContent({
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>
           {!isConnected ? (
             <div className="flex justify-center w-full py-2">
-              <WalletConnectButton colorScheme="pink" />
+              <WalletConnectButton />
+            </div>
+          ) : !isEthereumMainnet ? (
+            <div className="space-y-2 py-2 text-center">
+              <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                Voting transactions must use Ethereum Mainnet.
+              </p>
+              <Button size="sm" onClick={() => switchChain({ chainId: mainnet.id })} disabled={isSwitchingChain}>
+                {isSwitchingChain ? "Switching network..." : "Switch to Ethereum Mainnet"}
+              </Button>
             </div>
           ) : isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-2">

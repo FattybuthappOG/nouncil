@@ -14,7 +14,8 @@ import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
-import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from "wagmi"
+import { mainnet } from "wagmi/chains"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -107,6 +108,9 @@ function ProposalContentInner({
 
   // Voting state
   const { isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+  const isEthereumMainnet = chainId === mainnet.id
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
@@ -130,7 +134,7 @@ function ProposalContentInner({
 
   const submitVote = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (selectedSupport === null || !isConnected) return
+    if (selectedSupport === null || !isConnected || !isEthereumMainnet) return
 
     writeContract({
       address: GOVERNOR_CONTRACT.address,
@@ -246,10 +250,17 @@ function ProposalContentInner({
             
             <div className="space-y-4">
               {!isConnected ? (
-                <div className="flex justify-center w-full py-4">
-                  <WalletConnectButton />
-                </div>
-              ) : isConfirmed ? (
+            <div className="flex justify-center w-full py-2">
+              <WalletConnectButton />
+            </div>
+          ) : !isEthereumMainnet ? (
+            <div className="space-y-2 py-2 text-center">
+              <p className="text-sm text-muted-foreground">Voting transactions must use Ethereum Mainnet.</p>
+              <Button onClick={() => switchChain({ chainId: mainnet.id })} disabled={isSwitchingChain} size="sm">
+                {isSwitchingChain ? "Switching network..." : "Switch to Ethereum Mainnet"}
+              </Button>
+            </div>
+          ) : isConfirmed ? (
                 <div className="flex items-center justify-center gap-2 w-full py-4">
                   <Badge className="bg-green-500/20 text-green-300">Vote Submitted!</Badge>
                 </div>
