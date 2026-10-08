@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
-import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from "wagmi"
+import { mainnet } from "wagmi/chains"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
@@ -70,7 +71,9 @@ function ProposalVotingCardContent({
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
 
-  const { isConnected } = useAccount()
+  const { isConnected, chainId } = useAccount()
+  const { switchChain, isPending: isSwitching } = useSwitchChain()
+  const isOnEthereumMainnet = chainId === mainnet.id
   const proposal = useProposalData(proposalId)
 
   const { data: hash, writeContract, isPending } = useWriteContract()
@@ -150,9 +153,10 @@ function ProposalVotingCardContent({
 
   const submitVote = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (selectedSupport === null || !isConnected) return
+    if (selectedSupport === null || !isConnected || !isOnEthereumMainnet) return
 
     writeContract({
+      chainId: mainnet.id,
       address: GOVERNOR_CONTRACT.address,
       abi: GOVERNOR_CONTRACT.abi,
       functionName: "castRefundableVoteWithReason",
@@ -254,6 +258,20 @@ function ProposalVotingCardContent({
           {!isConnected ? (
             <div className="flex justify-center w-full py-2">
               <WalletConnectButton />
+            </div>
+          ) : !isOnEthereumMainnet ? (
+            <div className="space-y-2 py-2 text-center">
+              <p className={`text-sm ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>
+                Voting is only available on Ethereum Mainnet.
+              </p>
+              <Button
+                onClick={() => switchChain({ chainId: mainnet.id })}
+                disabled={isSwitching}
+                size="sm"
+                variant="outline"
+              >
+                {isSwitching ? "Switching network..." : "Switch to Ethereum Mainnet"}
+              </Button>
             </div>
           ) : isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-2">
