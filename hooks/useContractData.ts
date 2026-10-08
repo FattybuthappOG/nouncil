@@ -4,13 +4,10 @@ import { useReadContract, useWatchContractEvent } from "wagmi"
 import { useState, useEffect } from "react"
 import { GOVERNOR_CONTRACT, TREASURY_CONTRACT } from "@/lib/contracts"
 
-// Goldsky public endpoint - same as nouns.wtf uses (free, no API key required)
-const GOLDSKY_URL = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
-
-// Subgraph endpoints - Goldsky primary, Graph Protocol fallback
+// Subgraph endpoints - decentralized network + studio fallback
 const SUBGRAPH_URLS = [
-  GOLDSKY_URL,
   "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+  "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
 ]
 
 // Query subgraph with automatic fallback across multiple endpoints
@@ -59,14 +56,14 @@ export function useGovernorData() {
   const { data: votingPeriod, isLoading: votingPeriodLoading } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
-    functionName: "votingPeriod" as any,
+    functionName: "votingPeriod",
     query: { enabled: mounted },
   })
 
   const { data: quorumBPS, isLoading: quorumLoading } = useReadContract({
     address: GOVERNOR_CONTRACT.address,
     abi: GOVERNOR_CONTRACT.abi,
-    functionName: "quorumVotesBPS" as any,
+    functionName: "quorumVotesBPS",
     query: { enabled: mounted },
   })
 
@@ -209,7 +206,7 @@ export function useProposalIds(
               filtered = data.proposals.filter((p: any) => p.status === "ACTIVE" || p.status === "PENDING" || p.status === "QUEUED")
             } else if (statusFilter === "executed") {
               filtered = data.proposals.filter((p: any) => p.status === "EXECUTED")
-            } else if ((statusFilter as string) === "vetoed") {
+            } else if (statusFilter === "vetoed") {
               filtered = data.proposals.filter((p: any) => p.status === "VETOED")
             } else if (statusFilter === "canceled") {
               filtered = data.proposals.filter((p: any) => p.status === "CANCELLED")
@@ -481,8 +478,6 @@ export function useCandidateIds(limit = 20) {
   const [isFetchingMore, setIsFetchingMore] = useState(false)
   const [offset, setOffset] = useState(0)
   const [mounted, setMounted] = useState(false)
-  const [unavailable, setUnavailable] = useState(false)
-  const [externalUrl, setExternalUrl] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -494,31 +489,20 @@ export function useCandidateIds(limit = 20) {
     const fetchCandidates = async () => {
       try {
         const res = await fetch(`/api/nouns/candidates?limit=${limit}&offset=${offset}`, {
-          signal: AbortSignal.timeout(30000), // 30 second timeout
+          signal: AbortSignal.timeout(120000), // 2 minute timeout for initial fetch which may take a while
         })
         
         if (res.ok) {
           const data = await res.json()
-          
-          // Check if data is unavailable (requires Graph API key)
-          if (data.unavailable) {
-            setUnavailable(true)
-            setExternalUrl(data.externalUrl || "https://nouns.wtf/vote#candidates")
-            setCandidates([])
-            setTotalCount(0)
-            setHasMore(false)
+          if (offset === 0) {
+            // First load: replace candidates
+            setCandidates(data.candidates || [])
           } else {
-            setUnavailable(false)
-            if (offset === 0) {
-              // First load: replace candidates
-              setCandidates(data.candidates || [])
-            } else {
-              // Pagination: append candidates
-              setCandidates(prev => [...prev, ...(data.candidates || [])])
-            }
-            setTotalCount(data.total || 0)
-            setHasMore(data.hasMore || false)
+            // Pagination: append candidates
+            setCandidates(prev => [...prev, ...(data.candidates || [])])
           }
+          setTotalCount(data.total || 0)
+          setHasMore(data.hasMore || false)
         } else {
           if (offset === 0) {
             setCandidates([])
@@ -532,8 +516,6 @@ export function useCandidateIds(limit = 20) {
           setCandidates([])
           setTotalCount(0)
           setHasMore(false)
-          setUnavailable(true)
-          setExternalUrl("https://nouns.wtf/vote#candidates")
         }
       } finally {
         offset === 0 ? setIsLoading(false) : setIsFetchingMore(false)
@@ -554,7 +536,7 @@ export function useCandidateIds(limit = 20) {
     }
   }
 
-  return { candidates, totalCount, hasMore, isLoading, isFetchingMore, loadMore, unavailable, externalUrl }
+  return { candidates, totalCount, hasMore, isLoading, isFetchingMore, loadMore }
 }
 
 export function useCandidateData(candidateId: string) {
@@ -563,7 +545,6 @@ export function useCandidateData(candidateId: string) {
     id: candidateId,
     slug: "",
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-    proposerVotes: 0, // Number of Nouns held by proposer
     sponsors: [] as Array<{
       sponsor: `0x${string}`
       reason: string
@@ -581,7 +562,6 @@ export function useCandidateData(candidateId: string) {
     signatures: [] as string[],
     calldatas: [] as string[],
     canceled: false,
-    latestVersion: undefined as { content: { targets: string[]; values: string[]; signatures: string[]; calldatas: string[]; description: string } } | undefined,
     isLoading: true,
     error: false,
   })
@@ -602,41 +582,20 @@ export function useCandidateData(candidateId: string) {
         if (!res.ok) throw new Error("API failed")
         const data = await res.json()
         
-        // candidateId could be:
-        // 1. A number string like "42" (candidateNumber)
-        // 2. A full ID like "0x123...abc-my-slug" (proposer-slug format)
-        // 3. Just a slug like "my-slug"
+        // candidateId could be a number (candidateNumber) or slug-based id
         const candidateNum = parseInt(candidateId)
-        const isNumeric = !isNaN(candidateNum) && /^\d+$/.test(candidateId)
-        
         const candidate = data.candidates?.find((c: any) => {
-          if (isNumeric) {
+          if (!isNaN(candidateNum)) {
             return c.candidateNumber === candidateNum
           }
-          // Match by full ID, slug, or if candidateId ends with the slug
-          return c.id === candidateId || 
-                 c.slug === candidateId || 
-                 c.id?.endsWith(`-${candidateId}`) ||
-                 candidateId.endsWith(`-${c.slug}`)
+          return c.id === candidateId || c.slug === candidateId
         })
 
         if (candidate) {
-          // Also fetch proposer's noun count from subgraph
-          let proposerVotes = 0
-          try {
-            const proposerData = await querySubgraph(`{
-              delegate(id: "${candidate.proposer.toLowerCase()}") {
-                nounsRepresented { id }
-              }
-            }`)
-            proposerVotes = proposerData?.delegate?.nounsRepresented?.length || 0
-          } catch { /* ignore, default to 0 */ }
-
           setCandidateData({
             id: candidate.id || candidateId,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
-            proposerVotes,
             sponsors: [],
             description: candidate.title || "",
             fullDescription: candidate.description || "",
@@ -647,16 +606,6 @@ export function useCandidateData(candidateId: string) {
             signatures: candidate.signatures || [],
             calldatas: candidate.calldatas || [],
             canceled: candidate.canceled || false,
-            // Include latestVersion content for promote flow - this contains the EXACT data that was signed
-            latestVersion: {
-              content: {
-                targets: candidate.targets || [],
-                values: candidate.values || [],
-                signatures: candidate.signatures || [],
-                calldatas: candidate.calldatas || [],
-                description: candidate.description || "",
-              }
-            },
             isLoading: false,
             error: false,
           })
@@ -824,14 +773,10 @@ export function useProposalVotes(proposalId: number) {
 export function useCandidateSignatures(candidateId: string) {
   const [signatures, setSignatures] = useState<
     Array<{
-      sig: string
-      signer: {
-        id: string
-        nounsRepresented?: { id: string }[]
-      }
-      expirationTimestamp: string
+      signer: string
+      reason: string
+      expirationTimestamp: number
       canceled: boolean
-      reason?: string
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
@@ -842,29 +787,18 @@ export function useCandidateSignatures(candidateId: string) {
   }, [])
 
   useEffect(() => {
-    // Only fetch if we have a valid full subgraph ID (contains proposer-slug format)
-    // Skip if candidateId is just a number like "972"
-    if (!mounted || !candidateId || !candidateId.includes("-")) {
-      return
-    }
+    if (!mounted) return
 
     const fetchSignatures = async () => {
       try {
-        // Fetch only the latest version's signatures (avoid duplicates from older versions)
         const data = await querySubgraph(`{
           proposalCandidate(id: "${candidateId}") {
-            id
-            latestVersion {
+            versions {
               content {
                 contentSignatures {
-                  sig
-                  signer {
-                    id
-                    nounsRepresented { id }
-                  }
+                  signer { id }
                   reason
                   expirationTimestamp
-                  createdTimestamp
                   canceled
                 }
               }
@@ -873,18 +807,19 @@ export function useCandidateSignatures(candidateId: string) {
         }`)
         const candidate = data?.proposalCandidate
 
-        if (candidate?.latestVersion?.content?.contentSignatures) {
-          const sigs = candidate.latestVersion.content.contentSignatures
-          const sigsList = sigs.map((sig: any) => ({
-            sig: sig.sig || "",
-            signer: {
-              id: sig.signer?.id || "",
-              nounsRepresented: sig.signer?.nounsRepresented || [],
-            },
-            reason: sig.reason,
-            expirationTimestamp: String(sig.expirationTimestamp || "0"),
-            canceled: sig.canceled || false,
-          }))
+        if (candidate?.versions) {
+          const sigsList: any[] = []
+          candidate.versions.forEach((version: any) => {
+            const sigs = version.content?.contentSignatures || []
+            sigs.forEach((sig: any) => {
+              sigsList.push({
+                signer: sig.signer?.id || "",
+                reason: sig.reason || "",
+                expirationTimestamp: Number(sig.expirationTimestamp || 0),
+                canceled: sig.canceled || false,
+              })
+            })
+          })
           setSignatures(sigsList)
         }
       } catch (error) {

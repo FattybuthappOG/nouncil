@@ -102,8 +102,8 @@ function LilNounsProposalContentInner({
     )
   }
 
-  const { title, content: body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
-  const stateLabel = proposal.stateName || getProposalStateLabel(Number(proposal.state || 1)).label
+  const { title, body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
+  const stateLabel = proposal.stateName || getProposalStateLabel(proposal.state?.toString() || "1")
 
   const forVotes = Number(proposal.forVotes || 0)
   const againstVotes = Number(proposal.againstVotes || 0)
