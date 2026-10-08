@@ -62,7 +62,6 @@ const translations = {
     loading: "Loading...",
     noCandidatesFound: "No candidates found",
     filterByStatus: "Filter by Status",
-    nouncillorParticipation: "Nouncillor Participation",
   },
   zh: {
     proposals: "候选人",
@@ -96,7 +95,6 @@ const translations = {
     loading: "正在加载...",
     noCandidatesFound: "未找到候选人",
     filterByStatus: "按状态过滤",
-    nouncillorParticipation: "Nouncillor 参与",
   },
   es: {
     proposals: "Candidatos",
@@ -130,7 +128,6 @@ const translations = {
     loading: "Cargando...",
     noCandidatesFound: "No se encontraron candidatos",
     filterByStatus: "Filtrar por Estado",
-    nouncillorParticipation: "Participación Nouncillor",
   },
   hi: {
     proposals: "उम्मीदवार",
@@ -164,7 +161,6 @@ const translations = {
     loading: "लोड हो रहा है...",
     noCandidatesFound: "कोई उम्मीदवार नहीं मिला",
     filterByStatus: "स्थिति के आधार पर फ़िल्टर करें",
-    nouncillorParticipation: "Nouncillor भाग लेना",
   },
   ar: {
     proposals: "المرشحون",
@@ -176,12 +172,12 @@ const translations = {
     executed: "منفذ",
     defeated: "مرفوض",
     canceled: "ملغى",
-    loadMore: "تحم��ل 20 أكثر",
+    loadMore: "تحميل 20 أكثر",
     connectWallet: "ربط المحفظة",
     treasury: "الخزانة",
     learnAboutNouns: "تعرف على Nouns",
     generateTogaPFP: "إنشاء صورة Toga",
-    language: "اللغ��",
+    language: "اللغة",
     joinDiscord: "انضم إلى Discord",
     joinCallsThursday: "انضم إلى المكالمات كل خميس على Discord",
     toggleTheme: "تبديل السمة",
@@ -198,7 +194,6 @@ const translations = {
     loading: "جارٍ التحميل...",
     noCandidatesFound: "لم يتم العثور على أي مرشحين",
     filterByStatus: "تصفية حسب الحالة",
-    nouncillorParticipation: "مشاركة Nouncillor",
   },
   pt: {
     proposals: "Candidatos",
@@ -232,7 +227,6 @@ const translations = {
     loading: "Carregando...",
     noCandidatesFound: "Nenhum candidato encontrado",
     filterByStatus: "Filtrar por Status",
-    nouncillorParticipation: "Participação do Nouncillor",
   },
   bn: {
     proposals: "প্রার্থী",
@@ -266,11 +260,10 @@ const translations = {
     loading: "লোড হচ্ছে...",
     noCandidatesFound: "কোনো উম্মীদবার পাওয়া যায়নি",
     filterByStatus: "স্থিতি অনুযায়ী ফিল্টার করুন",
-    nouncillorParticipation: "Nouncillor অংশগ্রহণ",
   },
   ru: {
     proposals: "Предложения",
-    candidates: "��андидаты",
+    candidates: "Кандидаты",
     searchProposals: "Искать предложения по номеру или заголовку...",
     searchCandidates: "Искать кандидатов по номеру или заголовку...",
     showAll: "Показать Все",
@@ -300,7 +293,6 @@ const translations = {
     loading: "Загрузка...",
     noCandidatesFound: "Кандидатов не найдено",
     filterByStatus: "Фильтровать по статусу",
-    nouncillorParticipation: "Участие Nouncillor",
   },
   ja: {
     proposals: "提案",
@@ -334,7 +326,6 @@ const translations = {
     loading: "読み込み中...",
     noCandidatesFound: "候補者が見つかりません",
     filterByStatus: "ステータスでフィルター",
-    nouncillorParticipation: "Nouncillor参加",
   },
   fr: {
     proposals: "Propositions",
@@ -368,7 +359,6 @@ const translations = {
     loading: "Chargement...",
     noCandidatesFound: "Aucun candidat trouvé",
     filterByStatus: "Filtrer par Statut",
-    nouncillorParticipation: "Participation Nouncillor",
   },
 }
 
@@ -434,8 +424,7 @@ function LiveGovernanceDashboardContent() {
     : "0 ETH"
 
   const t = (key: string) => {
-    const language = translations[selectedLanguage] as Record<string, string>
-    return language[key] || translations.en[key as keyof typeof translations.en] || key
+    return translations[selectedLanguage]?.[key] || translations.en[key] || key
   }
 
   const copyNounsSymbol = () => {
@@ -444,15 +433,13 @@ function LiveGovernanceDashboardContent() {
     setTimeout(() => setCopyFeedback(false), 2000)
   }
 
-  const proposalIdsData = useProposalIds(displayedProposals, statusFilter === "vetoed" ? "all" : statusFilter)
+  const proposalIdsData = useProposalIds(displayedProposals, statusFilter)
   const { proposalIds, isLoading: proposalIdsLoading, totalCount } = proposalIdsData
 
   const candidateIdsData = useCandidateIds(displayedCandidates)
 
   const safeCandidates = candidateIdsData?.candidates || []
   const totalCandidates = candidateIdsData?.totalCount || 0
-  const candidatesUnavailable = candidateIdsData?.unavailable || false
-  const candidatesExternalUrl = candidateIdsData?.externalUrl || "https://nouns.wtf/vote#candidates"
 
   const hasMoreCandidates = displayedCandidates < totalCandidates
 
@@ -735,19 +722,6 @@ function LiveGovernanceDashboardContent() {
                     <span className="font-medium">{t("learnAboutNouns")}</span>
                   </a>
 
-                  {/* Nouncillor Participation */}
-                  <a
-                    href="https://nouncil.up.railway.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setShowMenu(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-100"
-                    }`}
-                  >
-                    <span className="font-medium">{t("nouncillorParticipation")}</span>
-                  </a>
-
                   {/* Generate Toga PFP */}
                   <a
                     href="https://togatime.cloudnouns.com/"
@@ -796,7 +770,7 @@ function LiveGovernanceDashboardContent() {
                           <button
                             key={lang.code}
                             onClick={() => {
-                              handleLanguageChange(lang.code as LanguageCode)
+                              handleLanguageChange(lang.code)
                             }}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                               selectedLanguage === lang.code
@@ -956,34 +930,6 @@ function LiveGovernanceDashboardContent() {
               </Link>
             </div>
           )}
-
-          {activeTab === "candidates" && (
-            <div className="flex items-center gap-2">
-              {candidatesUnavailable && (
-                <a
-                  href="https://nouns.wtf/vote#candidates"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-                    isDarkMode
-                      ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  <span className="hidden sm:inline">View on nouns.wtf</span>
-                  <span className="sm:hidden">nouns.wtf</span>
-                </a>
-              )}
-              <Link
-                href="/create"
-                className="flex items-center gap-1.5 h-8 sm:h-10 px-3 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110 active:scale-95"
-              >
-                <PenLine className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Create Candidate</span>
-                <span className="sm:hidden">Create</span>
-              </Link>
-            </div>
-          )}
         </div>
 
         {/* Content Grid */}
@@ -1016,45 +962,18 @@ function LiveGovernanceDashboardContent() {
             </div>
           )}
 
-{activeTab === "candidates" && (
-  <>
-  {candidateIdsData?.isLoading ? (
-  <div className="text-center py-12">
-  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-  <p className="mt-4 text-gray-500">{t("loading")}</p>
-  </div>
-  ) : candidatesUnavailable ? (
-  <div className="text-center py-12">
-  <div className={`rounded-lg p-8 max-w-md mx-auto ${isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"}`}>
-    <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-      Candidates Temporarily Unavailable
-    </h3>
-    <p className={`mb-6 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-      View existing candidates on nouns.wtf or create a new proposal candidate.
-    </p>
-    <div className="flex flex-col gap-3">
-      <a
-        href="https://nouns.wtf/vote#candidates"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors bg-blue-600 text-white hover:bg-blue-700"
-      >
-        View on nouns.wtf
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-      </a>
-      <Link
-        href="/create"
-        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors bg-[hsl(var(--nouncil-green))] text-[hsl(var(--nouncil-green-foreground))] hover:brightness-110"
-      >
-        <PenLine className="w-4 h-4" />
-        Create Candidate
-      </Link>
-    </div>
-  </div>
-  </div>
-  ) : (
+          {activeTab === "candidates" && (
+            <>
+              {candidateIdsData?.isLoading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <p className="mt-4 text-gray-500">{t("loading")}</p>
+                </div>
+              ) : safeCandidates.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>{t("noCandidatesFound")}</p>
+                </div>
+              ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {safeCandidates.map((candidate) => (

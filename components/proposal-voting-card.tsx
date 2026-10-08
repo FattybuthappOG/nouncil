@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -67,7 +66,6 @@ function ProposalVotingCardContent({
   proposalData,
   statusFilter = "all",
 }: ProposalVotingCardProps) {
-  const router = useRouter()
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
@@ -165,14 +163,13 @@ function ProposalVotingCardContent({
   const forNouns = Number(proposal.forVotes)
   const againstNouns = Number(proposal.againstVotes)
   const abstainNouns = Number(proposal.abstainVotes)
-  // Quorum is the number of For votes needed to pass - fetched from contract via quorumVotes(proposalId)
-  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 0
-  // Quorum is met when For votes >= required quorum
-  const quorumMet = forNouns >= quorumNeeded
+  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 72
+  const totalVotes = forNouns + againstNouns + abstainNouns
+  const quorumMet = totalVotes >= quorumNeeded
 
   return (
     <Card
-      onClick={() => !showVoteForm && router.push(`/proposal/${proposalId}`)}
+      onClick={() => !showVoteForm && (window.location.href = `/proposal/${proposalId}`)}
       className={`transition-colors duration-200 cursor-pointer hover:shadow-lg ${isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-white border-gray-200 hover:border-gray-300"}`}
     >
       <CardHeader className="pb-3">
@@ -250,7 +247,7 @@ function ProposalVotingCardContent({
         </div>
 
         <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Quorum: {forNouns} / {quorumNeeded} For votes {quorumMet ? "✓" : "needed"}
+          Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
         </div>
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>

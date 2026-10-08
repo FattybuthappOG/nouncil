@@ -18,7 +18,7 @@ const CandidateContent = dynamic(() => import("@/components/candidate-content"),
 
 export default function CandidateDetailPage() {
   const params = useParams()
-  const candidateIdOrSlug = params.id as string
+  const candidateIdOrNumber = params.id as string
   const [mounted, setMounted] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [resolvedCandidateId, setResolvedCandidateId] = useState<string | null>(null)
@@ -38,79 +38,61 @@ export default function CandidateDetailPage() {
     const resolveCandidateId = async () => {
       setIsLoading(true)
 
-      // Check if it's a number (candidate number)
-      const isNumber = /^\d+$/.test(candidateIdOrSlug)
+      // Check if it's a number (candidate number) or full ID
+      const isNumber = /^\d+$/.test(candidateIdOrNumber)
 
       if (!isNumber) {
-        // It's a slug or full candidate ID - pass directly to CandidateContent
-        // The useCandidateData hook will handle matching by slug or id
-        setResolvedCandidateId(candidateIdOrSlug)
+        // It's already a full candidate ID
+        setResolvedCandidateId(candidateIdOrNumber)
         setIsLoading(false)
         return
       }
 
       // It's a candidate number, we need to find the corresponding candidate
-      const candidateNumber = Number.parseInt(candidateIdOrSlug, 10)
+      const candidateNumber = Number.parseInt(candidateIdOrNumber, 10)
 
       try {
-        // First try to get from our API which has slug info
-        const apiResponse = await fetch(`/api/nouns/candidates?limit=100`)
-        if (apiResponse.ok) {
-          const apiData = await apiResponse.json()
-          const candidate = apiData.candidates?.find((c: any) => c.candidateNumber === candidateNumber)
-          if (candidate) {
-            // Use the full ID for better matching
-            setResolvedCandidateId(candidate.id || candidateIdOrSlug)
-            setIsLoading(false)
-            return
-          }
-        }
-        
-        // Fallback to Goldsky subgraph
-        const SUBGRAPH_URL = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
-        
-        const response = await fetch(SUBGRAPH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: `{ proposalCandidates(where: { number: ${candidateNumber}, canceled: false }) { id slug } }`,
-          }),
-        })
-        const data = await response.json()
-        if (data?.data?.proposalCandidates?.[0]) {
-          setResolvedCandidateId(data.data.proposalCandidates[0].id)
-        } else {
-          // Try fetching all and matching by index (old behavior as final fallback)
-          const countResponse = await fetch(SUBGRAPH_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: `{ proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) { id } }`,
-            }),
-          })
-          const countData = await countResponse.json()
-          if (countData?.data?.proposalCandidates) {
-            const allCandidates = countData.data.proposalCandidates
-            const index = candidateNumber - 1
-            if (index >= 0 && index < allCandidates.length) {
-              setResolvedCandidateId(allCandidates[index].id)
-            } else {
-              setResolvedCandidateId(candidateIdOrSlug)
+        // First get total count via subgraph
+        const SUBGRAPH_URLS = [
+          "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+          "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+        ]
+        let allCandidates: any[] = []
+        for (const url of SUBGRAPH_URLS) {
+          try {
+            const countResponse = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query: `{ proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) { id } }`,
+              }),
+            })
+            const countData = await countResponse.json()
+            if (countData?.data?.proposalCandidates) {
+              allCandidates = countData.data.proposalCandidates
+              break
             }
-          } else {
-            setResolvedCandidateId(candidateIdOrSlug)
-          }
+          } catch { continue }
+        }
+
+        // Candidate number 1 is the first created (index 0), number N is index N-1
+        const index = candidateNumber - 1
+        if (index >= 0 && index < allCandidates.length) {
+          setResolvedCandidateId(allCandidates[index].id)
+        } else {
+          // Fallback: try using the number as part of the ID
+          setResolvedCandidateId(candidateIdOrNumber)
         }
       } catch (error) {
-        // Fallback to using the input directly
-        setResolvedCandidateId(candidateIdOrSlug)
+        // Subgraph may be unavailable - this is non-critical, we can still show the candidate
+        setResolvedCandidateId(candidateIdOrNumber)
       } finally {
         setIsLoading(false)
       }
     }
 
     resolveCandidateId()
-  }, [mounted, candidateIdOrSlug])
+  }, [mounted, candidateIdOrNumber])
 
   useEffect(() => {
     if (mounted) {
