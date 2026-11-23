@@ -12,6 +12,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { useCandidateData, useCandidateSignatures } from "@/hooks/useContractData"
+import { TransactionSimulator } from "@/components/transaction-simulator"
 
 function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: string; isDarkMode: boolean }) {
   const router = useRouter()
@@ -189,6 +190,19 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
                 </ReactMarkdown>
               </div>
             </div>
+
+            <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
+            <section aria-labelledby="candidate-transaction-simulator">
+              <h2 id="candidate-transaction-simulator" className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>
+                Transaction Simulation
+              </h2>
+              <TransactionSimulator
+                targets={data.targets}
+                values={data.values}
+                signatures={data.signatures}
+                calldatas={data.calldatas}
+              />
+            </section>
 
             {signatures.data && signatures.data.length > 0 && (
               <>

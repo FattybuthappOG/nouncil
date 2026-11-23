@@ -368,10 +368,14 @@ interface TransactionData {
 }
 
 interface TransactionSimulatorProps {
-  proposalId: number
+  proposalId?: number
+  targets?: string[]
+  values?: string[]
+  signatures?: string[]
+  calldatas?: string[]
 }
 
-function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
+function TransactionSimulatorInner({ proposalId, targets, values, signatures, calldatas }: TransactionSimulatorProps) {
   const [mounted, setMounted] = useState(false)
   const [transactions, setTransactions] = useState<TransactionData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -384,6 +388,31 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
 
   useEffect(() => {
     if (!mounted) return
+
+    if (targets !== undefined) {
+      const candidateTransactions = targets.map((target, index) => {
+        const signature = signatures?.[index] || ""
+        const calldata = calldatas?.[index] || "0x"
+        const value = values?.[index] || "0"
+        return {
+          target,
+          value,
+          signature,
+          calldata,
+          decoded: decodeTransaction(target, signature, calldata, value),
+        }
+      })
+      setTransactions(candidateTransactions)
+      setError(candidateTransactions.length ? null : "No transaction data found")
+      setIsLoading(false)
+      return
+    }
+
+    if (proposalId === undefined) {
+      setError("No transaction data found")
+      setIsLoading(false)
+      return
+    }
 
     const fetchTransactionData = async () => {
       try {
@@ -450,7 +479,7 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
     }
 
     fetchTransactionData()
-  }, [proposalId, mounted])
+  }, [proposalId, mounted, targets, values, signatures, calldatas])
 
   if (!mounted || isLoading) {
     return (
@@ -613,7 +642,7 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
   )
 }
 
-export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) {
+export function TransactionSimulator(props: TransactionSimulatorProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -634,5 +663,5 @@ export function TransactionSimulator({ proposalId }: TransactionSimulatorProps) 
     )
   }
 
-  return <TransactionSimulatorInner proposalId={proposalId} />
+  return <TransactionSimulatorInner {...props} />
 }
