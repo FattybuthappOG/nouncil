@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { decodeFunctionResult, encodeFunctionData } from "viem"
+import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 
 const NOUNS_GOVERNOR = "0x6f3E6272A167e8AcCb32072d08E0957F9c79223d"
 const NOUNS_TOKEN = "0x9C8fF314C9B9B91F60f4d9A12eAf51B0C1ABc08e"
@@ -416,6 +418,32 @@ async function fetchSingleProposal(id: number) {
   const dynamicQuorum = calculateDynamicQuorum(againstVotes)
   const quorumVotes = dynamicQuorum.toString()
 
+  let targets: string[] = []
+  let values: string[] = []
+  let signatures: string[] = []
+  let calldatas: string[] = []
+
+  try {
+    const actionsCall = encodeFunctionData({
+      abi: GOVERNOR_CONTRACT.abi,
+      functionName: "getActions",
+      args: [BigInt(id)],
+    })
+    const actionsResult = await rpcCall("eth_call", [{ to: NOUNS_GOVERNOR, data: actionsCall }, "latest"])
+    const actions = decodeFunctionResult({
+      abi: GOVERNOR_CONTRACT.abi,
+      functionName: "getActions",
+      data: actionsResult,
+    })
+    const [actionTargets, actionValues, actionSignatures, actionCalldatas] = actions as [string[], bigint[], string[], string[]]
+    targets = actionTargets
+    values = actionValues.map(String)
+    signatures = actionSignatures
+    calldatas = actionCalldatas
+  } catch (error) {
+    console.error("[v0] Failed to fetch actions for proposal", id, error)
+  }
+
   const result = {
     id,
     proposer,
@@ -431,6 +459,10 @@ async function fetchSingleProposal(id: number) {
     endBlock: endBlock.toString(),
     creationBlock: creationBlock.toString(),
     createdTransactionHash: "",
+    targets,
+    values,
+    signatures,
+    calldatas,
   }
 
   // Cache it

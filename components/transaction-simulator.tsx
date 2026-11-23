@@ -162,6 +162,9 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
   const effectiveSelector = selector || signatureSelectors[sigFuncName] || ""
   const funcInfo = FUNCTION_SELECTORS[effectiveSelector]
+  const parameterData = signature && effectiveSelector
+    ? `0x${effectiveSelector}${calldata.slice(2)}`
+    : calldata
 
   // Pure ETH transfer (no calldata or empty calldata)
   if ((!calldata || calldata === "0x" || calldata.length <= 2) && hasEthValue) {
@@ -177,8 +180,8 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
 
   // ERC20 Transfer - selector a9059cbb or signature transfer(address,uint256)
   if (effectiveSelector === "a9059cbb" || sigFuncName === "transfer") {
-    const recipient = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
+    const recipient = decodeAddress(parameterData, 0)
+    const amount = decodeUint256(parameterData, 1)
 
     if (contractInfo?.type === "erc20" && contractInfo.decimals && contractInfo.symbol) {
       const formattedAmount = formatTokenAmount(amount, contractInfo.decimals)
@@ -207,8 +210,8 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
 
   // ERC20 Approval - selector 095ea7b3
   if (effectiveSelector === "095ea7b3" || sigFuncName === "approve") {
-    const spender = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
+    const spender = decodeAddress(parameterData, 0)
+    const amount = decodeUint256(parameterData, 1)
     const isUnlimited = amount >= BigInt("0x" + "f".repeat(64)) / BigInt(2)
     const symbol = contractInfo?.symbol || "tokens"
 
@@ -228,8 +231,8 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
     effectiveSelector === "42842e0e" ||
     (effectiveSelector === "23b872dd" && contractInfo?.type === "nft")
   ) {
-    const to = decodeAddress(calldata, 1)
-    const tokenId = decodeUint256(calldata, 2)
+    const to = decodeAddress(parameterData, 1)
+    const tokenId = decodeUint256(parameterData, 2)
 
     return {
       type: "nft_transfer",
@@ -251,7 +254,7 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
     let recipient = ""
     if (calldata.length >= 74) {
       // Skip dynamic offset, look for first address-like data
-      recipient = decodeAddress(calldata, 1) // recipient is often 2nd param after sender
+      recipient = decodeAddress(parameterData, 1) // recipient is often 2nd param after sender
     }
 
     return {
@@ -266,7 +269,7 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
 
   // Sablier Stream Cancel
   if (contractInfo?.type === "stream" && (sigFuncName.includes("cancel") || effectiveSelector === "40e58ee5")) {
-    const streamId = decodeUint256(calldata, 0)
+    const streamId = decodeUint256(parameterData, 0)
     return {
       type: "stream_cancel",
       tokenId: streamId.toString(),
@@ -278,8 +281,8 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
 
   // sendOrRegisterDebt - Treasury ETH transfer
   if (sigFuncName === "sendOrRegisterDebt" || effectiveSelector === "5a9b0b89") {
-    const recipient = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
+    const recipient = decodeAddress(parameterData, 0)
+    const amount = decodeUint256(parameterData, 1)
     const ethAmount = formatTokenAmount(amount, 18)
 
     return {
