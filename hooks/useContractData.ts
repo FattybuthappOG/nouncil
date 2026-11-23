@@ -543,6 +543,7 @@ export function useCandidateData(candidateId: string) {
   const [mounted, setMounted] = useState(false)
   const [candidateData, setCandidateData] = useState({
     id: candidateId,
+    candidateNumber: 0,
     slug: "",
     proposer: "0x0000000000000000000000000000000000000000" as `0x${string}`,
     sponsors: [] as Array<{
@@ -582,18 +583,18 @@ export function useCandidateData(candidateId: string) {
         if (!res.ok) throw new Error("API failed")
         const data = await res.json()
         
-        // candidateId could be a number (candidateNumber) or slug-based id
-        const candidateNum = parseInt(candidateId)
-        const candidate = data.candidates?.find((c: any) => {
-          if (!isNaN(candidateNum)) {
-            return c.candidateNumber === candidateNum
-          }
-          return c.id === candidateId || c.slug === candidateId
-        })
+        // Candidate links may use a numeric candidate number, a subgraph ID, or a slug.
+        const candidateNum = /^\\d+$/.test(candidateId) ? Number.parseInt(candidateId, 10) : null
+        const candidate = data.candidates?.find((c: any) =>
+          c.id === candidateId ||
+          c.slug === candidateId ||
+          (candidateNum !== null && c.candidateNumber === candidateNum),
+        )
 
         if (candidate) {
           setCandidateData({
             id: candidate.id || candidateId,
+            candidateNumber: candidate.candidateNumber || 0,
             slug: candidate.slug || "",
             proposer: candidate.proposer || "0x0000000000000000000000000000000000000000",
             sponsors: [],

@@ -63,8 +63,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
     return null
   }
 
-  // Extract candidate number from the end of the ID or use a fallback
-  const candidateNumber = candidateId.split("-").pop() || candidateId
+  const candidateNumber = data.candidateNumber || candidateId
 
   return (
     <div className={`min-h-screen overflow-x-hidden ${isDarkMode ? "bg-[#1a1a2e] text-white" : "bg-gray-50 text-gray-900"} p-4 md:p-6`}>

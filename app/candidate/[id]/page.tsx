@@ -48,44 +48,18 @@ export default function CandidateDetailPage() {
         return
       }
 
-      // It's a candidate number, we need to find the corresponding candidate
       const candidateNumber = Number.parseInt(candidateIdOrNumber, 10)
 
       try {
-        // First get total count via subgraph
-        const SUBGRAPH_URLS = [
-          "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-          "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
-        ]
-        let allCandidates: any[] = []
-        for (const url of SUBGRAPH_URLS) {
-          try {
-            const countResponse = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                query: `{ proposalCandidates(first: 1000, where: { canceled: false }, orderBy: createdTimestamp, orderDirection: asc) { id } }`,
-              }),
-            })
-            const countData = await countResponse.json()
-            if (countData?.data?.proposalCandidates) {
-              allCandidates = countData.data.proposalCandidates
-              break
-            }
-          } catch { continue }
-        }
-
-        // Candidate number 1 is the first created (index 0), number N is index N-1
-        const index = candidateNumber - 1
-        if (index >= 0 && index < allCandidates.length) {
-          setResolvedCandidateId(allCandidates[index].id)
-        } else {
-          // Fallback: try using the number as part of the ID
-          setResolvedCandidateId(candidateIdOrNumber)
-        }
-      } catch (error) {
-        // Subgraph may be unavailable - this is non-critical, we can still show the candidate
-        setResolvedCandidateId(candidateIdOrNumber)
+        const response = await fetch("/api/nouns/candidates?limit=100")
+        if (!response.ok) throw new Error("Candidate lookup failed")
+        const data = await response.json()
+        const candidate = data.candidates?.find(
+          (item: { candidateNumber: number; id: string }) => item.candidateNumber === candidateNumber,
+        )
+        setResolvedCandidateId(candidate?.id || null)
+      } catch {
+        setResolvedCandidateId(null)
       } finally {
         setIsLoading(false)
       }
