@@ -477,14 +477,12 @@ function ProposalContentInner({
           </CardContent>
         </Card>
 
-        {proposal.targets && proposal.targets.length > 0 && (
-          <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
-            <CardContent className="pt-6">
-              <h2 className="text-lg font-semibold mb-4">{t.transactionSimulator}</h2>
-              <TransactionSimulator proposalId={Number(proposalId)} />
-            </CardContent>
-          </Card>
-        )}
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-4">{t.transactionSimulator}</h2>
+            <TransactionSimulator proposalId={Number(proposalId)} />
+          </CardContent>
+        </Card>
 
         {/* Activity Section */}
         <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
