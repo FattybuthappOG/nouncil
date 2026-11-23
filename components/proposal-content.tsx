@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink, MessageSquare, Copy, Pencil, Ban } from "lucide-react"
+import { ArrowLeft, ThumbsUp, ThumbsDown, Minus, ExternalLink } from "lucide-react"
 import { useProposalData, useProposalVotes, useProposalFeedback } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { EnsDisplay } from "@/components/ens-display"
@@ -14,9 +14,8 @@ import { TransactionSimulator } from "@/components/transaction-simulator"
 import { Card, CardContent } from "@/components/ui/card"
 import { MediaContentRenderer } from "@/components/media-content-renderer"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
-import { ActivitySection } from "@/components/activity-section"
-import { storeTemplateData } from "@/lib/proposal-replication"
-import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from "wagmi"
+import { mainnet } from "wagmi/chains"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -108,7 +107,10 @@ function ProposalContentInner({
   const feedback = useProposalFeedback(Number(proposalId))
 
   // Voting state
-  const { isConnected, address } = useAccount()
+  const { isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+  const isEthereumMainnet = chainId === mainnet.id
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
@@ -122,55 +124,6 @@ function ProposalContentInner({
   })
   const currentBlock = currentBlockData ? Number(currentBlockData) : null
 
-  // Fetch proposalsV3 data to get updatePeriodEndBlock
-  const { data: proposalV3Data } = useReadContract({
-    address: GOVERNOR_CONTRACT.address,
-    abi: [{
-      name: "proposalsV3",
-      type: "function",
-      stateMutability: "view",
-      inputs: [{ name: "proposalId", type: "uint256" }],
-      outputs: [
-        { name: "id", type: "uint256" },
-        { name: "proposer", type: "address" },
-        { name: "proposalThreshold", type: "uint256" },
-        { name: "quorumVotes", type: "uint256" },
-        { name: "eta", type: "uint256" },
-        { name: "startBlock", type: "uint256" },
-        { name: "endBlock", type: "uint256" },
-        { name: "forVotes", type: "uint256" },
-        { name: "againstVotes", type: "uint256" },
-        { name: "abstainVotes", type: "uint256" },
-        { name: "canceled", type: "bool" },
-        { name: "vetoed", type: "bool" },
-        { name: "executed", type: "bool" },
-        { name: "totalSupply", type: "uint256" },
-        { name: "creationBlock", type: "uint256" },
-        { name: "updatePeriodEndBlock", type: "uint256" },
-      ],
-    }] as const,
-    functionName: "proposalsV3",
-    args: [BigInt(proposalId)],
-  })
-
-  // Check if proposal is editable (in Updatable state)
-  const updatePeriodEndBlock = proposalV3Data ? Number(proposalV3Data[15]) : null
-  // Use the raw Governor proposer as the source of truth. The API/subgraph can
-  // briefly normalize proposer data differently while the wallet is connecting.
-  const onChainProposer = proposalV3Data?.[1] as string | undefined
-  const proposerAddress = onChainProposer || proposal.proposer
-  const isProposer = Boolean(address && proposerAddress && address.toLowerCase() === proposerAddress.toLowerCase())
-  const isInUpdatePeriod = currentBlock !== null && updatePeriodEndBlock !== null && currentBlock < updatePeriodEndBlock
-  const isTerminalProposal = Boolean(
-    proposalV3Data?.[10] || // canceled
-    proposalV3Data?.[11] || // vetoed
-    proposalV3Data?.[12] || // executed
-    [2, 3, 7, 8].includes(Number(proposal.state)), // canceled, defeated, executed, vetoed
-  )
-  const canEdit = Boolean(isProposer && isInUpdatePeriod && !isTerminalProposal)
-  // The proposer may cancel any non-terminal proposal.
-  const canCancel = Boolean(isProposer && !isTerminalProposal)
-
   const votingIsActive = proposal.state === 1 || proposal.state === 0
 
   const handleVote = (support: number) => {
@@ -181,7 +134,7 @@ function ProposalContentInner({
 
   const submitVote = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (selectedSupport === null || !isConnected) return
+    if (selectedSupport === null || !isConnected || !isEthereumMainnet) return
 
     writeContract({
       address: GOVERNOR_CONTRACT.address,
@@ -209,8 +162,8 @@ function ProposalContentInner({
     )
   }
 
-  const { title, content: body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
-  const stateLabel = proposal.stateName || getProposalStateLabel(Number(proposal.state || 1)).label
+  const { title, content } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
+  const stateLabel = proposal.stateName || getProposalStateLabel(Number(proposal.state ?? 1)).label
 
   // Show loading if we don't have a title yet (real description not loaded)
   if (proposal.isLoading || !title) {
@@ -250,82 +203,6 @@ function ProposalContentInner({
             <ArrowLeft className="h-4 w-4" />
             {t.back}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-2 text-gray-300 hover:text-white"
-            onClick={() => {
-              const el = document.getElementById("activity-section")
-              if (el) {
-                const top = el.getBoundingClientRect().top + window.scrollY - 64
-                window.scrollTo({ top, behavior: "smooth" })
-              }
-            }}
-          >
-            <MessageSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Activity</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-2 text-gray-300 hover:text-white"
-            onClick={() => {
-              if (proposal) {
-                // Store template data and navigate
-                const url = storeTemplateData({
-                  type: "proposal",
-                  title: title || "",
-                  description: body || "",
-                  targets: proposal.targets || [],
-                  values: proposal.values?.map(v => v.toString()) || [],
-                  signatures: proposal.signatures || [],
-                  calldatas: proposal.calldatas || [],
-                })
-                router.push(url)
-              }
-            }}
-          >
-            <Copy className="h-4 w-4" />
-            <span className="hidden sm:inline">Use as Template</span>
-          </Button>
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 text-gray-300 hover:text-white"
-              onClick={() => router.push(`/edit/proposal/${proposalId}`)}
-            >
-              <Pencil className="h-4 w-4" />
-              <span className="hidden sm:inline">Edit</span>
-            </Button>
-          )}
-          {canCancel && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-              disabled={isPending || isConfirming}
-              onClick={() => {
-                if (window.confirm("Cancel this proposal on-chain? This cannot be undone.")) {
-                  writeContract({
-                    address: GOVERNOR_CONTRACT.address,
-                    abi: [{
-                      name: "cancel",
-                      type: "function",
-                      stateMutability: "nonpayable",
-                      inputs: [{ name: "proposalId", type: "uint256" }],
-                      outputs: [{ name: "", type: "uint256" }],
-                    }] as const,
-                    functionName: "cancel",
-                    args: [BigInt(proposalId)],
-                  })
-                }
-              }}
-            >
-              <Ban className="h-4 w-4" />
-              <span className="hidden sm:inline">Cancel Proposal</span>
-            </Button>
-          )}
         </div>
       </div>
 
@@ -344,19 +221,9 @@ function ProposalContentInner({
               >
                 {stateLabel}
               </Badge>
-              {isInUpdatePeriod && (
-                <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
-                  Updatable
-                </Badge>
-              )}
               <Badge variant="outline" className={isDarkMode ? "border-gray-700 text-gray-300" : ""}>
                 #{proposalId}
               </Badge>
-              {isInUpdatePeriod && currentBlock && updatePeriodEndBlock && (
-                <span className="text-xs text-muted-foreground">
-                  ({updatePeriodEndBlock - currentBlock} blocks left to edit)
-                </span>
-              )}
             </div>
 
             <h1 className="text-2xl font-bold break-words">{title || proposal.description}</h1>
@@ -383,10 +250,17 @@ function ProposalContentInner({
             
             <div className="space-y-4">
               {!isConnected ? (
-                <div className="flex justify-center w-full py-4">
-                  <WalletConnectButton />
-                </div>
-              ) : isConfirmed ? (
+            <div className="flex justify-center w-full py-2">
+              <WalletConnectButton />
+            </div>
+          ) : !isEthereumMainnet ? (
+            <div className="space-y-2 py-2 text-center">
+              <p className="text-sm text-muted-foreground">Voting transactions must use Ethereum Mainnet.</p>
+              <Button onClick={() => switchChain({ chainId: mainnet.id })} disabled={isSwitchingChain} size="sm">
+                {isSwitchingChain ? "Switching network..." : "Switch to Ethereum Mainnet"}
+              </Button>
+            </div>
+          ) : isConfirmed ? (
                 <div className="flex items-center justify-center gap-2 w-full py-4">
                   <Badge className="bg-green-500/20 text-green-300">Vote Submitted!</Badge>
                 </div>
@@ -597,23 +471,81 @@ function ProposalContentInner({
                   ),
                 }}
               >
-                {body || proposal.fullDescription || ""}
+                {content || proposal.fullDescription || ""}
               </ReactMarkdown>
             </div>
           </CardContent>
         </Card>
 
-        {proposal.targets && proposal.targets.length > 0 && (
-          <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
-            <CardContent className="pt-6">
-              <h2 className="text-lg font-semibold mb-4">{t.transactionSimulator}</h2>
-              <TransactionSimulator proposalId={Number(proposalId)} />
-            </CardContent>
-          </Card>
-        )}
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-4">{t.transactionSimulator}</h2>
+            <TransactionSimulator proposalId={Number(proposalId)} />
+          </CardContent>
+        </Card>
 
         {/* Activity Section */}
-        <ActivitySection proposalId={proposalId} isDarkMode={isDarkMode} />
+        <Card className={isDarkMode ? "bg-gray-800 border-gray-700" : ""}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">{t.activity}</h2>
+              {votes.votes && votes.votes.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {votes.votes.length} vote{votes.votes.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+            {votes.isLoading ? (
+              <p className="text-muted-foreground">{t.loadingVotes}</p>
+            ) : votes.votes && votes.votes.length > 0 ? (
+              <div className="space-y-3">
+                {(showAllVotes ? votes.votes : votes.votes.slice(0, 10)).map(
+                  (
+                    vote: { voter: string; support: number; supportLabel: string; votes: string; reason?: string },
+                    index: number,
+                  ) => (
+                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-700">
+                      <div className="flex items-center gap-2">
+                        {vote.support === 1 ? (
+                          <ThumbsUp className="h-4 w-4 text-green-400" />
+                        ) : vote.support === 0 ? (
+                          <ThumbsDown className="h-4 w-4 text-red-400" />
+                        ) : (
+                          <Minus className="h-4 w-4 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <EnsDisplay
+                            address={vote.voter}
+                            showAvatar
+                            avatarSize={20}
+                            className="font-medium truncate"
+                          />
+                          <span className="font-mono text-sm text-muted-foreground whitespace-nowrap">
+                            {vote.votes} votes
+                          </span>
+                        </div>
+                        {vote.reason && <p className="text-sm text-muted-foreground mt-1 break-words">{vote.reason}</p>}
+                      </div>
+                    </div>
+                  ),
+                )}
+                {votes.votes.length > 10 && (
+                  <Button
+                    variant="ghost"
+                    className="w-full text-muted-foreground hover:text-white"
+                    onClick={() => setShowAllVotes(!showAllVotes)}
+                  >
+                    {showAllVotes ? "Show Less" : `Show All ${votes.votes.length} Votes`}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">{t.noVotesYet}</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

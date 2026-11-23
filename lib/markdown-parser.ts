@@ -34,18 +34,13 @@ export function parseProposalDescription(description: string): {
     media.push({ type: "video", url: match[2] })
   }
 
-  const youtubeIds = new Set<string>()
   while ((match = youtubeRegex.exec(description)) !== null) {
     const videoId = match[1]
-    // Only add if we haven't already added this video ID (prevents duplicates)
-    if (!youtubeIds.has(videoId)) {
-      youtubeIds.add(videoId)
-      media.push({
-        type: "youtube",
-        url: `https://www.youtube.com/watch?v=${videoId}`,
-        embedUrl: `https://www.youtube.com/embed/${videoId}`,
-      })
-    }
+    media.push({
+      type: "youtube",
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      embedUrl: `https://www.youtube.com/embed/${videoId}`,
+    })
   }
 
   // Get content without title

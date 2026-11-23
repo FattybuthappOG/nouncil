@@ -281,7 +281,7 @@ function AuctionContentInner() {
     query: { enabled: true },
   })
   const balance = balanceData
-    ? `${Number.parseFloat(balanceData.formatted).toLocaleString(undefined, { maximumFractionDigits: 0 })} ETH`
+    ? `${Number.parseFloat(formatEther(balanceData.value)).toLocaleString(undefined, { maximumFractionDigits: 0 })} ETH`
     : "Loading..."
 
   const { data: auctionData, refetch: refetchAuction } = useReadContract({

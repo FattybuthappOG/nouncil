@@ -2,14 +2,14 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ThumbsUp, ThumbsDown, Minus, Clock } from "lucide-react"
-import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useBlockNumber, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from "wagmi"
+import { mainnet } from "wagmi/chains"
 import { useProposalData } from "@/hooks/useContractData"
 import { parseProposalDescription, getProposalStateLabel } from "@/lib/markdown-parser"
 import { GOVERNOR_CONTRACT } from "@/lib/contracts"
@@ -67,12 +67,14 @@ function ProposalVotingCardContent({
   proposalData,
   statusFilter = "all",
 }: ProposalVotingCardProps) {
-  const router = useRouter()
   const [voteReason, setVoteReason] = useState("")
   const [selectedSupport, setSelectedSupport] = useState<number | null>(null)
   const [showVoteForm, setShowVoteForm] = useState(false)
 
   const { isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+  const isEthereumMainnet = chainId === mainnet.id
   const proposal = useProposalData(proposalId)
 
   const { data: hash, writeContract, isPending } = useWriteContract()
@@ -152,7 +154,7 @@ function ProposalVotingCardContent({
 
   const submitVote = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (selectedSupport === null || !isConnected) return
+    if (selectedSupport === null || !isConnected || !isEthereumMainnet) return
 
     writeContract({
       address: GOVERNOR_CONTRACT.address,
@@ -165,14 +167,13 @@ function ProposalVotingCardContent({
   const forNouns = Number(proposal.forVotes)
   const againstNouns = Number(proposal.againstVotes)
   const abstainNouns = Number(proposal.abstainVotes)
-  // Quorum is the number of For votes needed to pass - fetched from contract via quorumVotes(proposalId)
-  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 0
-  // Quorum is met when For votes >= required quorum
-  const quorumMet = forNouns >= quorumNeeded
+  const quorumNeeded = Number(proposal.quorum) > 0 ? Number(proposal.quorum) : 72
+  const totalVotes = forNouns + againstNouns + abstainNouns
+  const quorumMet = totalVotes >= quorumNeeded
 
   return (
     <Card
-      onClick={() => !showVoteForm && router.push(`/proposal/${proposalId}`)}
+      onClick={() => !showVoteForm && (window.location.href = `/proposal/${proposalId}`)}
       className={`transition-colors duration-200 cursor-pointer hover:shadow-lg ${isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-white border-gray-200 hover:border-gray-300"}`}
     >
       <CardHeader className="pb-3">
@@ -250,13 +251,26 @@ function ProposalVotingCardContent({
         </div>
 
         <div className={`text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Quorum: {forNouns} / {quorumNeeded} For votes {quorumMet ? "✓" : "needed"}
+          Quorum: {quorumNeeded} Nouns needed {quorumMet ? "✓" : ""}
         </div>
 
         <div className="pt-2" onClick={(e) => e.stopPropagation()}>
           {!isConnected ? (
             <div className="flex justify-center w-full py-2">
               <WalletConnectButton />
+            </div>
+          ) : !isEthereumMainnet ? (
+            <div className="space-y-2 py-2 text-center">
+              <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                Voting transactions must use Ethereum Mainnet.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => switchChain({ chainId: mainnet.id })}
+                disabled={isSwitchingChain}
+              >
+                {isSwitchingChain ? "Switching network..." : "Switch to Ethereum Mainnet"}
+              </Button>
             </div>
           ) : isConfirmed ? (
             <div className="flex items-center gap-2 w-full justify-center py-2">

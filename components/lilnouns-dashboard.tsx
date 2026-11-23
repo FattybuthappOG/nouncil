@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAccount, useDisconnect, useBalance } from "wagmi"
+import { formatEther } from "viem"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Moon, Sun, X, Search, Globe, Copy, Menu, ArrowLeft } from "lucide-react"
@@ -264,7 +265,7 @@ export default function LilNounsDashboard() {
     return translations[selectedLanguage]?.[key] || translations.en[key] || key
   }
 
-  const balance = balanceData ? `${Number.parseFloat(balanceData.formatted).toFixed(4)} ${balanceData.symbol}` : "0 ETH"
+  const balance = balanceData ? `${Number.parseFloat(formatEther(balanceData.value)).toFixed(4)} ${balanceData.symbol}` : "0 ETH"
 
   const hasMoreProposals = proposalIds.length < totalCount
   const hasMoreCandidates = safeCandidates.length < totalCandidates
@@ -538,9 +539,9 @@ export default function LilNounsDashboard() {
                       <LilNounsCandidateCard
                         key={candidate.id}
                         candidateId={candidate.id}
-                        candidateNumber={Number((candidate as any).candidateNumber ?? candidate.id)}
+                        candidateNumber={candidate.candidateNumber}
                         isDarkMode={isDarkMode}
-                        candidateData={{ ...(candidate as any), createdTimestamp: Number((candidate as any).createdTimestamp ?? 0) }}
+                        candidateData={candidate}
                       />
                     ))}
                   </div>

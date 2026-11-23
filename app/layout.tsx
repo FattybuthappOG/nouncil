@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import ContextProvider from "@/context"
-import { headers } from "next/headers"
 import MiniappReady from "@/components/miniapp-ready"
 import { SnowEffect } from "@/components/snow-effect"
 
@@ -20,8 +19,8 @@ export const metadata: Metadata = {
   },
   manifest: "/manifest.json",
   icons: {
-    icon: "data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iNzIiIGhlaWdodD0iNzIiIHZpZXdCb3g9IjAgMCA3MiA3MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTAgMFY3MkgyNFYyNEg0OFYwSDBaTTcyIDcyVjI0SDQ4VjcySDcyWiIgZmlsbD0iI2UyMDAxMCIvPgo8L3N2Zz4K",
-    apple: "/apple-icon",
+    icon: "/nouncil-icon.svg",
+    apple: "/nouncil-apple-icon.svg",
   },
   other: {
     "fc:frame": "vNext",
@@ -39,26 +38,14 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const headersObj = await headers()
-  const cookies = headersObj.get("cookie")
-
   return (
-    <html lang="en" className="dark bg-background" suppressHydrationWarning>
+    <html lang="en" className="bg-background">
       <head>
         <meta property="fc:miniapp" content="https://nouncil.wtf/.well-known/farcaster.json" />
         <meta property="miniapp:version" content="1.0.0" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                document.documentElement.classList.add('dark');
-              })();
-            `,
-          }}
-        />
       </head>
       <body className={`${inter.className} overflow-x-hidden`}>
-        <ContextProvider cookies={cookies}>
+        <ContextProvider>
           <MiniappReady />
           <SnowEffect />
           {children}

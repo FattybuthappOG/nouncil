@@ -1,18 +1,34 @@
 import { NextResponse } from "next/server"
 
-// Goldsky public endpoint - same as nouns.wtf uses (free, no API key required)
 const GOLDSKY_URL = "https://api.goldsky.com/api/public/project_clnbcoajmebxn33wdbt98f439/subgraphs/nouns-mainnet/1.0.0/gn"
+const CACHE_TTL = 120_000
 
-// Cache for candidates
-const cache: {
-  candidates?: { data: any[]; timestamp: number; total: number }
-} = {}
-const CACHE_TTL = 120_000 // 2 minute cache
+interface Candidate {
+  id: string
+  candidateNumber: number
+  slug: string
+  proposer: string
+  title: string
+  description: string
+  targets: string[]
+  values: string[]
+  signatures: string[]
+  calldatas: string[]
+  createdTimestamp: number
+  createdTransactionHash: string
+  canceled: boolean
+}
 
-// Query Goldsky for candidates (same endpoint nouns.wtf uses)
-async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total: number }> {
-  // Fetch candidates with the 'number' field which is the real candidate number
-  // The highest number represents total candidates ever created (includes canceled/promoted)
+let candidateCache: { candidates: Candidate[]; total: number; timestamp: number } | undefined
+
+function parseTitle(description: string): string {
+  if (!description) return "Untitled Candidate"
+  const heading = description.split("\n").map((line) => line.trim()).find((line) => line.startsWith("#"))
+  if (heading) return heading.replace(/^#+\s*/, "").trim()
+  return description.split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith("![") && !line.startsWith("http"))?.slice(0, 100) || "Untitled Candidate"
+}
+
+async function fetchCandidates(): Promise<{ candidates: Candidate[]; total: number }> {
   const query = `{
     proposalCandidates(first: 100, orderBy: number, orderDirection: desc, where: { canceled: false }) {
       id
@@ -36,113 +52,69 @@ async function fetchCandidatesFromGoldsky(): Promise<{ candidates: any[]; total:
   }`
 
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
-    
     const response = await fetch(GOLDSKY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
-      signal: controller.signal,
+      signal: AbortSignal.timeout(15_000),
+      next: { revalidate: 120 },
     })
-    clearTimeout(timeout)
 
-    if (!response.ok) {
-      console.error("[candidates] Goldsky API error:", response.status)
-      return { candidates: [], total: 0 }
-    }
-
+    if (!response.ok) throw new Error(`Goldsky responded with ${response.status}`)
     const json = await response.json()
-    
-    if (json.errors) {
-      console.error("[candidates] GraphQL errors:", json.errors)
-      return { candidates: [], total: 0 }
-    }
+    if (json.errors?.length) throw new Error("Goldsky returned a GraphQL error")
 
     const rawCandidates = json.data?.proposalCandidates || []
-    
-    // The highest candidate number represents the total candidates ever created
-    // (since results are ordered by number desc, the first one has the highest number)
-    const total = rawCandidates.length > 0 ? Number(rawCandidates[0].number) : 0
-    
-    const candidates = rawCandidates.map((c: any) => {
-      const title = c.latestVersion?.content?.title || 
-                   parseTitle(c.latestVersion?.content?.description || c.slug || "")
-      const content = c.latestVersion?.content
-      
+    const candidates: Candidate[] = rawCandidates.map((candidate: any) => {
+      const content = candidate.latestVersion?.content
+      const description = content?.description || ""
       return {
-        id: c.id,
-        candidateNumber: Number(c.number), // Use the real candidate number from subgraph
-        slug: c.slug,
-        proposer: c.proposer,
-        title,
-        description: content?.description || "",
+        id: candidate.id,
+        candidateNumber: Number(candidate.number),
+        slug: candidate.slug || "",
+        proposer: candidate.proposer || "",
+        title: content?.title || parseTitle(description || candidate.slug || ""),
+        description,
         targets: content?.targets || [],
         values: content?.values || [],
         signatures: content?.signatures || [],
         calldatas: content?.calldatas || [],
-        createdTimestamp: Number(c.createdTimestamp),
-        createdTransactionHash: c.createdTransactionHash,
-        canceled: c.canceled,
+        createdTimestamp: Number(candidate.createdTimestamp || 0),
+        createdTransactionHash: candidate.createdTransactionHash || "",
+        canceled: Boolean(candidate.canceled),
       }
     })
 
-    return { candidates, total }
-  } catch (err: any) {
-    console.error("[candidates] Failed to fetch from Goldsky:", err.message)
-    return { candidates: [], total: 0 }
+    return { candidates, total: candidates.length ? Math.max(...candidates.map((candidate) => candidate.candidateNumber)) : 0 }
+  } catch (error) {
+    console.error("[candidates] Failed to fetch from Goldsky:", error)
+    throw error
   }
-}
-
-// Parse title from description markdown
-function parseTitle(description: string): string {
-  if (!description) return "Untitled Candidate"
-  const lines = description.split("\n")
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (trimmed.startsWith("# ")) return trimmed.substring(2).trim()
-    if (trimmed.startsWith("#")) return trimmed.substring(1).trim()
-  }
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (trimmed && !trimmed.startsWith("![") && !trimmed.startsWith("http")) {
-      return trimmed.substring(0, 100)
-    }
-  }
-  return "Untitled Candidate"
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100)
-  const offset = Math.max(0, parseInt(searchParams.get("offset") || "0"))
+  const requestedLimit = Number.parseInt(searchParams.get("limit") || "20", 10)
+  const requestedOffset = Number.parseInt(searchParams.get("offset") || "0", 10)
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 100)) : 20
+  const offset = Number.isFinite(requestedOffset) ? Math.max(0, requestedOffset) : 0
 
-  // Check cache first
-  if (cache.candidates && Date.now() - cache.candidates.timestamp < CACHE_TTL) {
-    const paginatedCandidates = cache.candidates.data.slice(offset, offset + limit)
-    return NextResponse.json({
-      candidates: paginatedCandidates,
-      total: cache.candidates.total,
-      hasMore: cache.candidates.total > offset + limit,
-      offset,
-      limit,
-    })
+  if (!candidateCache || Date.now() - candidateCache.timestamp >= CACHE_TTL) {
+    try {
+      const result = await fetchCandidates()
+      candidateCache = { ...result, timestamp: Date.now() }
+    } catch {
+      if (!candidateCache) {
+        return NextResponse.json({ candidates: [], total: 0, hasMore: false, offset, limit, error: "Candidate data is temporarily unavailable" }, { status: 503 })
+      }
+    }
   }
 
-  // Fetch from Goldsky (free public endpoint)
-  const { candidates, total } = await fetchCandidatesFromGoldsky()
-  
-  // Update cache regardless of whether we have candidates
-  cache.candidates = { data: candidates, timestamp: Date.now(), total }
-  
-  const paginatedCandidates = candidates.slice(offset, offset + limit)
-  
-  // Always return successful response when query succeeds (even if no candidates found)
-  // Only set unavailable: true if there was an actual error
+  const { candidates, total } = candidateCache
   return NextResponse.json({
-    candidates: paginatedCandidates,
+    candidates: candidates.slice(offset, offset + limit),
     total,
-    hasMore: total > offset + limit,
+    hasMore: offset + limit < candidates.length,
     offset,
     limit,
   })

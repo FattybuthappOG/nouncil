@@ -16,28 +16,20 @@ import {
   Droplets,
 } from "lucide-react"
 import { EnsDisplay } from "@/components/ens-display"
-import { decodeAbiParameters, parseAbiParameters, getAddress } from "viem"
 
 // Known contracts with metadata
 const KNOWN_CONTRACTS: Record<string, { name: string; type?: string; decimals?: number; symbol?: string }> = {
-  // Nouns Core
   "0x6f3e6272a167e8accb32072d08e0957f9c79223d": { name: "Nouns DAO Proxy" },
   "0x0bc3807ec262cb779b38d65b38158acc3bfede10": { name: "Nouns DAO Logic V3" },
-  "0x830bd73e4184cef73443c15111a1df14e495c706": { name: "Nouns Auction House Proxy" },
+  "0x830bd73e4184cef73443c15111a1df14e495c706": { name: "Nouns DAO Executor (Treasury)" },
   "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03": { name: "Nouns Token", type: "nft" },
-  "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": { name: "Nouns Executor" },
-  "0x2573c60a6d127755aa2dc85e342f7da2378a0cc5": { name: "Nouns Auction House (V1)" },
-  "0x0fd206fc7a7dbcd5661157edcb1ffdd0d02a61ff": { name: "Prop House" },
-  // Nouns Payer (for USDC transfers via payer)
-  "0xd97bcd9f47cee35c0a9ec1dc40c1269afc9e8e1d": { name: "Nouns Payer", type: "payer" },
-  // Token Buyer (for payer top-ups)
-  "0x4f2acdc74f6941390d9b1804fabc3e780388cfe5": { name: "Nouns Token Buyer", type: "token-buyer" },
+  "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71": { name: "Nouns Art" },
+  "0x2573c60a6d127755aa2dc85e342f7da2378a0cc5": { name: "Nouns Auction House" },
   // ERC20 Tokens
   "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": { name: "USDC", type: "erc20", decimals: 6, symbol: "USDC" },
   "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": { name: "WETH", type: "erc20", decimals: 18, symbol: "WETH" },
   "0x6b175474e89094c44da98b954eedeac495271d0f": { name: "DAI", type: "erc20", decimals: 18, symbol: "DAI" },
   "0xdac17f958d2ee523a2206206994597c13d831ec7": { name: "USDT", type: "erc20", decimals: 6, symbol: "USDT" },
-  "0xae7ab96520de3a18e5e111b5eaab095312d7fe84": { name: "stETH", type: "erc20", decimals: 18, symbol: "stETH" },
   "0x4200000000000000000000000000000000000006": { name: "WETH (Base)", type: "erc20", decimals: 18, symbol: "WETH" },
   "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { name: "USDC (Base)", type: "erc20", decimals: 6, symbol: "USDC" },
   // Sablier contracts
@@ -47,14 +39,9 @@ const KNOWN_CONTRACTS: Record<string, { name: string; type?: string; decimals?: 
   "0xafb979d9afad1ce41510c8dc65bc1f0f76a90ce7": { name: "Sablier Lockup Linear", type: "stream" },
   // Nouns Builder
   "0xcdf9b17e21b40f4e4288f5c49e0cf170ab37cff1": { name: "Nouns Builder Treasury" },
+  // Other common contracts
+  "0x0fd206fc7a7dbcd5661157edcb1ffdd0d02a61ff": { name: "Prop House" },
 }
-
-// Treasury/Executor address (lowercase)
-const NOUNS_EXECUTOR_ADDRESS = "0xb1a32fc9f9d8b2cf86c068cae13108809547ef71"
-const NOUNS_TOKEN_ADDRESS = "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03"
-const NOUNS_PAYER_ADDRESS = "0xd97bcd9f47cee35c0a9ec1dc40c1269afc9e8e1d"
-const NOUNS_TOKEN_BUYER_ADDRESS = "0x4f2acdc74f6941390d9b1804fabc3e780388cfe5"
-const USDC_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 
 // Function selectors (first 4 bytes of keccak256 hash)
 const FUNCTION_SELECTORS: Record<string, { name: string; params: string[] }> = {
@@ -68,10 +55,6 @@ const FUNCTION_SELECTORS: Record<string, { name: string; params: string[] }> = {
   // Treasury functions
   "5a9b0b89": { name: "sendOrRegisterDebt", params: ["address", "uint256"] },
   b61d27f6: { name: "execute", params: ["address", "uint256", "bytes"] },
-  // Auction House functions
-  "8456cb59": { name: "pause", params: [] },
-  "3f4ba83a": { name: "unpause", params: [] },
-  c0555d98: { name: "setReservePrice", params: ["uint192"] },
   // Streaming
   "36efd16f": { name: "createWithDurations", params: ["tuple"] },
   "1c31f710": { name: "createWithRange", params: ["tuple"] },
@@ -79,25 +62,27 @@ const FUNCTION_SELECTORS: Record<string, { name: string; params: string[] }> = {
 }
 
 // Decode address from calldata (32 bytes, address is last 20 bytes)
+function calldataParameterOffset(data: string): number {
+  return /^0x[0-9a-fA-F]{8}/.test(data) ? 10 : 2
+}
+
 function decodeAddress(data: string, paramIndex: number): string {
   try {
-    const start = 10 + paramIndex * 64 + 24 // Skip 0x + 4 byte selector, offset * 32 bytes, and 12 bytes padding
+    const start = calldataParameterOffset(data) + paramIndex * 64 + 24
     const end = start + 40
     if (data.length < end) return ""
-    return "0x" + data.slice(start, end).toLowerCase()
+    return `0x${data.slice(start, end).toLowerCase()}`
   } catch {
     return ""
   }
 }
 
-// Decode uint256 from calldata
 function decodeUint256(data: string, paramIndex: number): bigint {
   try {
-    const start = 10 + paramIndex * 64 // Skip 0x + 4 byte selector
+    const start = calldataParameterOffset(data) + paramIndex * 64
     const end = start + 64
     if (data.length < end) return BigInt(0)
-    const hex = data.slice(start, end)
-    return BigInt("0x" + hex)
+    return BigInt(`0x${data.slice(start, end)}`)
   } catch {
     return BigInt(0)
   }
@@ -140,25 +125,11 @@ function formatEthAmount(weiValue: string): string {
   }
 }
 
-// Decode calldata with signature using viem
-function decodeWithSignature(signature: string, calldata: string): { inputs: any[], error?: string } {
-  try {
-    const params = parseAbiParameters(signature)
-    const decoded = decodeAbiParameters(params, `0x${calldata.slice(10)}`)
-    return { inputs: Array.isArray(decoded) ? decoded : [decoded] }
-  } catch (err) {
-    return { inputs: [], error: (err as Error).message }
-  }
-}
-
 interface DecodedTransaction {
   type:
     | "eth_transfer"
     | "token_transfer"
     | "nft_transfer"
-    | "treasury_noun_transfer"
-    | "usdc_transfer_via_payer"
-    | "payer_top_up"
     | "stream_create"
     | "stream_cancel"
     | "approval"
@@ -167,7 +138,6 @@ interface DecodedTransaction {
   amount?: string
   symbol?: string
   tokenId?: string
-  nounId?: number
   tokenName?: string
   functionName?: string
   description: string
@@ -182,25 +152,22 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   const hasEthValue = value !== "0" && BigInt(value) > BigInt(0)
 
   // Get function selector from calldata
-  const selector = calldata.length >= 10 ? calldata.slice(2, 10).toLowerCase() : ""
-  const funcInfo = FUNCTION_SELECTORS[selector]
-
-  // Also check signature string for function name
+  const selector = calldata.length >= 10 && /^0x[0-9a-fA-F]{8}/.test(calldata) ? calldata.slice(2, 10).toLowerCase() : ""
   const sigFuncName = signature ? signature.split("(")[0] : ""
+  const signatureSelectors: Record<string, string> = {
+    transfer: "a9059cbb",
+    transferFrom: "23b872dd",
+    safeTransferFrom: "42842e0e",
+    approve: "095ea7b3",
+  }
+  const effectiveSelector = selector || signatureSelectors[sigFuncName] || ""
+  const funcInfo = FUNCTION_SELECTORS[effectiveSelector]
+  const parameterData = signature && effectiveSelector
+    ? `0x${effectiveSelector}${calldata.slice(2)}`
+    : calldata
 
   // Pure ETH transfer (no calldata or empty calldata)
   if ((!calldata || calldata === "0x" || calldata.length <= 2) && hasEthValue) {
-    // Check if this is a payer top-up
-    if (targetLower === NOUNS_TOKEN_BUYER_ADDRESS) {
-      return {
-        type: "payer_top_up",
-        amount: ethValue,
-        symbol: "ETH",
-        description: `Top up Nouns Payer with ${ethValue} ETH`,
-        icon: <Coins className="w-4 h-4" />,
-        details: "This transaction refills USDC to the Nouns Payer contract",
-      }
-    }
     return {
       type: "eth_transfer",
       recipient: target,
@@ -211,109 +178,10 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
     }
   }
 
-  // Treasury Noun Transfer - transferFrom or safeTransferFrom on Nouns Token from Treasury
-  if (
-    targetLower === NOUNS_TOKEN_ADDRESS &&
-    (signature === "transferFrom(address,address,uint256)" || 
-     signature === "safeTransferFrom(address,address,uint256)" ||
-     selector === "23b872dd" || selector === "42842e0e")
-  ) {
-    const from = decodeAddress(calldata, 0)
-    const to = decodeAddress(calldata, 1)
-    const tokenId = decodeUint256(calldata, 2)
-
-    // Check if transfer is FROM the treasury
-    if (from.toLowerCase() === NOUNS_EXECUTOR_ADDRESS) {
-      return {
-        type: "treasury_noun_transfer",
-        recipient: to,
-        nounId: Number(tokenId),
-        tokenName: "Noun",
-        functionName: sigFuncName || funcInfo?.name || "transfer",
-        description: `Transfer Noun #${tokenId} from Treasury`,
-        icon: <ImageIcon className="w-4 h-4" />,
-      }
-    }
-
-    // Regular NFT transfer
-    return {
-      type: "nft_transfer",
-      recipient: to,
-      tokenId: tokenId.toString(),
-      tokenName: "Noun",
-      functionName: funcInfo?.name || "transfer",
-      description: `Transfer Noun #${tokenId}`,
-      icon: <ImageIcon className="w-4 h-4" />,
-    }
-  }
-
-  // USDC Transfer via Nouns Payer - sendOrRegisterDebt
-  if (
-    targetLower === NOUNS_PAYER_ADDRESS &&
-    (signature === "sendOrRegisterDebt(address,uint256)" || selector === "5a9b0b89")
-  ) {
-    try {
-      // Try to decode using viem for accuracy
-      const decoded = decodeWithSignature("address recipient, uint256 amount", calldata)
-      if (!decoded.error && decoded.inputs.length >= 2) {
-        const recipient = typeof decoded.inputs[0] === "string" ? decoded.inputs[0] : decodeAddress(calldata, 0)
-        const amount = typeof decoded.inputs[1] === "bigint" ? decoded.inputs[1] : decodeUint256(calldata, 1)
-        const formattedAmount = formatTokenAmount(amount, 6) // USDC has 6 decimals
-
-        return {
-          type: "usdc_transfer_via_payer",
-          recipient: getAddress(recipient),
-          amount: formattedAmount,
-          symbol: "USDC",
-          functionName: "sendOrRegisterDebt",
-          description: `Send ${formattedAmount} USDC via Payer`,
-          icon: <Coins className="w-4 h-4" />,
-          details: "USDC is transferred from the Treasury via the Payer contract",
-        }
-      }
-    } catch (err) {
-      // Fall back to manual decoding
-      const recipient = decodeAddress(calldata, 0)
-      const amount = decodeUint256(calldata, 1)
-      const formattedAmount = formatTokenAmount(amount, 6)
-
-      return {
-        type: "usdc_transfer_via_payer",
-        recipient,
-        amount: formattedAmount,
-        symbol: "USDC",
-        functionName: "sendOrRegisterDebt",
-        description: `Send ${formattedAmount} USDC via Payer`,
-        icon: <Coins className="w-4 h-4" />,
-        details: "USDC is transferred from the Treasury via the Payer contract",
-      }
-    }
-  }
-
-  // Direct USDC Transfer
-  if (
-    targetLower === USDC_ADDRESS &&
-    (selector === "a9059cbb" || signature === "transfer(address,uint256)")
-  ) {
-    const recipient = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
-    const formattedAmount = formatTokenAmount(amount, 6)
-
-    return {
-      type: "token_transfer",
-      recipient,
-      amount: formattedAmount,
-      symbol: "USDC",
-      tokenName: "USDC",
-      description: `Send ${formattedAmount} USDC`,
-      icon: <Coins className="w-4 h-4" />,
-    }
-  }
-
   // ERC20 Transfer - selector a9059cbb or signature transfer(address,uint256)
-  if (selector === "a9059cbb" || signature === "transfer(address,uint256)") {
-    const recipient = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
+  if (effectiveSelector === "a9059cbb" || sigFuncName === "transfer") {
+    const recipient = decodeAddress(parameterData, 0)
+    const amount = decodeUint256(parameterData, 1)
 
     if (contractInfo?.type === "erc20" && contractInfo.decimals && contractInfo.symbol) {
       const formattedAmount = formatTokenAmount(amount, contractInfo.decimals)
@@ -341,9 +209,9 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // ERC20 Approval - selector 095ea7b3
-  if (selector === "095ea7b3" || signature === "approve(address,uint256)") {
-    const spender = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
+  if (effectiveSelector === "095ea7b3" || sigFuncName === "approve") {
+    const spender = decodeAddress(parameterData, 0)
+    const amount = decodeUint256(parameterData, 1)
     const isUnlimited = amount >= BigInt("0x" + "f".repeat(64)) / BigInt(2)
     const symbol = contractInfo?.symbol || "tokens"
 
@@ -359,9 +227,12 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // NFT Transfer - safeTransferFrom (42842e0e) or transferFrom with 3 address params (23b872dd)
-  if (selector === "42842e0e" || (selector === "23b872dd" && contractInfo?.type === "nft")) {
-    const to = decodeAddress(calldata, 1)
-    const tokenId = decodeUint256(calldata, 2)
+  if (
+    effectiveSelector === "42842e0e" ||
+    (effectiveSelector === "23b872dd" && contractInfo?.type === "nft")
+  ) {
+    const to = decodeAddress(parameterData, 1)
+    const tokenId = decodeUint256(parameterData, 2)
 
     return {
       type: "nft_transfer",
@@ -377,13 +248,13 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   // Sablier Stream Creation
   if (
     contractInfo?.type === "stream" &&
-    (sigFuncName.includes("create") || selector === "36efd16f" || selector === "1c31f710")
+    (sigFuncName.includes("create") || effectiveSelector === "36efd16f" || effectiveSelector === "1c31f710")
   ) {
     // Try to extract recipient from stream params - usually first address in tuple
     let recipient = ""
     if (calldata.length >= 74) {
       // Skip dynamic offset, look for first address-like data
-      recipient = decodeAddress(calldata, 1) // recipient is often 2nd param after sender
+      recipient = decodeAddress(parameterData, 1) // recipient is often 2nd param after sender
     }
 
     return {
@@ -397,8 +268,8 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // Sablier Stream Cancel
-  if (contractInfo?.type === "stream" && (sigFuncName.includes("cancel") || selector === "40e58ee5")) {
-    const streamId = decodeUint256(calldata, 0)
+  if (contractInfo?.type === "stream" && (sigFuncName.includes("cancel") || effectiveSelector === "40e58ee5")) {
+    const streamId = decodeUint256(parameterData, 0)
     return {
       type: "stream_cancel",
       tokenId: streamId.toString(),
@@ -409,9 +280,9 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // sendOrRegisterDebt - Treasury ETH transfer
-  if (sigFuncName === "sendOrRegisterDebt" || selector === "5a9b0b89") {
-    const recipient = decodeAddress(calldata, 0)
-    const amount = decodeUint256(calldata, 1)
+  if (sigFuncName === "sendOrRegisterDebt" || effectiveSelector === "5a9b0b89") {
+    const recipient = decodeAddress(parameterData, 0)
+    const amount = decodeUint256(parameterData, 1)
     const ethAmount = formatTokenAmount(amount, 18)
 
     return {
@@ -456,13 +327,9 @@ function getTypeColors(type: DecodedTransaction["type"]): { bg: string; text: st
     case "eth_transfer":
       return { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/30" }
     case "token_transfer":
-    case "usdc_transfer_via_payer":
       return { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/30" }
     case "nft_transfer":
-    case "treasury_noun_transfer":
       return { bg: "bg-purple-500/20", text: "text-purple-400", border: "border-purple-500/30" }
-    case "payer_top_up":
-      return { bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/30" }
     case "stream_create":
     case "stream_cancel":
       return { bg: "bg-cyan-500/20", text: "text-cyan-400", border: "border-cyan-500/30" }
@@ -479,14 +346,8 @@ function getTypeLabel(type: DecodedTransaction["type"]): string {
       return "ETH Transfer"
     case "token_transfer":
       return "Token Transfer"
-    case "usdc_transfer_via_payer":
-      return "USDC Transfer"
     case "nft_transfer":
       return "NFT Transfer"
-    case "treasury_noun_transfer":
-      return "Treasury Noun Transfer"
-    case "payer_top_up":
-      return "Payer Top-Up"
     case "stream_create":
       return "Create Stream"
     case "stream_cancel":
@@ -508,15 +369,13 @@ interface TransactionData {
 
 interface TransactionSimulatorProps {
   proposalId?: number
-  candidateData?: {
-    targets: string[]
-    values: string[]
-    signatures: string[]
-    calldatas: string[]
-  }
+  targets?: string[]
+  values?: string[]
+  signatures?: string[]
+  calldatas?: string[]
 }
 
-function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSimulatorProps) {
+function TransactionSimulatorInner({ proposalId, targets, values, signatures, calldatas }: TransactionSimulatorProps) {
   const [mounted, setMounted] = useState(false)
   const [transactions, setTransactions] = useState<TransactionData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -530,45 +389,64 @@ function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSim
   useEffect(() => {
     if (!mounted) return
 
+    if (targets !== undefined) {
+      const candidateTransactions = targets.map((target, index) => {
+        const signature = signatures?.[index] || ""
+        const calldata = calldatas?.[index] || "0x"
+        const value = values?.[index] || "0"
+        return {
+          target,
+          value,
+          signature,
+          calldata,
+          decoded: decodeTransaction(target, signature, calldata, value),
+        }
+      })
+      setTransactions(candidateTransactions)
+      setError(candidateTransactions.length ? null : "No transaction data found")
+      setIsLoading(false)
+      return
+    }
+
+    if (proposalId === undefined) {
+      setError("No transaction data found")
+      setIsLoading(false)
+      return
+    }
+
     const fetchTransactionData = async () => {
       try {
+        // Try API route first for proposal transaction data
         let proposal: any = null
+        try {
+          const apiRes = await fetch(`/api/nouns/proposals?id=${proposalId}`)
+          if (apiRes.ok) {
+            const apiData = await apiRes.json()
+            if (apiData?.targets?.length > 0) proposal = apiData
+          }
+        } catch { /* fall through to subgraph */ }
 
-        // If candidateData is provided, use it directly
-        if (candidateData && candidateData.targets?.length > 0) {
-          proposal = candidateData
-        } else if (proposalId) {
-          // Try API route first for proposal transaction data
-          try {
-            const apiRes = await fetch(`/api/nouns/proposals?id=${proposalId}`)
-            if (apiRes.ok) {
-              const apiData = await apiRes.json()
-              if (apiData?.targets?.length > 0) proposal = apiData
-            }
-          } catch { /* fall through to subgraph */ }
-
-          if (!proposal) {
-            const SUBGRAPH_URLS = [
-              "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
-              "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
-            ]
-            for (const url of SUBGRAPH_URLS) {
-              try {
-                const response = await fetch(url, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    query: `{ proposal(id: "${proposalId}") { targets values signatures calldatas } }`,
-                  }),
-                })
-                if (!response.ok) continue
-                const json = await response.json()
-                if (json?.data?.proposal?.targets?.length > 0) {
-                  proposal = json.data.proposal
-                  break
-                }
-              } catch { continue }
-            }
+        if (!proposal) {
+          const SUBGRAPH_URLS = [
+            "https://gateway.thegraph.com/api/subgraphs/id/QmZGXxKFDhGDYnb3ZrJBQTaKPoS2QHGBSC4k3uFpQvRXm3",
+            "https://api.studio.thegraph.com/query/94029/nouns-subgraph/version/latest",
+          ]
+          for (const url of SUBGRAPH_URLS) {
+            try {
+              const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  query: `{ proposal(id: "${proposalId}") { targets values signatures calldatas } }`,
+                }),
+              })
+              if (!response.ok) continue
+              const json = await response.json()
+              if (json?.data?.proposal?.targets?.length > 0) {
+                proposal = json.data.proposal
+                break
+              }
+            } catch { continue }
           }
         }
 
@@ -601,7 +479,7 @@ function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSim
     }
 
     fetchTransactionData()
-  }, [proposalId, candidateData, mounted])
+  }, [proposalId, mounted, targets, values, signatures, calldatas])
 
   if (!mounted || isLoading) {
     return (
@@ -658,13 +536,8 @@ function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSim
                       </span>
                     )}
                     {tx.decoded.tokenId && tx.decoded.type === "nft_transfer" && (
-                      <Badge variant="outline" className="text-purple-400 border-purple-400">
-                        Token #{tx.decoded.tokenId}
-                      </Badge>
-                    )}
-                    {tx.decoded.nounId !== undefined && tx.decoded.type === "treasury_noun_transfer" && (
-                      <Badge variant="outline" className="text-purple-400 border-purple-400">
-                        Noun #{tx.decoded.nounId}
+                      <Badge variant="outline" className="text-purple-300 border-purple-400/60 bg-purple-500/10">
+                        {tx.decoded.tokenName || "NFT"} #{tx.decoded.tokenId}
                       </Badge>
                     )}
                   </div>
@@ -688,8 +561,8 @@ function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSim
                   {/* Contract (if not same as recipient) */}
                   {tx.decoded.recipient?.toLowerCase() !== tx.target.toLowerCase() && (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                      <span>Via:</span>
-                      <span className="text-foreground">{contractInfo?.name || tx.target.slice(0, 10) + "..."}</span>
+                      <span>Asset / contract:</span>
+                      <span className="text-foreground font-medium">{contractInfo?.name || tx.target.slice(0, 10) + "..."}</span>
                     </div>
                   )}
 
@@ -769,7 +642,7 @@ function TransactionSimulatorInner({ proposalId, candidateData }: TransactionSim
   )
 }
 
-export function TransactionSimulator({ proposalId, candidateData }: TransactionSimulatorProps) {
+export function TransactionSimulator(props: TransactionSimulatorProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -790,5 +663,5 @@ export function TransactionSimulator({ proposalId, candidateData }: TransactionS
     )
   }
 
-  return <TransactionSimulatorInner proposalId={proposalId} candidateData={candidateData} />
+  return <TransactionSimulatorInner {...props} />
 }

@@ -137,7 +137,15 @@ export function useLilNounsProposalData(proposalId: number) {
 // Hook to fetch all candidates (placeholder - requires subgraph)
 export function useLilNounsCandidateIds(limit = 20) {
   return {
-    candidates: [] as { id: string; slug: string; proposer: string }[],
+    candidates: [] as {
+      id: string
+      slug: string
+      proposer: string
+      createdTimestamp: number
+      candidateNumber?: number
+      title?: string
+      description?: string
+    }[],
     totalCount: 0,
     isLoading: false,
   }
