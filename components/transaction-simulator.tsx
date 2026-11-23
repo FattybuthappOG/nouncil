@@ -62,25 +62,27 @@ const FUNCTION_SELECTORS: Record<string, { name: string; params: string[] }> = {
 }
 
 // Decode address from calldata (32 bytes, address is last 20 bytes)
+function calldataParameterOffset(data: string): number {
+  return /^0x[0-9a-fA-F]{8}/.test(data) ? 10 : 2
+}
+
 function decodeAddress(data: string, paramIndex: number): string {
   try {
-    const start = 10 + paramIndex * 64 + 24 // Skip 0x + 4 byte selector, offset * 32 bytes, and 12 bytes padding
+    const start = calldataParameterOffset(data) + paramIndex * 64 + 24
     const end = start + 40
     if (data.length < end) return ""
-    return "0x" + data.slice(start, end).toLowerCase()
+    return `0x${data.slice(start, end).toLowerCase()}`
   } catch {
     return ""
   }
 }
 
-// Decode uint256 from calldata
 function decodeUint256(data: string, paramIndex: number): bigint {
   try {
-    const start = 10 + paramIndex * 64 // Skip 0x + 4 byte selector
+    const start = calldataParameterOffset(data) + paramIndex * 64
     const end = start + 64
     if (data.length < end) return BigInt(0)
-    const hex = data.slice(start, end)
-    return BigInt("0x" + hex)
+    return BigInt(`0x${data.slice(start, end)}`)
   } catch {
     return BigInt(0)
   }
@@ -150,11 +152,16 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   const hasEthValue = value !== "0" && BigInt(value) > BigInt(0)
 
   // Get function selector from calldata
-  const selector = calldata.length >= 10 ? calldata.slice(2, 10).toLowerCase() : ""
-  const funcInfo = FUNCTION_SELECTORS[selector]
-
-  // Also check signature string for function name
+  const selector = calldata.length >= 10 && /^0x[0-9a-fA-F]{8}/.test(calldata) ? calldata.slice(2, 10).toLowerCase() : ""
   const sigFuncName = signature ? signature.split("(")[0] : ""
+  const signatureSelectors: Record<string, string> = {
+    transfer: "a9059cbb",
+    transferFrom: "23b872dd",
+    safeTransferFrom: "42842e0e",
+    approve: "095ea7b3",
+  }
+  const effectiveSelector = selector || signatureSelectors[sigFuncName] || ""
+  const funcInfo = FUNCTION_SELECTORS[effectiveSelector]
 
   // Pure ETH transfer (no calldata or empty calldata)
   if ((!calldata || calldata === "0x" || calldata.length <= 2) && hasEthValue) {
@@ -169,7 +176,7 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // ERC20 Transfer - selector a9059cbb or signature transfer(address,uint256)
-  if (selector === "a9059cbb" || signature === "transfer(address,uint256)") {
+  if (effectiveSelector === "a9059cbb" || sigFuncName === "transfer") {
     const recipient = decodeAddress(calldata, 0)
     const amount = decodeUint256(calldata, 1)
 
@@ -199,7 +206,7 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // ERC20 Approval - selector 095ea7b3
-  if (selector === "095ea7b3" || signature === "approve(address,uint256)") {
+  if (effectiveSelector === "095ea7b3" || sigFuncName === "approve") {
     const spender = decodeAddress(calldata, 0)
     const amount = decodeUint256(calldata, 1)
     const isUnlimited = amount >= BigInt("0x" + "f".repeat(64)) / BigInt(2)
@@ -217,7 +224,10 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // NFT Transfer - safeTransferFrom (42842e0e) or transferFrom with 3 address params (23b872dd)
-  if (selector === "42842e0e" || (selector === "23b872dd" && contractInfo?.type === "nft")) {
+  if (
+    effectiveSelector === "42842e0e" ||
+    (effectiveSelector === "23b872dd" && contractInfo?.type === "nft")
+  ) {
     const to = decodeAddress(calldata, 1)
     const tokenId = decodeUint256(calldata, 2)
 
@@ -235,7 +245,7 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   // Sablier Stream Creation
   if (
     contractInfo?.type === "stream" &&
-    (sigFuncName.includes("create") || selector === "36efd16f" || selector === "1c31f710")
+    (sigFuncName.includes("create") || effectiveSelector === "36efd16f" || effectiveSelector === "1c31f710")
   ) {
     // Try to extract recipient from stream params - usually first address in tuple
     let recipient = ""
@@ -255,7 +265,7 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // Sablier Stream Cancel
-  if (contractInfo?.type === "stream" && (sigFuncName.includes("cancel") || selector === "40e58ee5")) {
+  if (contractInfo?.type === "stream" && (sigFuncName.includes("cancel") || effectiveSelector === "40e58ee5")) {
     const streamId = decodeUint256(calldata, 0)
     return {
       type: "stream_cancel",
@@ -267,7 +277,7 @@ function decodeTransaction(target: string, signature: string, calldata: string, 
   }
 
   // sendOrRegisterDebt - Treasury ETH transfer
-  if (sigFuncName === "sendOrRegisterDebt" || selector === "5a9b0b89") {
+  if (sigFuncName === "sendOrRegisterDebt" || effectiveSelector === "5a9b0b89") {
     const recipient = decodeAddress(calldata, 0)
     const amount = decodeUint256(calldata, 1)
     const ethAmount = formatTokenAmount(amount, 18)
@@ -494,8 +504,8 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
                       </span>
                     )}
                     {tx.decoded.tokenId && tx.decoded.type === "nft_transfer" && (
-                      <Badge variant="outline" className="text-purple-400 border-purple-400">
-                        Token #{tx.decoded.tokenId}
+                      <Badge variant="outline" className="text-purple-300 border-purple-400/60 bg-purple-500/10">
+                        {tx.decoded.tokenName || "NFT"} #{tx.decoded.tokenId}
                       </Badge>
                     )}
                   </div>
@@ -519,8 +529,8 @@ function TransactionSimulatorInner({ proposalId }: TransactionSimulatorProps) {
                   {/* Contract (if not same as recipient) */}
                   {tx.decoded.recipient?.toLowerCase() !== tx.target.toLowerCase() && (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                      <span>Via:</span>
-                      <span className="text-foreground">{contractInfo?.name || tx.target.slice(0, 10) + "..."}</span>
+                      <span>Asset / contract:</span>
+                      <span className="text-foreground font-medium">{contractInfo?.name || tx.target.slice(0, 10) + "..."}</span>
                     </div>
                   )}
 
