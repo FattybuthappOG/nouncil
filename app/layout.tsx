@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import ContextProvider from "@/context"
-import { headers } from "next/headers"
 import MiniappReady from "@/components/miniapp-ready"
 import { SnowEffect } from "@/components/snow-effect"
 
@@ -39,9 +38,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const headersObj = await headers()
-  const cookies = headersObj.get("cookie")
-
   return (
     <html lang="en" className="bg-background">
       <head>
@@ -49,7 +45,7 @@ export default async function RootLayout({
         <meta property="miniapp:version" content="1.0.0" />
       </head>
       <body className={`${inter.className} overflow-x-hidden`}>
-        <ContextProvider cookies={cookies}>
+        <ContextProvider>
           <MiniappReady />
           <SnowEffect />
           {children}

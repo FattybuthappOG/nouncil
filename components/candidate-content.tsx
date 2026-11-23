@@ -98,7 +98,7 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
             <div className="flex items-center gap-6 text-sm flex-wrap">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{signatures.data?.length || 0} signatures</span>
+                <span>{signatures.signatures.length} signatures</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -204,18 +204,18 @@ function CandidateContentInner({ candidateId, isDarkMode }: { candidateId: strin
               />
             </section>
 
-            {signatures.data && signatures.data.length > 0 && (
+            {signatures.signatures.length > 0 && (
               <>
                 <Separator className={isDarkMode ? "bg-[#3a3a5a]" : ""} />
                 <div>
                   <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : ""}`}>Signers</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {signatures.data.map((sig: { signer: { id: string } }, index: number) => (
+                    {signatures.signatures.map((sig, index) => (
                       <div
                         key={index}
                         className={`flex items-center gap-2 p-3 rounded-lg ${isDarkMode ? "bg-[#1a1a2e]" : "bg-muted"}`}
                       >
-                        <EnsDisplay address={sig.signer.id} showAvatar avatarSize={24} />
+                        <EnsDisplay address={sig.signer as `0x${string}`} showAvatar avatarSize={24} />
                       </div>
                     ))}
                   </div>

@@ -423,8 +423,9 @@ function LiveGovernanceDashboardContent() {
       })} ETH`
     : "0 ETH"
 
-  const t = (key: string) => {
-    return translations[selectedLanguage]?.[key] || translations.en[key] || key
+  const t = (key: keyof typeof translations.en) => {
+    const localized = translations[selectedLanguage] as Partial<typeof translations.en>
+    return localized[key] || translations.en[key] || key
   }
 
   const copyNounsSymbol = () => {
@@ -770,7 +771,7 @@ function LiveGovernanceDashboardContent() {
                           <button
                             key={lang.code}
                             onClick={() => {
-                              handleLanguageChange(lang.code)
+                              handleLanguageChange(lang.code as LanguageCode)
                             }}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                               selectedLanguage === lang.code

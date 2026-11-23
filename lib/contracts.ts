@@ -61,6 +61,20 @@ export const GOVERNOR_CONTRACT = {
       type: "function",
     },
     {
+      inputs: [],
+      name: "votingPeriod",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [],
+      name: "quorumVotesBPS",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
       inputs: [{ internalType: "uint256", name: "blockNumber", type: "uint256" }],
       name: "quorumVotes",
       outputs: [{ internalType: "uint256", name: "", type: "uint256" }],

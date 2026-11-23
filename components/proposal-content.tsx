@@ -162,8 +162,8 @@ function ProposalContentInner({
     )
   }
 
-  const { title, body } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
-  const stateLabel = proposal.stateName || getProposalStateLabel(proposal.state?.toString() || "1")
+  const { title, content } = parseProposalDescription(proposal.fullDescription || proposal.description || "")
+  const stateLabel = proposal.stateName || getProposalStateLabel(Number(proposal.state ?? 1)).label
 
   // Show loading if we don't have a title yet (real description not loaded)
   if (proposal.isLoading || !title) {
@@ -471,7 +471,7 @@ function ProposalContentInner({
                   ),
                 }}
               >
-                {body || proposal.fullDescription || ""}
+                {content || proposal.fullDescription || ""}
               </ReactMarkdown>
             </div>
           </CardContent>
